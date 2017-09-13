@@ -54,7 +54,7 @@ log.info "========================================="
 
 Channel.from(inputFile)
        .splitCsv(sep: ';', header: true)
-       .into {  readPairsTrimmomatic }
+       .set {  readPairsTrimmomatic }
 
 process runTrimmomatic {
 
@@ -639,7 +639,7 @@ process runRemoveCalibrationExomes {
   file(merged_vcf) from outputCombineVariants
 
   output:
-  set file(filtered_vcf) into inputVep, inputAnnovar
+  file(filtered_vcf) into (inputVep, inputAnnovar)
 
   script:
   filtered_vcf = "merged_callset.calibration_removed.vcf"
@@ -660,10 +660,10 @@ process runVep {
  publishDir "${OUTDIR}/Annotation/VEP", mode: 'copy'
  
 input:
-   set file(vcf_file) from inputVep
+   file(vcf_file) from inputVep
 
  output:
-   set  file('annotation.vep') into outputVep
+   file('annotation.vep') into outputVep
 
  script:
 
@@ -686,10 +686,10 @@ process runAnnovar {
  publishDir "${OUTDIR}/Annotation/Annovar", mode: 'copy'
 
  input:
-   set file(vcf_file) from inputAnnovar
+   file(vcf_file) from inputAnnovar
 
  output:
-   set file(annovar_result) into outputAnnovar
+   file(annovar_result) into outputAnnovar
 
  script:
   annovar_target = vcf_file + ".annovar"
@@ -734,26 +734,6 @@ workflow.onComplete {
   }
 
 }
-
-if (params.email) {
-	workflow.onComplete {
-	    def subject = 'Diagnostic exome run finished.'
-	    def recipient = params.email
-
-	    ['mail', '-s', subject, recipient].execute() << """
-
-	    Pipeline execution summary
-	    ---------------------------
-	    Completed at: ${workflow.complete}
-	    Duration    : ${workflow.duration}
-	    Success     : ${workflow.success}
-	    workDir     : ${workflow.workDir}
-	    exit status : ${workflow.exitStatus}
-	    Error report: ${workflow.errorReport ?: '-'}
-	    """
-	}
-}
-
 
 
 //#############################################################################################################
