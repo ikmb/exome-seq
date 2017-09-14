@@ -1,5 +1,7 @@
 ![](images/ikmb_bfx_logo.png)
 
+# IKMB Diagonistc Exome Pipeline
+
 # Overview
 
 This pipeline performs exome analysis on a set of samples. The following steps are included:
