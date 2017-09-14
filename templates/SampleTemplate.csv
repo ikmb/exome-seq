@@ -1,0 +1,4 @@
+INDIVIDUAL_ID;SAMPLE_ID;LIBRARY_ID;RG_ID;PLATFORM_UNIT;PLATFORM;PLATFORM_MODEL;RUN_DATE;CENTER;R1;R2
+Peter;G00076;G00076-L2;G00076-L2_1;G00076-L2_1-G00076-L2_1;Illumina;HiSeq2500;2017-01-12;ICMB;/ifs/data/nfs_share/ikmb_repository/shared/pipelines/exomes/data/G00076-L2_S19_L003_R1_001.fastq.gz;/ifs/data/nfs_share/ikmb_repository/shared/pipelines/exomes/data/G00076-L2_S19_L003_R2_001.fastq.gz
+Mary;G00077;G00077-L2;G00077-L2_1;G00077-L2_1-G00077-L2_1;Illumina;HiSeq2500;2017-01-12;ICMB;/ifs/data/nfs_share/ikmb_repository/shared/pipelines/exomes/data/G00077-L2_S20_L003_R1_001.fastq.gz;/ifs/data/nfs_share/ikmb_repository/shared/pipelines/exomes/data/G00077-L2_S20_L003_R2_001.fastq.gz
+Tom;G00078;G00078-L2;G00078-L2_1;G00078-L2_1-G00078-L2_1;Illumina;HiSeq2500;2017-01-12;ICMB;/ifs/data/nfs_share/ikmb_repository/shared/pipelines/exomes/data/G00078-L2_S21_L003_R1_001.fastq.gz;/ifs/data/nfs_share/ikmb_repository/shared/pipelines/exomes/data/G00078-L2_S21_L003_R2_001.fastq.gz
