@@ -2,7 +2,21 @@
 
 inputFile = file(params.samples)
 
-REF = file(params.ref)
+// This will eventually enable switching between multiple assembly versions
+// Currently, only hg19 has all the required reference files available
+params.assembly = "hg19"
+
+if (params.genomes.containsKey(params.assembly) == false) {
+   exit 1, "Specified unknown genome assembly, please consult the documentation for valid kits."
+}
+
+REF = file(params.genomes[ params.assembly ].fasta)
+DBSNP = file(params.genomes[ params.assembly ].dbsnp )
+G1K = file(params.genomes[ params.assembly ].g1k )
+GOLD1 = file(params.genomes[ params.assembly ].gold )
+OMNI = file(params.genomes[ params.assembly ].omni )
+HAPMAP = file(params.genomes[ params.assembly ].hapmap )
+
 PICARD = file(params.picard_jar)
 OUTDIR = file(params.outdir)
 
@@ -13,17 +27,8 @@ if (params.kits.containsKey(params.kit) == false) {
 TARGETS= params.kits[ params.kit ].targets
 BAITS= params.kits[ params.kit ].baits
 
-PLATFORM="Illumina"
-CENTER="ICMB"
-PLATFORM_UNIT="HiSeq"
-
-DBSNP = file(params.dbsnp)
-OMNI = file(params.omni)
-HAPMAP = file(params.hapmap)
-GOLD1 = params.gold_indels1
-G1K = file(params.g1k)
-
 // We add 17 reference exome gVCFs to make sure that variant filtration works
+// These are in hg19 so need to be updated to other assemblies if multiple assemblies are to be supported
 calibration_exomes = file(params.calibration_exomes)
 calibration_samples_list = file(params.calibration_exomes_samples)
 
@@ -90,10 +95,10 @@ process runBWA {
     set indivID, sampleID, file(outfile) into runBWAOutput
     
     script:
-    outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.bam"	
+    outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.cram"	
 
     """
-	bwa mem -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${REF}\\tCN:${center}" -t 8 ${REF} $left $right | samtools sort - > $outfile
+	bwa mem -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${REF}\\tCN:${center}" -t 16 ${REF} $left $right | samtools sort -O cram - > $outfile
     """	
 }
 
@@ -116,7 +121,7 @@ process runMarkDuplicates {
     
     script:
     outfile_bam = sampleID + ".dedup.cram"
-    outfile_bai = sampleID + ".dedup.crai"
+    outfile_bai = sampleID + ".dedup.cram.bai"
 
     outfile_metrics = sampleID + "_duplicate_metrics.txt"	
 	        
@@ -187,7 +192,7 @@ process runPrintReads {
             
     script:
     outfile_bam = sampleID + ".clean.cram"
-    outfile_bai = sampleID + ".clean.crai"
+    outfile_bai = sampleID + ".clean.cram.bai"
            
     """
 		gatk-launch --javaOptions "-Xmx25G" PrintReads \
@@ -308,9 +313,9 @@ process runCollectMultipleMetrics {
 		--PROGRAM QualityScoreDistribution \
 		--PROGRAM CollectAlignmentSummaryMetrics \
 		--PROGRAM CollectInsertSizeMetrics\
-                --PROGRAM CollectSequencingArtifactMetrics \
-                --PROGRAM CollectQualityYieldMetrics \
-		--PROGRAM CollectGcBiasMetrics \
+               // --PROGRAM CollectSequencingArtifactMetrics \
+               // --PROGRAM CollectQualityYieldMetrics \
+	       // --PROGRAM CollectGcBiasMetrics \
 		--PROGRAM CollectBaseDistributionByCycle \
 		--input ${bam} \
 		--reference ${REF} \
@@ -330,7 +335,7 @@ process runFastQC {
     scratch use_scratch
 
     input:
-    set chunk,indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, run_date, center, fastqR1, fastqR2 from readPairsFastQC
+    set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, run_date, center, fastqR1, fastqR2 from readPairsFastQC
 
     output:
     set file("*.zip"), file("*.html") into FastQCOutput
@@ -404,9 +409,9 @@ process runMultiQCSample {
     """
 }
 
-//////////////////////
-// Variant analysis
-/////////////////////
+//-------------------
+// Variant calling
+//-------------------
 
 process runHCSample {
 
@@ -653,6 +658,10 @@ process runRemoveCalibrationExomes {
   """
   
 }
+
+// --------------------------
+// Variant effect prediction
+// --------------------------
 
 process runVep {
 
