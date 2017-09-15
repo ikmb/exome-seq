@@ -60,10 +60,6 @@ RG_ID : `HGJJMBBXX.3`
 
 PU : `HGJJMBBXX.3` (This may not be 100% accurate, but available information is vague...)
 
-## Output format
-
-This pipeline produces read alignments in CRAM format rather than BAM to save disk space. 
-
 ## Executing the pipeline
 
 The pipeline can be run as follows:
@@ -86,7 +82,7 @@ This pipeline can be run with one of two processing chains - GATK4 and Freebayes
 
 To use one of the two processing chains, use the `tool` option:
 
-`nextflow run bfx-core/NF-diagnostics-exome --samples /path/to/sample_list.csv -hub ikmb --tol gatk`
+`nextflow run bfx-core/NF-diagnostics-exome --samples /path/to/sample_list.csv -hub ikmb --tool gatk`
 
 `nextflow run bfx-core/NF-diagnostics-exome --samples /path/to/sample_list.csv -hub ikmb --tool freebayes`
 
