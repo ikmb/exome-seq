@@ -10,17 +10,25 @@ This pipeline performs exome analysis on a set of samples. The following steps a
 
 * Read alignment (BWA 0.7.15, Samtools 1.5)
 
-* Marking of duplicates (GATK4b5)
+* Marking of duplicates (GATK4b5 or Picard 2.9.2)
 
-* Base quality recalibration (GATK4b5)
+* GATK4 workflow
 
-* Variant calling using HaplotypeCaller (GATK4b5) 
+** Base quality recalibration (GATK4b5)
 
-* Merged genotype calls using GenotypeGVCFs (GATK4b5) [Includes 17 IKMB control exomes)
+** Variant calling using HaplotypeCaller (GATK4b5) 
 
-* Recalibration of SNPs and Indels (GATK4b5)
+** Merged genotype calls using GenotypeGVCFs (GATK4b5) [Includes 17 IKMB control exomes)
 
-* Merged gVCF with control exomes removed
+** Recalibration of SNPs and Indels (GATK4b5)
+
+** Merged gVCF with control exomes removed
+
+* FreeBayes workflow
+
+** Joint Variant calling (Freebayes 1.1.0)
+
+** Hard filtering of resulting VCF file (VCFtools)
 
 * Effect prediction with VEP (EnsEMBL86) and Annovar (2016)
 
@@ -71,6 +79,18 @@ If you set up a scm configuration file (please see: https://www.nextflow.io/docs
 Make sure to keep your version of the pipeline up-to-date with the repository:
 
 `nextflow pull bfx-core/NF-diagnostics-exome -hub ikmb`
+
+## Supported Tool chains
+
+This pipeline can be run with one of two processing chains - GATK4 and Freebayes. 
+
+To use one of the two processing chains, use the `tool` option:
+
+`nextflow run bfx-core/NF-diagnostics-exome --samples /path/to/sample_list.csv -hub ikmb --tol gatk`
+
+`nextflow run bfx-core/NF-diagnostics-exome --samples /path/to/sample_list.csv -hub ikmb --tool freebayes`
+
+Note that GATK is the default and does not need to be specified. 
 
 ## Supported enrichment kits
 

@@ -1,6 +1,16 @@
 #!/usr/bin/env nextflow
 
+/**
+IKMB Diagnostic Exome Pipeline
+
+This Pipeline performs one of two workflows to generate variant calls and effect predictions
+using either the GATK processing chain or Freebayes
+**/
+
 inputFile = file(params.samples)
+
+// Specify the tool chain to use - can be either gatk for GATK4 or freebayes for Freebayes 1.10
+params.tool = "gatk"
 
 // This will eventually enable switching between multiple assembly versions
 // Currently, only hg19 has all the required reference files available
@@ -102,228 +112,541 @@ process runBWA {
     """	
 }
 
-
 runBWAOutput_grouped_by_sample = runBWAOutput.groupTuple(by: [0,1])
+
 
 process runMarkDuplicates {
 
-    tag "${indivID}|${sampleID}"
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
+	tag "${indivID}|${sampleID}"
+        publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
 
-    scratch use_scratch
+        scratch use_scratch
 
-    input:
-    set indivID, sampleID, aligned_bam_list from runBWAOutput_grouped_by_sample
-    
-    output:
-    set indivID, sampleID, file(outfile_bam),file(outfile_bai) into runMarkDuplicatesOutput
-    file(outfile_metrics) into runMarkDuplicatesOutput_QC
-    
-    script:
-    outfile_bam = sampleID + ".dedup.bam"
-    outfile_bai = sampleID + ".dedup.bai"
+        input:
+        set indivID, sampleID, aligned_bam_list from runBWAOutput_grouped_by_sample
 
-    outfile_metrics = sampleID + "_duplicate_metrics.txt"	
-	        
-    """
-	gatk-launch --javaOptions "-Xmx25G" MarkDuplicates \
-		--input ${aligned_bam_list.join(" --input ")} \
-		--output ${outfile_bam} \
-		--reference ${REF} \
-		--METRICS_FILE ${outfile_metrics} \
-		--CREATE_INDEX true \
-		--TMP_DIR tmp \
-                --CREATE_MD5_FILE true
-	"""  
+        output:
+        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics
+	file(outfile_bam) into FreebayesInput
+	file(outfile_metrics) into DuplicatesOutput_QC
+
+        script:
+        outfile_bam = sampleID + ".dedup.bam"
+        outfile_bai = sampleID + ".dedup.bai"
+
+        outfile_metrics = sampleID + "_duplicate_metrics.txt"
+
+	if (params.tool == "freebayes") {
+
+		"""
+        	java -Xmx25G -XX:ParallelGCThreads=5 -Djava.io.tmpdir=tmp/ -jar ${PICARD} MarkDuplicates \
+                	INPUT=${aligned_bam_list.join(" INPUT=")} \
+	                OUTPUT=${outfile_bam} \
+        	        METRICS_FILE=${outfile_metrics} \
+                        CREATE_INDEX=true \
+                        TMP_DIR=tmp
+       		"""
+
+	} else if (params.tool == "gatk") {
+		"""
+                gatk-launch --javaOptions "-Xmx25G" MarkDuplicates \
+                       	--input ${aligned_bam_list.join(" --input ")} \
+                        --output ${outfile_bam} \
+                        --reference ${REF} \
+                        --METRICS_FILE ${outfile_metrics} \
+                        --CREATE_INDEX true \
+                        --TMP_DIR tmp \
+                        --CREATE_MD5_FILE true
+   	       	"""
+	}
+
 }
 
-// ------------------------------------------------------------------------------------------------------------
-//
-// Perform base quality score recalibration (BQSR) including
-// 1) Generate a recalibration table
-// 2) Generate a new table after applying recalibration
-// 3) Compare differences between recalibration tables
-// 4) Apply recalibration
-//
-// ------------------------------------------------------------------------------------------------------------
+// *******************
+// FREEBAYES WORKFLOW
+// *******************
 
-// First we need to recapture the SampleID from the filename
-// runIndelRealignerOutput_split = runIndelRealignerOutput.map { indivID, file -> tuple(indivID, file.baseName.replaceAll(".dedup.realign", ""), file) }
+if (params.tool == "freebayes") {
 
-process runBaseRecalibrator {
+	process runFreebayes {
 
-    tag "${indivID}|${sampleID}"
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
+		tag "ALL"
+                publishDir "${OUTDIR}/Variants", mode: 'copy'
+
+		input:
+		file(bam_files) from FreebayesInput.collect()
+
+		output:
+		file(vcf) into outputFreebayes
+		
+		script:
+		vcf = "freebayes.vcf"
+
+		"""
+			freebayes-parallel <(fasta_generate_regions.py ${REF}.fai 100000) ${task.cpus} -f ${REF} ${bam_files} > ${vcf}
+		"""
+	
+	}
+
+	process runFilterVcf {
+
+		tag "ALL"
+		publishDir "${OUTDIR}/Variants", mode: 'copy'	
+
+		input:
+		file(vcf) from outputFreebayes
+
+		output:
+		file(vcf_filtered) into ( inputVep, inputAnnovar )
+
+		script: 
+		vcf_filtered = "freebayes.filtered.vcf"
+
+		"""
+			vcftools --vcf ${vcf} --minQ 20 --out ${vcf_filtered}
+		"""
+	}
+
+// *********************
+// GATK WORKFLOW
+// *********************
+} else if (params.tool == "gatk") {
+
+	// ------------------------------------------------------------------------------------------------------------
+	//
+	// Perform base quality score recalibration (BQSR) including
+	// 1) Generate a recalibration table
+	// 2) Generate a new table after applying recalibration
+	// 3) Compare differences between recalibration tables
+	// 4) Apply recalibration
+	//
+	// ------------------------------------------------------------------------------------------------------------
+
+	process runBaseRecalibrator {
+
+    		tag "${indivID}|${sampleID}"
+    		publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
 	    
-    input:
-    set indivID, sampleID, dedup_bam, dedup_bai from runMarkDuplicatesOutput
+    		input:
+    		set indivID, sampleID, dedup_bam, dedup_bai from MarkDuplicatesOutput
     
-    output:
-    set indivID, sampleID, dedup_bam, file(recal_table) into runBaseRecalibratorOutput
+    		output:
+    		set indivID, sampleID, dedup_bam, file(recal_table) into runBaseRecalibratorOutput
     
-    script:
-    recal_table = sampleID + "_recal_table.txt" 
+    		script:
+    		recal_table = sampleID + "_recal_table.txt" 
        
-    """
-		gatk-launch --javaOptions "-Xmx25G" BaseRecalibrator \
-		--reference ${REF} \
-		--input ${dedup_bam} \
-		--knownSites ${GOLD1} \
-		--knownSites ${DBSNP} \
-                --knownSites ${G1K} \
-		--output ${recal_table}
-	"""
-}
+    		"""
+			gatk-launch --javaOptions "-Xmx25G" BaseRecalibrator \
+			--reference ${REF} \
+			--input ${dedup_bam} \
+			--knownSites ${GOLD1} \
+			--knownSites ${DBSNP} \
+        	        --knownSites ${G1K} \
+			--output ${recal_table}
+		"""
+	}
 
-process runPrintReads {
+	process runPrintReads {
 
-    tag "${indivID}|${sampleID}"
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
+		tag "${indivID}|${sampleID}"
+    		publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
 
-    scratch use_scratch
+    		scratch use_scratch
 	    
-    input:
-    set indivID, sampleID, realign_bam, recal_table from runBaseRecalibratorOutput 
+    		input:
+    		set indivID, sampleID, realign_bam, recal_table from runBaseRecalibratorOutput 
 
-    output:
-    set indivID, sampleID, file(outfile_bam), file(outfile_bai) into runPrintReadsOutput_for_DepthOfCoverage, runPrintReadsOutput_for_HC_Metrics, runPrintReadsOutput_for_Multiple_Metrics, runPrintReadsOutput_for_OxoG_Metrics
-    set indivID, sampleID, realign_bam, recal_table into runPrintReadsOutput_for_PostRecal
-    set indivID, sampleID, outfile_bam into inputHCSample
+    		output:
+    		set indivID, sampleID, file(outfile_bam), file(outfile_bai) into BamForDepthOfCoverage, runPrintReadsOutput_for_HC_Metrics, runPrintReadsOutput_for_Multiple_Metrics, runPrintReadsOutput_for_OxoG_Metrics
+    		set indivID, sampleID, realign_bam, recal_table into runPrintReadsOutput_for_PostRecal
+    		set indivID, sampleID, outfile_bam into inputHCSample
             
-    script:
-    outfile_bam = sampleID + ".clean.bam"
-    outfile_bai = sampleID + ".clean.bai"
+    		script:
+    		outfile_bam = sampleID + ".clean.bam"
+    		outfile_bai = sampleID + ".clean.bai"
            
-    """
-		gatk-launch --javaOptions "-Xmx25G" PrintReads \
-		--reference ${REF} \
-		--input ${realign_bam} \
-		--BQSR ${recal_table} \
-		--outfile ${outfile_bam} \
-		--createOutputBamMD5 true
-    """
-}    
+    		"""
+			gatk-launch --javaOptions "-Xmx25G" PrintReads \
+				--reference ${REF} \
+				--input ${realign_bam} \
+				--BQSR ${recal_table} \
+				--outfile ${outfile_bam} \
+				--createOutputBamMD5 true
+    		"""
+	}    
 
-process runBaseRecalibratorPostRecal {
+	process runBaseRecalibratorPostRecal {
 
-    tag "${indivID}|${sampleID}"
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibratorPostRecal/", mode: 'copy'
+		tag "${indivID}|${sampleID}"
+    		publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibratorPostRecal/", mode: 'copy'
 	    
-    input:
-    set indivID, sampleID, realign_bam, recal_table from runPrintReadsOutput_for_PostRecal
+    		input:
+    		set indivID, sampleID, realign_bam, recal_table from runPrintReadsOutput_for_PostRecal
     
-    output:
-    set indivID, sampleID, recal_table, file(post_recal_table) into runBaseRecalibratorPostRecalOutput_Analyze
+    		output:
+    		set indivID, sampleID, recal_table, file(post_recal_table) into runBaseRecalibratorPostRecalOutput_Analyze
         
-    script:
-    post_recal_table = sampleID + "_post_recal_table.txt" 
+    		script:
+    		post_recal_table = sampleID + "_post_recal_table.txt" 
    
-    """
-		gatk-launch --javaOptions "-Xmx25G" BaseRecalibrator \
-		--reference ${REF} \
-		--input ${realign_bam} \
-		--knownSites ${GOLD1} \
-		--knownSites ${DBSNP} \
-		--bqsr_recal_file ${recal_table} \
-		--outfile ${post_recal_table}
-	"""
-}	
+    		"""
+			gatk-launch --javaOptions "-Xmx25G" BaseRecalibrator \
+			--reference ${REF} \
+			--input ${realign_bam} \
+			--knownSites ${GOLD1} \
+			--knownSites ${DBSNP} \
+			--bqsr_recal_file ${recal_table} \
+			--outfile ${post_recal_table}
+		"""
+	}	
 
-process runAnalyzeCovariates {
+	process runAnalyzeCovariates {
 
-    tag "${indivID}|${sampleID}"
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/AnalyzeCovariates/", mode: 'copy'
+    		tag "${indivID}|${sampleID}"
+    		publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/AnalyzeCovariates/", mode: 'copy'
 	    
-    input:
-    set indivID, sampleID, recal_table, post_recal_table from runBaseRecalibratorPostRecalOutput_Analyze
+    		input:
+    		set indivID, sampleID, recal_table, post_recal_table from runBaseRecalibratorPostRecalOutput_Analyze
 
-	output:
-	set indivID, sampleID, recal_plots into runAnalyzeCovariatesOutput
+		output:
+		set indivID, sampleID, recal_plots into runAnalyzeCovariatesOutput
 	    
-    script:
-    recal_plots = sampleID + "_recal_plots.pdf" 
+    		script:
+    		recal_plots = sampleID + "_recal_plots.pdf" 
 
-    """
-		gatk-launch --javaOptions "-Xmx5G" AnalyzeCovariates \
-		--reference ${REF} \
-		--beforeReportFile ${recal_table} \
-		--afterReportFile ${post_recal_table} \
-		--plotsReportFile ${recal_plots}
-    """
-}    
+    		"""
+			gatk-launch --javaOptions "-Xmx5G" AnalyzeCovariates \
+				--reference ${REF} \
+				--beforeReportFile ${recal_table} \
+				--afterReportFile ${post_recal_table} \
+				--plotsReportFile ${recal_plots}
+		"""
+	}    
 
-// ------------------------------------------------------------------------------------------------------------
-//
-// Perform a several tasks to assess QC:
-// 1) Depth of coverage over targets
-// 2) Generate alignment stats, insert size stats, quality score distribution
-// 3) Generate hybrid capture stats
-// 4) Run FASTQC to assess read quality
-//
-// ------------------------------------------------------------------------------------------------------------
+	// ------------------------------------------------------------------------------------------------------------
+	//
+	// Perform a several tasks to assess QC:
+	// 1) Depth of coverage over targets
+	// 2) Generate alignment stats, insert size stats, quality score distribution
+	// 3) Generate hybrid capture stats
+	// 4) Run FASTQC to assess read quality
+	//
+	// ------------------------------------------------------------------------------------------------------------
 
-process runDepthOfCoverage {
+	process runDepthOfCoverage {
 
-    tag "${indivID}|${sampleID}"
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/DepthOfCoverage", mode: 'copy'
+    		tag "${indivID}|${sampleID}"
+    		publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/DepthOfCoverage", mode: 'copy'
 
-    scratch use_scratch
+    		scratch use_scratch
 	    
-    input:
-    set indivID, sampleID, bam, bai from runPrintReadsOutput_for_DepthOfCoverage
+    		input:
+    		set indivID, sampleID, bam, bai from BamForDepthOfCoverage
 
-    output:
-    file("${prefix}*") into DepthOfCoverageOutput
+    		output:
+    		file("${prefix}*") into DepthOfCoverageOutput
     
-    script:
-    prefix = sampleID + "."
+    		script:
+    		prefix = sampleID + "."
 
-    """
+    		"""
 
-	java -XX:ParallelGCThreads=1 -Djava.io.tmpdir=tmp/ -Xmx10g -jar ${GATK} \
-		-R ${REF} \
-		-T DepthOfCoverage \
-		-I ${bam} \
-		--omitDepthOutputAtEachBase \
-		-ct 10 -ct 20 -ct 50 -ct 100 \
-		-o ${sampleID}
+			java -XX:ParallelGCThreads=1 -Djava.io.tmpdir=tmp/ -Xmx10g -jar ${GATK} \
+			-R ${REF} \
+			-T DepthOfCoverage \
+			-I ${bam} \
+			--omitDepthOutputAtEachBase \
+			-ct 10 -ct 20 -ct 50 -ct 100 \
+			-o ${sampleID}
+
+		"""
+	}	
+
+	process runHCSample {
+
+  		tag "${indivID}|${sampleID}"
+  		publishDir "${OUTDIR}/${indivID}/${sampleID}/Variants/HaplotypeCaller/${id}" , mode: 'copy'
+
+  		input: 
+  		set indivID,sampleID,file(bam) from inputHCSample
+
+  		output:
+  		file(vcf) into outputHCSample
+
+  		script:
+  
+  		vcf = id + ".raw_variants.g.vcf"
+
+  		"""
+		gatk-launch --javaOptions "-Xmx25G" HaplotypeCaller \
+			-R $REF \
+			-I $bam \
+			-L $TARGETS \
+			-L chrM \
+			--genotyping_mode DISCOVERY \
+			--emitRefConfidence GVCF \
+    			-o $vcf \
+  		"""
+	}
+
+	inputHCJoined = outputHCSample.collect()
+
+	process runJoinedGenotyping {
+  
+  		tag "ALL - using 17 IKMB reference exomes for calibration"
+  		publishDir "${OUTDIR}/Variants/JoinedGenotypes"
+  
+  		input:
+  		file(vcf_list) from inputHCJoined
+  
+  		output:
+  		file(gvcf) into (inputRecalSNP , inputRecalIndel)
+  
+  		script:
+  
+  		gvcf = "genotypes.gvcf"
+  
+  		"""
+	 	gatk-launch --javaOptions "-Xmx25G" GenotypeGVCFs \
+                	-R $REF \
+                	--variant ${vcf_list.join(" --variant ")} \
+			--variant $calibration_exomes \
+			--dbsnp $DBSNP \
+                	-o $gvcf \
+			--useNewAFCalculator
+  		"""
+	}
+
+	process runRecalibrationModeSNP {
+
+  		tag "ALL"
+  		publishDir "${OUTDIR}/Variants/Recal"
+
+  		input:
+  		file(gvcf) from inputRecalSNP
+
+  		output:
+	  	set file(recal_file),file(tranches),file(rscript),file(gvcf) into inputRecalSNPApply
+
+  		script:
+  		recal_file = "genotypes.recal_SNP.recal"
+  		tranches = "genotypes.recal_SNP.tranches"
+  		rscript = "genotypes.recal_SNP.R"
+
+  		"""
+		gatk-launch --javaOptions "-Xmx25G" VariantRecalibrator \
+			-R $REF \
+			-input $gvcf \
+                	--recal_file $recal_file \
+        	        --tranches_file $tranches \
+	                --rscript_file $rscript \
+			-an MQ -an MQRankSum -an ReadPosRankSum -an FS -an DP \
+        	        --mode SNP \
+			-resource:hapmap,known=false,training=true,truth=true,prior=15.0 $HAPMAP \
+			-resource:omni,known=false,training=true,truth=true,prior=12.0 $OMNI \
+			-resource:1000G,known=false,training=true,truth=false,prior=10.0 $G1K \
+			-resource:dbsnp,known=true,training=false,truth=false,prior=2.0 $DBSNP \
+  		"""
+	}
+
+	process RunRecalibrationModeIndel {
+
+  		tag "ALL"
+  		publishDir "${OUTDIR}/Variants/Recal"
+
+  		input:
+  		file(gvcf) from inputRecalIndel
+
+  		output:
+  		set file(recal_file),file(tranches),file(rscript),file(gvcf) into inputRecalIndelApply
+
+  		script:
+
+  		recal_file = "genotypes.recal_Indel.recal"
+  		tranches = "genotypes.recal_Indel.tranches"
+		rscript = "genotypes.recal_Indel.R"
+
+  		"""
+	        gatk-launch --javaOptions "-Xmx25G" VariantRecalibrator \
+        	        -R $REF \
+	                -input $gvcf \
+                	--recal_file $recal_file \
+        	        --tranches_file $tranches \
+	                --rscript_file $rscript \
+                	-an MQ -an MQRankSum -an SOR -an ReadPosRankSum -an FS  \
+        	        --mode INDEL \
+	                -resource:mills,known=false,training=true,truth=true,prior=15.0 $GOLD1 \
+                	-resource:dbsnp,known=true,training=false,truth=false,prior=2.0 $DBSNP \
+  		"""
+	}
+
+	process runRecalSNPApply {
+
+  		tag "ALL"
+  		publishDir "${OUTDIR}/Variants/Filtered"
+
+  		input:
+  		set file(recal_file),file(tranches),file(rscript),file(gvcf) from inputRecalSNPApply
+
+  		output:
+  		file vcf_snp   into outputRecalSNPApply
+
+  		script:
+ 
+  		vcf_snp = "genotypes.recal_SNP.vcf"
+
+  		"""
+	 	gatk-launch --javaOptions "-Xmx25G" ApplyRecalibration \
+			-R $REF \
+			-input $gvcf \
+		        -recalFile $recal_file \
+                	-tranchesFile $tranches \
+			--mode SNP \
+			--ts_filter_level 99.0 \
+			-o $vcf_snp	
+  		"""
+	}
+
+	process runRecalIndelApply {
+
+  		tag "ALL"
+	  	publishDir "${OUTDIR}/Variants/Recal"
+
+  		input:
+	  	set file(recal_file),file(tranches),file(rscript),file(gvcf) from inputRecalIndelApply
+
+	  	output:
+	  	file vcf_indel into outputRecalIndelApply
+
+	  	script:
+
+  		vcf_indel = "genotypes.recal_Indel.vcf"
+
+  		"""
+        	gatk-launch --javaOptions "-Xmx25G" ApplyRecalibration \
+                	-R $REF \
+	                -input $gvcf \
+        	        -recalFile $recal_file \
+                	-tranchesFile $tranches \
+	                --mode Indel \
+        	        --ts_filter_level 99.0 \
+                	-o $vcf_indel
+	  	"""
+	}
+
+	process runVariantFiltrationIndel {
+
+  		tag "ALL"
+  		publishDir "${OUTDIR}/Variants/Filtered"
+
+	  	input:
+  		file(gvcf) from outputRecalIndelApply
+
+	  	output:
+	  	file(filtered_gvcf) into outputVariantFiltrationIndel
+
+	  	script:
+
+	  	filtered_gvcf = "genotypes.recal_Indel.filtered.vcf"
+
+  		"""
+		gatk-launch --javaOptions "-Xmx25G" VariantFiltration \
+                -R $REF \
+                -V $gvcf \
+		-filter "QD < 2.0" \
+		-filterName "QDFilter" \
+                -o $filtered_gvcf
+  		"""
+	}
+
+	inputCombineVariants = outputVariantFiltrationIndel.mix(outputRecalSNPApply)
+
+	process runCombineVariants {
+
+  	tag "ALL"
+  	publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
+
+  	input: 
+     	set file(indel),file(snp) from inputCombineVariants.collect()
+
+  	output:
+	file(merged_file) into outputCombineVariants
+
+	script:
+	merged_file = "merged_callset.vcf"
 
 	"""
-}	
+		gatk-launch --javaOptions "-Xmx25G" CombineVariants \
+		-R $REF \
+		--variant $indel --variant $snp \
+		-o $merged_file \
+		--genotypemergeoption UNSORTED
+  	"""
+	}
+
+	process runRemoveCalibrationExomes {
+
+	  tag "ALL"
+	  publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
+
+	  input:
+	  file(merged_vcf) from outputCombineVariants
+
+	  output:
+	  file(filtered_vcf) into (inputVep, inputAnnovar)
+
+	  script:
+	  filtered_vcf = "merged_callset.calibration_removed.vcf"
+
+	  """
+		gatk-launch --javaOptions "-Xmx25G" SelectVariants \
+	        -R $REF \
+		-V $merged_vcf \
+		--exclude_sample_file $calibration_samples_list \
+        	-o $filtered_vcf
+  	"""
+  
+	}
+
+} 
+
+// *********************
+// JOINT REPORTING
+// *********************
 
 process runCollectMultipleMetrics {
-
-    tag "${indivID}|${sampleID}"
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+	tag "${indivID}|${sampleID}"
+	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
  
-    scratch use_scratch
+	scratch use_scratch
 	    
-    input:
-    set indivID, sampleID, bam, bai from runPrintReadsOutput_for_Multiple_Metrics
+	input:
+	set indivID, sampleID, bam, bai from BamForMultipleMetrics
 
-    output:
-    file("${prefix}*") into CollectMultipleMetricsOutput mode flatten
+	output:
+	file("${prefix}*") into CollectMultipleMetricsOutput mode flatten
 
-    script:       
-    prefix = sampleID + "."
+	script:       
+	prefix = sampleID + "."
 
-    """
-	gatk-launch --javaOptions "-Xmx5G" CollectMultipleMetrics \
-		--PROGRAM MeanQualityByCycle \
-		--PROGRAM QualityScoreDistribution \
-		--PROGRAM CollectAlignmentSummaryMetrics \
-		--PROGRAM CollectInsertSizeMetrics\
-               // --PROGRAM CollectSequencingArtifactMetrics \
-               // --PROGRAM CollectQualityYieldMetrics \
-	       // --PROGRAM CollectGcBiasMetrics \
-		--PROGRAM CollectBaseDistributionByCycle \
-		--input ${bam} \
-		--reference ${REF} \
-		--dbsnp ${DBSNP} \
-		--ASSUME_SORTED true \
-		--QUIET true \
-		--output ${prefix} \
-		--TMP_DIR tmp
+	"""
+		java -XX:ParallelGCThreads=1 -Xmx5g -Djava.io.tmpdir=tmp/ -jar $PICARD CollectMultipleMetrics \
+		PROGRAM=MeanQualityByCycle \
+		PROGRAM=QualityScoreDistribution \
+		PROGRAM=CollectAlignmentSummaryMetrics \
+		PROGRAM=CollectInsertSizeMetrics\
+       	        PROGRAM=CollectSequencingArtifactMetrics \
+                PROGRAM=CollectQualityYieldMetrics \
+	        PROGRAM=CollectGcBiasMetrics \
+		PROGRAM=CollectBaseDistributionByCycle \
+		INPUT=${bam} \
+		REFERENCE_SEQUENCE=${REF} \
+		DB_SNP=${DBSNP} \
+		ASSUME_SORTED=true \
+		QUIET=true \
+		OUTPUT=${prefix} \
+		TMP_DIR=tmp
 	"""
 }	
 
@@ -378,7 +701,7 @@ process runMultiQCLibrary {
 	publishDir "${OUTDIR}/Summary/Library", mode: 'copy'
 	    
     input:
-    file('*') from runMarkDuplicatesOutput_QC.flatten().toList()
+    file('*') from DuplicatesOutput_QC.flatten().toList()
 
     output:
     file("library_multiqc*") into runMultiQCLibraryOutput
@@ -409,259 +732,10 @@ process runMultiQCSample {
     """
 }
 
-//-------------------
-// Variant calling
-//-------------------
 
-process runHCSample {
-
-  tag "${indivID}|${sampleID}"
-  publishDir "${OUTDIR}/${indivID}/${sampleID}/Variants/HaplotypeCaller/${id}" , mode: 'copy'
-
-  input: 
-  set indivID,sampleID,file(bam) from inputHCSample
-
-  output:
-  file(vcf) into outputHCSample
-
-  script:
-  
-  vcf = id + ".raw_variants.g.vcf"
-
-  """
-	gatk-launch --javaOptions "-Xmx25G" HaplotypeCaller \
-		-R $REF \
-		-I $bam \
-		-L $TARGETS \
-		-L chrM \
-		--genotyping_mode DISCOVERY \
-		--emitRefConfidence GVCF \
-    		-o $vcf \
-  """
-}
-
-inputHCJoined = outputHCSample.collect()
-
-process runJoinedGenotyping {
-  
-  tag "ALL - using 17 IKMB reference exomes for calibration"
-  publishDir "${OUTDIR}/Variants/JoinedGenotypes"
-  
-  input:
-  file(vcf_list) from inputHCJoined
-  
-  output:
-  file(gvcf) into (inputRecalSNP , inputRecalIndel)
-  
-  script:
-  
-  gvcf = "genotypes.gvcf"
-  
-  """
-	 gatk-launch --javaOptions "-Xmx25G" GenotypeGVCFs \
-                -R $REF \
-                --variant ${vcf_list.join(" --variant ")} \
-		--variant $calibration_exomes \
-		--dbsnp $DBSNP \
-                -o $gvcf \
-		--useNewAFCalculator
-  """
-}
-
-process runRecalibrationModeSNP {
-
-  tag "ALL"
-  publishDir "${OUTDIR}/Variants/Recal"
-
-  input:
-  file(gvcf) from inputRecalSNP
-
-  output:
-  set file(recal_file),file(tranches),file(rscript),file(gvcf) into inputRecalSNPApply
-
-  script:
-  recal_file = "genotypes.recal_SNP.recal"
-  tranches = "genotypes.recal_SNP.tranches"
-  rscript = "genotypes.recal_SNP.R"
-
-  """
-	gatk-launch --javaOptions "-Xmx25G" VariantRecalibrator \
-		-R $REF \
-		-input $gvcf \
-                --recal_file $recal_file \
-                --tranches_file $tranches \
-                --rscript_file $rscript \
-		-an MQ -an MQRankSum -an ReadPosRankSum -an FS -an DP \
-                --mode SNP \
-		-resource:hapmap,known=false,training=true,truth=true,prior=15.0 $HAPMAP \
-		-resource:omni,known=false,training=true,truth=true,prior=12.0 $OMNI \
-		-resource:1000G,known=false,training=true,truth=false,prior=10.0 $G1K \
-		-resource:dbsnp,known=true,training=false,truth=false,prior=2.0 $DBSNP \
-  """
-}
-
-process RunRecalibrationModeIndel {
-
-  tag "ALL"
-  publishDir "${OUTDIR}/Variants/Recal"
-
-  input:
-  file(gvcf) from inputRecalIndel
-
-  output:
-  set file(recal_file),file(tranches),file(rscript),file(gvcf) into inputRecalIndelApply
-
-  script:
-
-  recal_file = "genotypes.recal_Indel.recal"
-  tranches = "genotypes.recal_Indel.tranches"
-  rscript = "genotypes.recal_Indel.R"
-
-  """
-        gatk-launch --javaOptions "-Xmx25G" VariantRecalibrator \
-                -R $REF \
-                -input $gvcf \
-                --recal_file $recal_file \
-                --tranches_file $tranches \
-                --rscript_file $rscript \
-                -an MQ -an MQRankSum -an SOR -an ReadPosRankSum -an FS  \
-                --mode INDEL \
-                -resource:mills,known=false,training=true,truth=true,prior=15.0 $GOLD1 \
-                -resource:dbsnp,known=true,training=false,truth=false,prior=2.0 $DBSNP \
-  """
-}
-
-process runRecalSNPApply {
-
-  tag "ALL"
-  publishDir "${OUTDIR}/Variants/Filtered"
-
-  input:
-  set file(recal_file),file(tranches),file(rscript),file(gvcf) from inputRecalSNPApply
-
-  output:
-  file vcf_snp   into outputRecalSNPApply
-
-  script:
- 
-  vcf_snp = "genotypes.recal_SNP.vcf"
-
-  """
-	 gatk-launch --javaOptions "-Xmx25G" ApplyRecalibration \
-		-R $REF \
-		-input $gvcf \
-	        -recalFile $recal_file \
-                -tranchesFile $tranches \
-		--mode SNP \
-		--ts_filter_level 99.0 \
-		-o $vcf_snp	
-  """
-}
-
-process runRecalIndelApply {
-
-  tag "ALL"
-  publishDir "${OUTDIR}/Variants/Recal"
-
-  input:
-  set file(recal_file),file(tranches),file(rscript),file(gvcf) from inputRecalIndelApply
-
-  output:
-  file vcf_indel into outputRecalIndelApply
-
-  script:
-
-  vcf_indel = "genotypes.recal_Indel.vcf"
-
-  """
-         gatk-launch --javaOptions "-Xmx25G" ApplyRecalibration \
-                -R $REF \
-                -input $gvcf \
-                -recalFile $recal_file \
-                -tranchesFile $tranches \
-                --mode Indel \
-                --ts_filter_level 99.0 \
-                -o $vcf_indel
-  """
-}
-
-process runVariantFiltrationIndel {
-
-  tag "ALL"
-  publishDir "${OUTDIR}/Variants/Filtered"
-
-  input:
-  file(gvcf) from outputRecalIndelApply
-
-  output:
-  file(filtered_gvcf) into outputVariantFiltrationIndel
-
-  script:
-
-  filtered_gvcf = "genotypes.recal_Indel.filtered.vcf"
-
-  """
-	gatk-launch --javaOptions "-Xmx25G" VariantFiltration \
-                -R $REF \
-                -V $gvcf \
-		-filter "QD < 2.0" \
-		-filterName "QDFilter" \
-                -o $filtered_gvcf
-  """
-}
-
-inputCombineVariants = outputVariantFiltrationIndel.mix(outputRecalSNPApply)
-
-process runCombineVariants {
-
-  tag "ALL"
-  publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
-
-  input: 
-     set file(indel),file(snp) from inputCombineVariants.collect()
-
-  output:
-    file(merged_file) into outputCombineVariants
-
-  script:
-    merged_file = "merged_callset.vcf"
-
-  """
-	gatk-launch --javaOptions "-Xmx25G" CombineVariants \
-	-R $REF \
-	--variant $indel --variant $snp \
-	-o $merged_file \
-	--genotypemergeoption UNSORTED
-  """
-}
-
-process runRemoveCalibrationExomes {
-
-  tag "ALL"
-  publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
-
-  input:
-  file(merged_vcf) from outputCombineVariants
-
-  output:
-  file(filtered_vcf) into (inputVep, inputAnnovar)
-
-  script:
-  filtered_vcf = "merged_callset.calibration_removed.vcf"
-
-  """
-	gatk-launch --javaOptions "-Xmx25G" SelectVariants \
-        -R $REF \
-	-V $merged_vcf \
-	--exclude_sample_file $calibration_samples_list \
-        -o $filtered_vcf
-  """
-  
-}
-
-// --------------------------
+// *************************
 // Variant effect prediction
-// --------------------------
+// *************************
 
 process runVep {
 
