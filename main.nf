@@ -95,10 +95,10 @@ process runBWA {
     set indivID, sampleID, file(outfile) into runBWAOutput
     
     script:
-    outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.cram"	
+    outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.bam"	
 
     """
-	bwa mem -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${REF}\\tCN:${center}" -t 16 ${REF} $left $right | samtools sort -O cram - > $outfile
+	bwa mem -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${REF}\\tCN:${center}" -t 16 ${REF} $left $right | samtools sort - > $outfile
     """	
 }
 
@@ -120,8 +120,8 @@ process runMarkDuplicates {
     file(outfile_metrics) into runMarkDuplicatesOutput_QC
     
     script:
-    outfile_bam = sampleID + ".dedup.cram"
-    outfile_bai = sampleID + ".dedup.cram.bai"
+    outfile_bam = sampleID + ".dedup.bam"
+    outfile_bai = sampleID + ".dedup.bai"
 
     outfile_metrics = sampleID + "_duplicate_metrics.txt"	
 	        
@@ -191,8 +191,8 @@ process runPrintReads {
     set indivID, sampleID, outfile_bam into inputHCSample
             
     script:
-    outfile_bam = sampleID + ".clean.cram"
-    outfile_bai = sampleID + ".clean.cram.bai"
+    outfile_bam = sampleID + ".clean.bam"
+    outfile_bai = sampleID + ".clean.bai"
            
     """
 		gatk-launch --javaOptions "-Xmx25G" PrintReads \
