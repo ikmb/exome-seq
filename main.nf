@@ -731,7 +731,7 @@ process runMultiQCSample {
     script:
 
     """
-    multiqc -n sample_multiqc *.txt
+    multiqc -n sample_multiqc *
     """
 }
 
