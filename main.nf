@@ -127,7 +127,9 @@ process runMarkDuplicates {
 
         output:
         set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics
-	file(outfile_bam) into FreebayesInput
+	file(outfile_bam) into FreebayesBamInput
+	file(outfile_bai) into FreebayesBaiInput
+
 	file(outfile_metrics) into DuplicatesOutput_QC
 
         script:
@@ -174,7 +176,8 @@ if (params.tool == "freebayes") {
                 publishDir "${OUTDIR}/Variants", mode: 'copy'
 
 		input:
-		file(bam_files) from FreebayesInput.collect()
+		file(bam_files) from FreebayesBamInput.collect()
+		file(bai_files) from FreebayesBaiInput.collect()
 
 		output:
 		file(vcf) into outputFreebayes
