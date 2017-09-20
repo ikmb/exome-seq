@@ -129,12 +129,14 @@ process runMarkDuplicates {
         set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics
 	file(outfile_bam) into FreebayesBamInput
 	file(outfile_bai) into FreebayesBaiInput
+	file(outfile_md5) into MarkDuplicatesMD5
 
 	file(outfile_metrics) into DuplicatesOutput_QC
 
         script:
         outfile_bam = sampleID + ".dedup.bam"
         outfile_bai = sampleID + ".dedup.bai"
+	outfile_md5 = sampleID + ".dedup.bam.md5"
 
         outfile_metrics = sampleID + "_duplicate_metrics.txt"
 
@@ -206,7 +208,7 @@ if (params.tool == "freebayes") {
 		vcf_filtered = "freebayes.filtered.vcf"
 
 		"""
-			vcftools --vcf ${vcf} --minQ 20 --out ${vcf_filtered}
+			vcffilter -f "QUAL > 20" ${vcf} > ${vcf_filtered}
 		"""
 	}
 
@@ -264,18 +266,20 @@ if (params.tool == "freebayes") {
     		set indivID, sampleID, file(outfile_bam), file(outfile_bai) into BamForDepthOfCoverage, runPrintReadsOutput_for_HC_Metrics, runPrintReadsOutput_for_Multiple_Metrics, runPrintReadsOutput_for_OxoG_Metrics
     		set indivID, sampleID, realign_bam, recal_table into runPrintReadsOutput_for_PostRecal
     		set indivID, sampleID, outfile_bam into inputHCSample
+		set indivID, outfile_md5 into BamMD5
             
     		script:
     		outfile_bam = sampleID + ".clean.bam"
     		outfile_bai = sampleID + ".clean.bai"
+		outfile_md5 = sampleID + ".clean.bam.md5"
            
     		"""
-			gatk-launch --javaOptions "-Xmx25G" PrintReads \
-				--reference ${REF} \
-				--input ${realign_bam} \
-				--BQSR ${recal_table} \
-				--outfile ${outfile_bam} \
-				--createOutputBamMD5 true
+                gatk-launch --javaOptions "-Xmx25G" ApplyBQSR \
+                --reference ${REF} \
+                --input ${realign_bam} \
+                --bqsr_recal_file ${recal_table} \
+                --output ${outfile_bam} \
+                --createOutputBamMD5 true
     		"""
 	}    
 
@@ -754,7 +758,7 @@ input:
  script:
 
    """
-     $VEP --offline --cache --dir \$ENSEMBLCACHE --fork 8 \
+     vep --offline --cache --dir \$ENSEMBLCACHE --fork 8 \
  	--assembly GRCh37 -i $vcf_file -o annotation.vep --allele_number --canonical \
 	--force_overwrite --vcf --no_progress \
 	--pubmed \
@@ -782,7 +786,7 @@ process runAnnovar {
   annovar_result = vcf_file + ".annovar.hg19_multianno.vcf"
 
    """
-      $ANNOVAR -v \
+      table_annovar.pl -v \
 	--protocol ensGene,knownGene,refGene,genomicSuperDups,hrcr1,esp6500siv2_all,exac03nontcga,kaviar_20150923,1000g2014oct_all,cg69,145_ikmb_control_exomes.gatk.flt.frq,snp138,avsnp144,clinvar_20160302,dann_gw,fathmm_gw,cadd_gw,eigen,dbnsfp30a,dbscsnv11,dbnsfp31a_interpro,ljb26_all \
 	--operation g,g,g,r,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f \
 	--outfile $annovar_target \
