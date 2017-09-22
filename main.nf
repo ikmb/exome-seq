@@ -49,6 +49,8 @@ BAITS= params.kits[ params.kit ].baits
 calibration_exomes = file(params.calibration_exomes)
 calibration_samples_list = file(params.calibration_exomes_samples)
 
+genomic_regions = [ "chr1" , "chr2", "chr3" , "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrM", "X", "Y" ]
+
 TRIMMOMATIC=file(params.trimmomatic)
 
 params.email = false
@@ -69,9 +71,10 @@ VERSION = "0.1"
 // Header log info
 log.info "========================================="
 log.info "IKMB Diagnostic Exome pipeline v${VERSION}"
-log.info "Nextflow Version:	$workflow.nextflow.version"
-log.info "Adapter sequence used: ${adapters}"
-log.info "Command Line:		$workflow.commandLine"
+log.info "Nextflow Version:		$workflow.nextflow.version"
+log.info "Assembly version: 		${params.assembly}"
+log.info "Adapter sequence used: 	${adapters}"
+log.info "Command Line:			$workflow.commandLine"
 log.info "========================================="
 
 Channel.from(inputFile)
@@ -384,11 +387,37 @@ if (params.tool == "freebayes") {
 			-L chrM \
 			--genotyping_mode DISCOVERY \
 			--emitRefConfidence GVCF \
+			--createOutputVariantIndex true \
     			--output $vcf \
   		"""
 	}
 
-	inputHCJoined = outputHCSample.collect()
+	inputMergeVcf = outputHCSample.collect()
+
+	process runGenomicsDBImport  {
+
+		tag "ALL - using 17 IKMB reference exomes for calibration"
+                publishDir "${OUTDIR}/Variants/JoinedGenotypes"
+
+		input:
+                file(vcf_list) from inputMergeVcf
+
+		output:
+                file(genodb) into inputJoinedGenotyping
+
+		script:
+		genodb = "genodb"
+
+		"""
+		gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" GenomicsDBImport  \
+			--variant ${vcf_list.join(" --variant ")} \
+                        --variant $calibration_exomes \
+			--reference $REF \
+			--intervals ${genomic_regions.join(" --intervals ")} \
+			--genomicsDBWorkspace $genodb
+		"""
+
+	}
 
 	process runJoinedGenotyping {
   
@@ -396,7 +425,7 @@ if (params.tool == "freebayes") {
   		publishDir "${OUTDIR}/Variants/JoinedGenotypes"
   
   		input:
-  		file(vcf_list) from inputHCJoined
+  		file(genodb) from inputJoinedGenotyping
   
   		output:
   		file(gvcf) into (inputRecalSNP , inputRecalIndel)
@@ -407,11 +436,11 @@ if (params.tool == "freebayes") {
   
   		"""
 	 	gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" GenotypeGVCFs \
-                	--variant ${vcf_list.join(" --variant ")} \
-			--variant $calibration_exomes \
+			--reference $REF \
 			--dbsnp $DBSNP \
-                	-o $gvcf \
-			--useNewAFCalculator
+			--genomicsDBWorkspace gendb://${genodb} \
+                	--output $gvcf \
+                        -G StandardAnnotation -newQual \
   		"""
 	}
 
