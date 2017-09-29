@@ -10,7 +10,7 @@ using either the GATK processing chain or Freebayes
 inputFile = file(params.samples)
 
 // Specify the tool chain to use - can be either gatk for GATK4 or freebayes for Freebayes 1.10
-params.tool = "gatk"
+params.tool = "freebayes"
 
 // This will eventually enable switching between multiple assembly versions
 // Currently, only hg19 has all the required reference files available
@@ -49,7 +49,7 @@ BAITS= params.kits[ params.kit ].baits
 calibration_exomes = file(params.calibration_exomes)
 calibration_samples_list = file(params.calibration_exomes_samples)
 
-genomic_regions = [ "chr1" , "chr2", "chr3" , "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrM", "X", "Y" ]
+chromosomes = [ "chr1" , "chr2", "chr3" , "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrM", "chrX", "chrY" ]
 
 TRIMMOMATIC=file(params.trimmomatic)
 
@@ -168,25 +168,48 @@ process runMarkDuplicates {
 
 if (params.tool == "freebayes") {
 
+
 	process runFreebayes {
 
 		tag "ALL"
-                publishDir "${OUTDIR}/Variants", mode: 'copy'
+                publishDir "${OUTDIR}/Variants/perChromosome", mode: 'copy'
 
 		input:
 		file(bam_files) from FreebayesBamInput.collect()
 		file(bai_files) from FreebayesBaiInput.collect()
 
+                each chr from chromosomes
+
 		output:
 		file(vcf) into outputFreebayes
 		
 		script:
-		vcf = "freebayes.vcf"
+		vcf = "freebayes." + chr + ".vcf"
+
 
 		"""
-			freebayes-parallel <(fasta_generate_regions.py ${REF}.fai 100000) ${task.cpus} -f ${REF} ${bam_files} > ${vcf}
+			freebayes-parallel <(fasta_generate_regions.py ${REF}.fai 100000) ${task.cpus} -r $chr -f ${REF} ${bam_files} > ${vcf}
 		"""
 	
+	}
+
+	process runMergeFreebayesVcf {
+
+		tag "ALL"
+                publishDir "${OUTDIR}/Variants", mode: 'copy'
+
+		input:
+		file(vcf) from outputFreebayes.collect()
+
+		output:
+		file(vcf_merged) into VcfMerged
+
+		script:
+		vcf_merged = "freebayes.merged.vcf"
+
+		"""
+			vcf-concat ${vcf} > $vcf_merged
+		"""
 	}
 
 	process runFilterVcf {
@@ -195,13 +218,13 @@ if (params.tool == "freebayes") {
 		publishDir "${OUTDIR}/Variants", mode: 'copy'	
 
 		input:
-		file(vcf) from outputFreebayes
+		file(vcf) from VcfMerged
 
 		output:
 		file(vcf_filtered) into ( inputVep, inputAnnovar )
 
 		script: 
-		vcf_filtered = "freebayes.filtered.vcf"
+		vcf_filtered = "freebayes.merged.filtered.vcf"
 
 		"""
 			vcffilter -f "QUAL > 20" ${vcf} > ${vcf_filtered}
@@ -367,17 +390,19 @@ if (params.tool == "freebayes") {
 	process runHCSample {
 
   		tag "${indivID}|${sampleID}"
-  		publishDir "${OUTDIR}/${indivID}/${sampleID}/Variants/HaplotypeCaller/" , mode: 'copy'
+  		publishDir "${OUTDIR}/${indivID}/${sampleID}/Variants/HaplotypeCaller/perChromosome" , mode: 'copy'
 
   		input: 
   		set indivID,sampleID,file(bam),file(bai) from inputHCSample
 
   		output:
   		file(vcf) into outputHCSample
+                file(vcf_index) into outputHCSampleIndex
 
   		script:
   
-  		vcf = sampleID + ".raw_variants.g.vcf"
+  		vcf = sampleID + ".raw_variants.g.vcf.gz"
+		vcf_index = vcf + ".tbi"
 
   		"""
 		gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" HaplotypeCaller \
@@ -389,10 +414,9 @@ if (params.tool == "freebayes") {
 			--emitRefConfidence GVCF \
 			--createOutputVariantIndex true \
     			--output $vcf \
+			&& tabix $vcf
   		"""
 	}
-
-	inputMergeVcf = outputHCSample.collect()
 
 	process runGenomicsDBImport  {
 
@@ -401,9 +425,12 @@ if (params.tool == "freebayes") {
 
 		input:
                 file(vcf_list) from inputMergeVcf
+		file(index_list) from inputMergeVcfIndex
+
+		each chr from chromosomes
 
 		output:
-                file(genodb) into inputJoinedGenotyping
+                set chr,file(genodb) into inputJoinedGenotyping
 
 		script:
 		genodb = "genodb"
@@ -413,7 +440,7 @@ if (params.tool == "freebayes") {
 			--variant ${vcf_list.join(" --variant ")} \
                         --variant $calibration_exomes \
 			--reference $REF \
-			--intervals ${genomic_regions.join(" --intervals ")} \
+			--intervals $chr \
 			--genomicsDBWorkspace $genodb
 		"""
 
@@ -425,14 +452,14 @@ if (params.tool == "freebayes") {
   		publishDir "${OUTDIR}/Variants/JoinedGenotypes"
   
   		input:
-  		file(genodb) from inputJoinedGenotyping
+  		set chr,file(genodb) from inputJoinedGenotyping
   
   		output:
   		file(gvcf) into (inputRecalSNP , inputRecalIndel)
   
   		script:
   
-  		gvcf = "genotypes.gvcf"
+  		gvcf = "genotypes." + chr + ".gvcf"
   
   		"""
 	 	gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" GenotypeGVCFs \
