@@ -21,6 +21,8 @@ if (params.genomes.containsKey(params.assembly) == false) {
 }
 
 REF = file(params.genomes[ params.assembly ].fasta)
+REF_CHR_ROOT = params.genomes[ params.assembly ].per_sequence_root
+
 DBSNP = file(params.genomes[ params.assembly ].dbsnp )
 G1K = file(params.genomes[ params.assembly ].g1k )
 GOLD1 = file(params.genomes[ params.assembly ].gold )
@@ -171,7 +173,7 @@ if (params.tool == "freebayes") {
 
 	process runFreebayes {
 
-		tag "ALL"
+		tag "${chr}"
                 publishDir "${OUTDIR}/Variants/perChromosome", mode: 'copy'
 
 		input:
@@ -188,7 +190,7 @@ if (params.tool == "freebayes") {
 
 
 		"""
-			freebayes-parallel <(fasta_generate_regions.py ${REF}.fai 100000) ${task.cpus} -r $chr -f ${REF} ${bam_files} > ${vcf}
+			freebayes-parallel <(fasta_generate_regions.py ${REF}.fai 100000) ${task.cpus} -r $chr -f ${REF_CHR_ROOT}/${chr}.fa ${bam_files} > ${vcf}
 		"""
 	
 	}
