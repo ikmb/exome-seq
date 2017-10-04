@@ -39,12 +39,12 @@ GATK = file(params.gatk_jar)
 PICARD = file(params.picard_jar)
 OUTDIR = file(params.outdir)
 
-if (params.kits.containsKey(params.kit) == false) {
+if (params.genomes[params.assembly].kits.containsKey(params.kit) == false) {
    exit 1, "Specified unknown Exome kit, please consult the documentation for valid kits."
 }
 
-TARGETS= params.kits[ params.kit ].targets
-BAITS= params.kits[ params.kit ].baits
+TARGETS= params.genomes[params.assembly].kits[ params.kit ].targets
+BAITS= params.genomes[params.assembly].kits[ params.kit ].baits
 
 // We add 17 reference exome gVCFs to make sure that variant filtration works
 // These are in hg19 so need to be updated to other assemblies if multiple assemblies are to be supported
@@ -173,45 +173,24 @@ if (params.tool == "freebayes") {
 
 	process runFreebayes {
 
-		tag "${chr}"
+		tag "ALL"
                 publishDir "${OUTDIR}/Variants/perChromosome", mode: 'copy'
 
 		input:
 		file(bam_files) from FreebayesBamInput.collect()
 		file(bai_files) from FreebayesBaiInput.collect()
 
-                each chr from chromosomes
-
 		output:
 		file(vcf) into outputFreebayes
 		
 		script:
-		vcf = "freebayes." + chr + ".vcf"
+		vcf = "freebayes.vcf"
 
 
 		"""
-			freebayes-parallel <(fasta_generate_regions.py ${REF}.fai 100000) ${task.cpus} -r $chr -f ${REF_CHR_ROOT}/${chr}.fa ${bam_files} > ${vcf}
+			freebayes-parallel <(fasta_generate_regions.py ${REF}.fai 100000) ${task.cpus} -f ${REF} ${bam_files} > ${vcf}
 		"""
 	
-	}
-
-	process runMergeFreebayesVcf {
-
-		tag "ALL"
-                publishDir "${OUTDIR}/Variants", mode: 'copy'
-
-		input:
-		file(vcf) from outputFreebayes.collect()
-
-		output:
-		file(vcf_merged) into VcfMerged
-
-		script:
-		vcf_merged = "freebayes.merged.vcf"
-
-		"""
-			vcf-concat ${vcf} > $vcf_merged
-		"""
 	}
 
 	process runFilterVcf {
@@ -220,13 +199,13 @@ if (params.tool == "freebayes") {
 		publishDir "${OUTDIR}/Variants", mode: 'copy'	
 
 		input:
-		file(vcf) from VcfMerged
+		file(vcf) from outputFreebayes
 
 		output:
 		file(vcf_filtered) into ( inputVep, inputAnnovar )
 
 		script: 
-		vcf_filtered = "freebayes.merged.filtered.vcf"
+		vcf_filtered = "freebayes.filtered.vcf"
 
 		"""
 			vcffilter -f "QUAL > 20" ${vcf} > ${vcf_filtered}
