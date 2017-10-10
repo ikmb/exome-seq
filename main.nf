@@ -51,7 +51,14 @@ BAITS= params.genomes[params.assembly].kits[ params.kit ].baits
 calibration_exomes = file(params.calibration_exomes)
 calibration_samples_list = file(params.calibration_exomes_samples)
 
-chromosomes = [ "chr1" , "chr2", "chr3" , "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrM", "chrX", "chrY" ]
+// Get the names of all sequences and create a list for parallel processing in Freebayes
+// For this we use the index file of the genome fasta
+chromosomes = [ ]
+file(REF + ".fai").eachLine { line -> 
+	chromosomes << line.split("\t")[0]
+}
+
+// chromosomes = [ "chr1" , "chr2", "chr3" , "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrM", "chrX", "chrY" ]
 
 TRIMMOMATIC=file(params.trimmomatic)
 
@@ -79,6 +86,12 @@ log.info "Adapter sequence used: 	${adapters}"
 log.info "Command Line:			$workflow.commandLine"
 log.info "========================================="
 
+// Take bait file and split into chunks for parallel processing
+Channel.fromPath(TARGETS)
+	.splitText(by: 5000, file: true)
+	.set { TargetIntervalChunks }
+
+// Read sample file 
 Channel.from(inputFile)
        .splitCsv(sep: ';', header: true)
        .set {  readPairsTrimmomatic }
@@ -170,25 +183,45 @@ process runMarkDuplicates {
 
 if (params.tool == "freebayes") {
 
-
 	process runFreebayes {
 
-		tag "ALL"
-                publishDir "${OUTDIR}/Variants/perChromosome", mode: 'copy'
+		tag "ALL|${chr}"
+                publishDir "${OUTDIR}/Variants/Freebayes", mode: 'copy'
 
 		input:
 		file(bam_files) from FreebayesBamInput.collect()
 		file(bai_files) from FreebayesBaiInput.collect()
-
+		each chr from chromosomes
+	
 		output:
 		file(vcf) into outputFreebayes
 		
 		script:
-		vcf = "freebayes.vcf"
+		vcf = "freebayes.${chr}.vcf"
 
 
 		"""
-			freebayes-parallel <(fasta_generate_regions.py ${REF}.fai 100000) ${task.cpus} -f ${REF} ${bam_files} > ${vcf}
+			freebayes-parallel <(fasta_generate_regions.py ${REF_CHR_ROOT}/${chr}.fa.fai 100000) ${task.cpus} -f ${REF_CHR_ROOT}/${chr}.fa ${bam_files} > ${vcf}
+		"""
+	
+	}
+
+	process runConcatVcf {
+		
+		tag "ALL"
+		publishDir "${OUTDIR}/Variants/Freebayes", mode: 'copy'
+
+		input:
+		file(vcf_files) from outputFreebayes.collect()
+
+		output:
+		file(vcf_merged) into VcfMerged
+
+		script:
+		vcf_merged = "freebayes.merged.vcf"
+
+		"""
+			vcf-concat ${vcf_files.join(" ")} | vcf-sort > $vcf_merged
 		"""
 	
 	}
@@ -196,10 +229,10 @@ if (params.tool == "freebayes") {
 	process runFilterVcf {
 
 		tag "ALL"
-		publishDir "${OUTDIR}/Variants", mode: 'copy'	
+		publishDir "${OUTDIR}/Variants/Freebayes", mode: 'copy'	
 
 		input:
-		file(vcf) from outputFreebayes
+		file(vcf) from VcfMerged
 
 		output:
 		file(vcf_filtered) into ( inputVep, inputAnnovar )
@@ -395,6 +428,7 @@ if (params.tool == "freebayes") {
 			--emitRefConfidence GVCF \
 			--createOutputVariantIndex true \
     			--output $vcf \
+			--nativePairHmmThreads 8 \
 			&& tabix $vcf
   		"""
 	}
