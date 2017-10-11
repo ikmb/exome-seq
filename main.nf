@@ -39,6 +39,9 @@ GATK = file(params.gatk_jar)
 PICARD = file(params.picard_jar)
 OUTDIR = file(params.outdir)
 
+params.freebayes_options = "--min-alternate-fraction 0.2 --min-base-quality 20 --min-alternate-qsum 90"
+freebayes_options = params.freebayes_options
+
 if (params.genomes[params.assembly].kits.containsKey(params.kit) == false) {
    exit 1, "Specified unknown Exome kit, please consult the documentation for valid kits."
 }
@@ -203,7 +206,6 @@ if (params.tool == "freebayes") {
 		
 		script:
 		vcf = "freebayes.${chr}.vcf"
-		freebayes_options = "--min-alternate-fraction 0.2 --min-base-quality 20 --min-alternate-qsum 90"
 
 		"""
 			freebayes-parallel <($baseDir/bin/bed2regions $TARGETS $chr) ${task.cpus} -f ${REF} $freebayes_options ${bam_files} > ${vcf}

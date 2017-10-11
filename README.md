@@ -64,23 +64,27 @@ RG_ID : `HGJJMBBXX.3`
 
 PU : `HGJJMBBXX.3` (This may not be 100% accurate, but available information is vague...)
 
+## Installing the pipeline
+
+To install this pipeline, simply clone the repository to a location on RZCluster:
+
+`git clone git@git.ikmb.uni-kiel.de:bfx-core/NF-diagnostics-exome.git'
+
+To update the code, run git update inside of the local clone:
+
+`git update`
+
+The pipeline is set up to work on RZCluster using the IKMB module system. Please make sure that you have set up this environment before launching a pipeline run. 
+
 ## Executing the pipeline
 
 The pipeline can be run as follows:
 
-`nextflow -c nextflow.config run main.nf --samples /path/to/sample_list.csv`
+`nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv`
 
 Should the pipeline crash, you can try and resume it (after the problem has been fixed) adding "-resume" to the execution. 
 
-If you set up a scm configuration file (please see: https://www.nextflow.io/docs/latest/sharing.html#scm-configuration-file), you can also run the pipeline without cloning the repository:
-
-`nextflow run bfx-core/NF-diagnostics-exome --samples /path/to/sample_list.csv -hub ikmb`
-
-Make sure to keep your version of the pipeline up-to-date with the repository:
-
-`nextflow pull bfx-core/NF-diagnostics-exome -hub ikmb`
-
-## Supported Tool chains
+### Supported Tool chains
 
 This pipeline can be run with one of two processing chains - GATK4 and Freebayes. 
 
@@ -92,7 +96,7 @@ To use one of the two processing chains, use the `tool` option:
 
 Note that Freebayes is the default and does not need to be specified. 
 
-## Supported enrichment kits
+### Supported enrichment kits
 
 The pipeline is built to support more than one Exome kit. These can be selected from the command line using the --kit option.
 
@@ -102,7 +106,7 @@ The pipeline is built to support more than one Exome kit. These can be selected 
 
 This option defaults to "Nextera", so make sure this is in fact the kit you have used!
 
-## Email notification
+### Email notification
 
 The pipeline will send out an Email notification upon completion if a recipient is speciefied via the flag `--email`:
 
