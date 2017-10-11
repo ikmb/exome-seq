@@ -34,7 +34,7 @@ This pipeline performs exome analysis on a set of samples. The following steps a
 
 ---  Hard filtering of resulting VCF file (VCFtools)
 
-* Effect prediction with VEP (EnsEMBL86) and Annovar (2016)
+* Effect prediction with VEP (EnsEMBL86) and Annovar (2017)
 
 ## Input format
 
@@ -60,7 +60,7 @@ The read group ID and platform unit can be derived from the fastq headers like s
 
 Header: `@J00124:23:HGJJMBBXX:3:1101:31477:1138 1:N:0:CGTACTAG+ATAGAGAG`
 
-RG_ID : `HGJJMBBXX.3`
+RG_ID : `HGJJMBBXX.3.ATAGAGAG`
 
 PU : `HGJJMBBXX.3` (This may not be 100% accurate, but available information is vague...)
 
@@ -68,7 +68,7 @@ PU : `HGJJMBBXX.3` (This may not be 100% accurate, but available information is 
 
 To install this pipeline, simply clone the repository to a location on RZCluster:
 
-`git clone git@git.ikmb.uni-kiel.de:bfx-core/NF-diagnostics-exome.git'
+`git clone git@git.ikmb.uni-kiel.de:bfx-core/NF-diagnostics-exome.git`
 
 To update the code, run git update inside of the local clone:
 
