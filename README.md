@@ -2,6 +2,10 @@
 
 # IKMB Diagonistc Exome Pipeline
 
+# In Development
+
+This pipeline is under development. The Freebayes workflow should work as expected; GATK4 is still being worked on and the processing chain not yet finalized. 
+
 # Overview
 
 This pipeline performs exome analysis on a set of samples. The following steps are included:
@@ -86,7 +90,7 @@ To use one of the two processing chains, use the `tool` option:
 
 `nextflow run bfx-core/NF-diagnostics-exome --samples /path/to/sample_list.csv -hub ikmb --tool freebayes`
 
-Note that GATK is the default and does not need to be specified. 
+Note that Freebayes is the default and does not need to be specified. 
 
 ## Supported enrichment kits
 

@@ -46,6 +46,17 @@ if (params.genomes[params.assembly].kits.containsKey(params.kit) == false) {
 TARGETS= params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS= params.genomes[params.assembly].kits[ params.kit ].baits
 
+chromosomes =  []
+file(TARGETS).eachLine { line ->
+	elements = line.trim().split("\t")
+	seq = elements[0]
+	if (seq =~ /^chr.*/) {
+		if (chromosomes.contains(seq) == false)	{
+			chromosomes << seq
+		}
+	}
+}
+
 // We add 17 reference exome gVCFs to make sure that variant filtration works
 // These are in hg19 so need to be updated to other assemblies if multiple assemblies are to be supported
 calibration_exomes = file(params.calibration_exomes)
@@ -53,12 +64,6 @@ calibration_samples_list = file(params.calibration_exomes_samples)
 
 // Get the names of all sequences and create a list for parallel processing in Freebayes
 // For this we use the index file of the genome fasta
-chromosomes = [ ]
-file(REF + ".fai").eachLine { line -> 
-	chromosomes << line.split("\t")[0]
-}
-
-// chromosomes = [ "chr1" , "chr2", "chr3" , "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrM", "chrX", "chrY" ]
 
 TRIMMOMATIC=file(params.trimmomatic)
 
@@ -186,7 +191,7 @@ if (params.tool == "freebayes") {
 	process runFreebayes {
 
 		tag "ALL|${chr}"
-                publishDir "${OUTDIR}/Variants/Freebayes", mode: 'copy'
+                publishDir "${OUTDIR}/Variants/Freebayes/ByChromosome", mode: 'copy'
 
 		input:
 		file(bam_files) from FreebayesBamInput.collect()
@@ -198,24 +203,24 @@ if (params.tool == "freebayes") {
 		
 		script:
 		vcf = "freebayes.${chr}.vcf"
-
+		freebayes_options = "--min-alternate-fraction 0.2 --min-base-quality 20 --min-alternate-qsum 90"
 
 		"""
-			freebayes-parallel <(fasta_generate_regions.py ${REF_CHR_ROOT}/${chr}.fa.fai 100000) ${task.cpus} -f ${REF_CHR_ROOT}/${chr}.fa ${bam_files} > ${vcf}
+			freebayes-parallel <($baseDir/bin/bed2regions $TARGETS $chr) ${task.cpus} -f ${REF} $freebayes_options ${bam_files} > ${vcf}
 		"""
 	
 	}
 
 	process runConcatVcf {
-		
+
 		tag "ALL"
-		publishDir "${OUTDIR}/Variants/Freebayes", mode: 'copy'
+                publishDir "${OUTDIR}/Variants/Freebayes", mode: 'copy'
 
 		input:
 		file(vcf_files) from outputFreebayes.collect()
-
+		
 		output:
-		file(vcf_merged) into VcfMerged
+		file(vcf_merged) into outputVcfMerged
 
 		script:
 		vcf_merged = "freebayes.merged.vcf"
@@ -223,7 +228,6 @@ if (params.tool == "freebayes") {
 		"""
 			vcf-concat ${vcf_files.join(" ")} | vcf-sort > $vcf_merged
 		"""
-	
 	}
 
 	process runFilterVcf {
@@ -232,16 +236,16 @@ if (params.tool == "freebayes") {
 		publishDir "${OUTDIR}/Variants/Freebayes", mode: 'copy'	
 
 		input:
-		file(vcf) from VcfMerged
+		file(vcf) from outputVcfMerged
 
 		output:
 		file(vcf_filtered) into ( inputVep, inputAnnovar )
 
 		script: 
-		vcf_filtered = "freebayes.filtered.vcf"
+		vcf_filtered = "freebayes.merged.filtered.vcf"
 
 		"""
-			vcffilter -f "QUAL > 20" ${vcf} > ${vcf_filtered}
+			vcffilter -f "QUAL > 5" ${vcf} > ${vcf_filtered}
 		"""
 	}
 

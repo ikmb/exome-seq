@@ -1,11 +1,16 @@
 #!/bin/env ruby
 
 f = File.open(ARGV.shift, "r")
+chr = ARGV.shift
 
 while (line = f.gets)
 	next if line.match(/^#.*/)
-        e = line.strip.split("\t")
-        puts "#{e[0]}:#{e[1]}-#{e[2]}"
+	
+	seq,from,to,name = line.strip.split("\t")
+
+	next unless seq == chr
+
+        puts "#{seq}:#{from}-#{to}"
 
 end
 
