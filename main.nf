@@ -854,8 +854,8 @@ process runAnnovar {
 
    """
       table_annovar.pl -v \
-	--protocol ensGene,knownGene,refGene,dbnsfp30a,intervar_20170202 \
-	--operation g,g,g,f,f \
+	--protocol ensGene,knownGene,refGene,dbnsfp33a,intervar_20170202,esp6500siv2_all,gnomad_exome,clinvar_20170905,cadd13gt10 \
+	--operation g,g,g,f,f,f,f,f,f \
 	--outfile $annovar_target \
 	--buildver hg19 \
 	--remove \
