@@ -159,12 +159,13 @@ process runMarkDuplicates {
         set indivID, sampleID, aligned_bam_list from runBWAOutput_grouped_by_sample
 
         output:
-        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics
+        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics, runPrintReadsOutput_for_OxoG_Metrics, runPrintReadsOutput_for_HC_Metrics
 	file(outfile_bam) into FreebayesBamInput
 	file(outfile_bai) into FreebayesBaiInput
 	file(outfile_md5) into MarkDuplicatesMD5
 
 	file(outfile_metrics) into DuplicatesOutput_QC
+        set indivID, sampleID, file(bam), file(bai) into BamForDepthOfCoverage
 
         script:
         outfile_bam = sampleID + ".dedup.bam"
@@ -302,7 +303,7 @@ if (params.tool == "freebayes") {
     		set indivID, sampleID, realign_bam, recal_table from runBaseRecalibratorOutput 
 
     		output:
-    		set indivID, sampleID, file(outfile_bam), file(outfile_bai) into BamForDepthOfCoverage, runPrintReadsOutput_for_HC_Metrics, runPrintReadsOutput_for_Multiple_Metrics, runPrintReadsOutput_for_OxoG_Metrics
+    		set indivID, sampleID, file(outfile_bam), file(outfile_bai) into runPrintReadsOutput_for_HC_Metrics, runPrintReadsOutput_for_Multiple_Metrics, runPrintReadsOutput_for_OxoG_Metrics
     		set indivID, sampleID, realign_bam, recal_table into runPrintReadsOutput_for_PostRecal
     		set indivID, sampleID, file(outfile_bam), file(outfile_bai) into inputHCSample
 		set indivID, outfile_md5 into BamMD5
@@ -367,45 +368,6 @@ if (params.tool == "freebayes") {
 				--plotsReportFile ${recal_plots}
 		"""
 	}    
-
-	// ------------------------------------------------------------------------------------------------------------
-	//
-	// Perform a several tasks to assess QC:
-	// 1) Depth of coverage over targets
-	// 2) Generate alignment stats, insert size stats, quality score distribution
-	// 3) Generate hybrid capture stats
-	// 4) Run FASTQC to assess read quality
-	//
-	// ------------------------------------------------------------------------------------------------------------
-
-	process runDepthOfCoverage {
-
-    		tag "${indivID}|${sampleID}"
-    		publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/DepthOfCoverage", mode: 'copy'
-
-    		scratch use_scratch
-	    
-    		input:
-    		set indivID, sampleID, file(bam), file(bai) from BamForDepthOfCoverage
-
-    		output:
-    		file("${prefix}*") into DepthOfCoverageOutput
-    
-    		script:
-    		prefix = sampleID + "."
-
-    		"""
-
-			java -XX:ParallelGCThreads=1 -Djava.io.tmpdir=tmp/ -Xmx10g -jar ${GATK} \
-			-R ${REF} \
-			-T DepthOfCoverage \
-			-I ${bam} \
-			--omitDepthOutputAtEachBase \
-			-ct 10 -ct 20 -ct 50 -ct 100 \
-			-o ${sampleID}
-
-		"""
-	}	
 
 	process runHCSample {
 
@@ -686,7 +648,7 @@ if (params.tool == "freebayes") {
 } 
 
 // *********************
-// JOINT REPORTING
+// Compute statistics for fastQ files, libraries and samples
 // *********************
 
 process runCollectMultipleMetrics {
@@ -717,12 +679,94 @@ process runCollectMultipleMetrics {
 		INPUT=${bam} \
 		REFERENCE_SEQUENCE=${REF} \
 		DB_SNP=${DBSNP} \
+		INTERVALS=${BAITS} \
 		ASSUME_SORTED=true \
 		QUIET=true \
 		OUTPUT=${prefix} \
 		TMP_DIR=tmp
 	"""
 }	
+
+process runHybridCaptureMetrics {
+
+    tag "${indivID}|${sampleID}"
+        publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+
+    input:
+    set indivID, sampleID, file(bam), file(bai) from runPrintReadsOutput_for_HC_Metrics
+
+    output:
+    file(outfile) into HybridCaptureMetricsOutput mode flatten
+
+    script:
+    outfile = sampleID + ".hybrid_selection_metrics.txt"
+
+    """
+
+        java -XX:ParallelGCThreads=1 -Xmx10g -Djava.io.tmpdir=tmp/ -jar $PICARD CalculateHsMetrics \
+                INPUT=${bam} \
+                OUTPUT=${outfile} \
+                TARGET_INTERVALS=${TARGETS} \
+                BAIT_INTERVALS=${BAITS} \
+                REFERENCE_SEQUENCE=${REF} \
+                TMP_DIR=tmp
+        """
+}
+
+process runOxoGMetrics {
+
+    tag "${indivID}|${sampleID}"
+    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+
+    input:
+    set indivID, sampleID, file(bam), file(bai) from runPrintReadsOutput_for_OxoG_Metrics
+
+    output:
+    file(outfile) into runOxoGMetricsOutput mode flatten
+
+    script:
+    outfile = sampleID + ".OxoG_metrics.txt"
+
+    """
+
+        java -XX:ParallelGCThreads=1 -Xmx10g -Djava.io.tmpdir=tmp/ -jar $PICARD CollectOxoGMetrics \
+                INPUT=${bam} \
+                OUTPUT=${outfile} \
+                DB_SNP=${DBSNP} \
+                INTERVALS=${BAITS} \
+                REFERENCE_SEQUENCE=${REF} \
+                TMP_DIR=tmp
+        """
+}
+
+process runDepthOfCoverage {
+
+       tag "${indivID}|${sampleID}"
+       publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/DepthOfCoverage", mode: 'copy'
+
+       scratch use_scratch
+
+       input:
+       set indivID, sampleID, file(bam), file(bai) from BamForDepthOfCoverage
+
+       output:
+       file("${prefix}*") into DepthOfCoverageOutput
+
+       script:
+       prefix = sampleID + "."
+
+       """
+
+       java -XX:ParallelGCThreads=1 -Djava.io.tmpdir=tmp/ -Xmx10g -jar ${GATK} \
+             -R ${REF} \
+             -T DepthOfCoverage \
+             -I ${bam} \
+             --omitDepthOutputAtEachBase \
+             -ct 10 -ct 20 -ct 50 -ct 100 \
+             -o ${sampleID}
+
+       """
+}
 
 process runFastQC {
 
@@ -791,10 +835,12 @@ process runMultiQCLibrary {
 process runMultiQCSample {
 
     tag "Generating sample level summary and QC plots"
-	publishDir "${OUTDIR}/Summary/Sample", mode: 'copy'
+    publishDir "${OUTDIR}/Summary/Sample", mode: 'copy'
 	    
     input:
-     file('*') from CollectMultipleMetricsOutput.flatten().toList()
+    file('*') from CollectMultipleMetricsOutput.flatten().toList()
+    file('*') from HybridCaptureMetricsOutput.flatten().toList()
+    file('*') from runOxoGMetricsOutput.flatten().toList()
         
     output:
     file("sample_multiqc*") into runMultiQCSampleOutput
