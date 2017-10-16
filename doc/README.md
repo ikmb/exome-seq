@@ -23,19 +23,19 @@ The outputs should be fairly self-explanatory; note that the HTML outputs contai
 
 The primary output of this pipeline are the aligned, duplicate-marked reads. These can be found in the folder:
 
-IndividualID/SamplesID/Processing/MarkDuplicates
+output/IndividualID/SamplesID/Processing/MarkDuplicates
 
 ## Primary variant calls
 
 Variants are called using either Freebayes or GATK. The primary VCF file will be located under:
 
-Variants/VariantCaller/some_file.vcf
+output/Variants/VariantCaller/some_file.vcf
 
 ## Annotated variant calls
 
 The final VCF file (after filtering) is usually annotated using both Annovar (Mid 2017) and the EnsEMBL VEP (release 90). The resulting annotated VCF files can be found under
 
-Annotation/AnnotationTool/some_file.vcf
+output/Annotation/AnnotationTool/some_file.vcf
 
 
 
