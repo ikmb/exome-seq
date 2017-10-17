@@ -1,0 +1,6 @@
+extra_fn_clean_exts:
+    - _R1
+    - _R2
+report_comment: >
+    This report has been generated automatically by the IKMB Diagnostic Exome pipeline.
+    For help interpreting the outputs, please see: http://git.ikmb.uni-kiel.de/bfx-core/NF-diagnostics-exome/tree/master/doc

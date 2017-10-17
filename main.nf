@@ -14,7 +14,7 @@ params.tool = "freebayes"
 
 // This will eventually enable switching between multiple assembly versions
 // Currently, only hg19 has all the required reference files available
-params.assembly = "hg19"
+params.assembly = "hg19_clinical"
 
 if (params.genomes.containsKey(params.assembly) == false) {
    exit 1, "Specified unknown genome assembly, please consult the documentation for valid assemblies."
@@ -107,7 +107,7 @@ Channel.from(inputFile)
 process runTrimmomatic {
 
     tag "${indivID}|${sampleID}|${libraryID}|${rgID}"
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/Trimmomatic/", mode: 'copy'
+    //publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/Trimmomatic/", mode: 'copy'
 
     scratch use_scratch
 
@@ -127,7 +127,7 @@ process runTrimmomatic {
 process runBWA {
 
     tag "${indivID}|${sampleID}|${libraryID}|${rgID}"
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/BWA/", mode: 'copy'
+    //publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/BWA/", mode: 'copy'
 
     scratch use_scratch
 	
@@ -153,19 +153,17 @@ process runMarkDuplicates {
 	tag "${indivID}|${sampleID}"
         publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
 
-        scratch use_scratch
+        // scratch use_scratch
 
         input:
-        set indivID, sampleID, aligned_bam_list from runBWAOutput_grouped_by_sample
+        set indivID, sampleID, file(aligned_bam_list) from runBWAOutput_grouped_by_sample
 
         output:
-        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics, runPrintReadsOutput_for_OxoG_Metrics, runPrintReadsOutput_for_HC_Metrics
+        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics, runPrintReadsOutput_for_OxoG_Metrics, runPrintReadsOutput_for_HC_Metrics, BamForDepthOfCoverage
 	file(outfile_bam) into FreebayesBamInput
 	file(outfile_bai) into FreebayesBaiInput
 	file(outfile_md5) into MarkDuplicatesMD5
-
 	file(outfile_metrics) into DuplicatesOutput_QC
-        set indivID, sampleID, file(bam), file(bai) into BamForDepthOfCoverage
 
         script:
         outfile_bam = sampleID + ".dedup.bam"
@@ -690,7 +688,7 @@ process runCollectMultipleMetrics {
 process runHybridCaptureMetrics {
 
     tag "${indivID}|${sampleID}"
-        publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
     input:
     set indivID, sampleID, file(bam), file(bai) from runPrintReadsOutput_for_HC_Metrics
@@ -702,8 +700,7 @@ process runHybridCaptureMetrics {
     outfile = sampleID + ".hybrid_selection_metrics.txt"
 
     """
-
-        java -XX:ParallelGCThreads=1 -Xmx10g -Djava.io.tmpdir=tmp/ -jar $PICARD CalculateHsMetrics \
+        java -XX:ParallelGCThreads=1 -Xmx10g -Djava.io.tmpdir=tmp/ -jar $PICARD CollectHsMetrics \
                 INPUT=${bam} \
                 OUTPUT=${outfile} \
                 TARGET_INTERVALS=${TARGETS} \
@@ -809,6 +806,7 @@ process runMultiQCFastq {
     script:
 
     """
+   cp $baseDir/config/multiqc_config.yaml multiqc_config.yaml
     multiqc -n fastq_multiqc *.zip *.html
     """
 }
@@ -816,7 +814,7 @@ process runMultiQCFastq {
 process runMultiQCLibrary {
 
     tag "Generating library level summary and QC plots"
-	publishDir "${OUTDIR}/Summary/Library", mode: 'copy'
+    publishDir "${OUTDIR}/Summary/Library", mode: 'copy'
 	    
     input:
     file('*') from DuplicatesOutput_QC.flatten().toList()
@@ -827,7 +825,7 @@ process runMultiQCLibrary {
     script:
 
     """
-
+    cp $baseDir/config/multiqc_config.yaml multiqc_config.yaml
     multiqc -n library_multiqc *.txt
     """
 }
@@ -848,6 +846,7 @@ process runMultiQCSample {
     script:
 
     """
+    cp $baseDir/config/multiqc_config.yaml multiqc_config.yaml
     multiqc -n sample_multiqc *
     """
 }
@@ -866,13 +865,13 @@ input:
    file(vcf_file) from inputVep
 
  output:
-   file('annotation.vep') into outputVep
+   file('annotation.vep.vcf') into outputVep
 
  script:
 
    """
      vep --offline --cache --dir $VEP_CACHE --fork ${task.cpus} \
- 	--assembly GRCh37 -i $vcf_file -o annotation.vep --allele_number --canonical \
+ 	--assembly GRCh37 -i $vcf_file -o annotation.vep.vcf --allele_number --canonical \
 	--force_overwrite --vcf --no_progress \
 	--pubmed \
 	--plugin ExAC,$EXAC \

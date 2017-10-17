@@ -36,6 +36,15 @@ This pipeline performs exome analysis on a set of samples. The following steps a
 
 * Effect prediction with VEP (EnsEMBL86) and Annovar (2017)
 
+## Valid assemblies
+
+The pipeline currently (officially) supports to genome assemblies - the "full" hg19 assembly from the GATK resource bundle and a stripped-down version that removes
+any ALT contigs (hg19_clinical). To choose an assembly, use:
+
+`-assembly hg19`
+
+`--assembly hg19_clinical`
+
 ## Input format
 
 The pipeline parses a config file to find the input files and relevant meta data. The expected format is semicolon-separated CSV with the following headers:
