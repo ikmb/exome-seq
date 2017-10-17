@@ -36,6 +36,18 @@ This pipeline performs exome analysis on a set of samples. The following steps a
 
 * Effect prediction with VEP (EnsEMBL86) and Annovar (2017)
 
+## Installing the pipeline
+
+To install this pipeline, simply clone the repository to a location on RZCluster:
+
+`git clone git@git.ikmb.uni-kiel.de:bfx-core/NF-diagnostics-exome.git`
+
+To update the code, run git update inside of the local clone:
+
+`git update`
+
+The pipeline is set up to work on RZCluster using the IKMB module system. Please make sure that you have set up this environment before launching a pipeline ru$
+
 ## Valid assemblies
 
 The pipeline currently (officially) supports two genome assemblies - the "full" hg19 assembly from the GATK resource bundle and a stripped-down version that removes
@@ -72,18 +84,6 @@ Header: `@J00124:23:HGJJMBBXX:3:1101:31477:1138 1:N:0:CGTACTAG+ATAGAGAG`
 RG_ID : `HGJJMBBXX.3.ATAGAGAG`
 
 PU : `HGJJMBBXX.3` (This may not be 100% accurate, but available information is vague...)
-
-## Installing the pipeline
-
-To install this pipeline, simply clone the repository to a location on RZCluster:
-
-`git clone git@git.ikmb.uni-kiel.de:bfx-core/NF-diagnostics-exome.git`
-
-To update the code, run git update inside of the local clone:
-
-`git update`
-
-The pipeline is set up to work on RZCluster using the IKMB module system. Please make sure that you have set up this environment before launching a pipeline run. 
 
 ## Executing the pipeline
 
