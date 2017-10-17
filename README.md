@@ -41,7 +41,7 @@ This pipeline performs exome analysis on a set of samples. The following steps a
 The pipeline currently (officially) supports two genome assemblies - the "full" hg19 assembly from the GATK resource bundle and a stripped-down version that removes
 any ALT contigs (hg19_clinical). To choose an assembly, use:
 
-`-assembly hg19`
+`--assembly hg19`
 
 `--assembly hg19_clinical`
 
