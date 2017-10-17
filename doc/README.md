@@ -6,7 +6,7 @@ This pipeline runs with one of two processing chains using either GATK4 or Freeb
 
 ## Reference data
 
-If not indicated otherwise, analyses are run against the hg19 reference dataset distributed by the BROAD Institute. To obtain your own copy, please see:
+If not indicated otherwise, analyses are run against the hg19 reference dataset distributed by the BROAD Institute - minus ALT contigs (to avoid issues arising from mapping ambiguities in the presence of alternative haplotypes). To obtain your own copy, please see:
 
 https://software.broadinstitute.org/gatk/download/bundle
 
