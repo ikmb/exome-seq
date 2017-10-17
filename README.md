@@ -36,10 +36,6 @@ This pipeline performs exome analysis on a set of samples. The following steps a
 
 * Effect prediction with VEP (EnsEMBL86) and Annovar (2017)
 
-## Outputs
-
-A brief description of the pipeline outputs is available under http://git.ikmb.uni-kiel.de/bfx-core/NF-diagnostics-exome/tree/master/doc
-
 ## Valid assemblies
 
 The pipeline currently (officially) supports two genome assemblies - the "full" hg19 assembly from the GATK resource bundle and a stripped-down version that removes
@@ -131,3 +127,5 @@ By default, the pipeline output will be stored in the "output" subfolder from wh
 by specifying "--outdir /some/other/folder" on the command line. 
 
 The output will be spread across several folders - one for each sample, one for the combined variant calls and a generic folder for library statistics and such. 
+
+A brief description of the pipeline outputs is available under http://git.ikmb.uni-kiel.de/bfx-core/NF-diagnostics-exome/tree/master/doc
