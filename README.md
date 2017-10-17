@@ -36,6 +36,10 @@ This pipeline performs exome analysis on a set of samples. The following steps a
 
 * Effect prediction with VEP (EnsEMBL86) and Annovar (2017)
 
+## Outputs
+
+A brief description of the pipeline outputs is available under http://git.ikmb.uni-kiel.de/bfx-core/NF-diagnostics-exome/tree/master/doc
+
 ## Valid assemblies
 
 The pipeline currently (officially) supports to genome assemblies - the "full" hg19 assembly from the GATK resource bundle and a stripped-down version that removes
