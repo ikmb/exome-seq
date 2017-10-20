@@ -90,7 +90,7 @@ log.info "========================================="
 log.info "IKMB Diagnostic Exome pipeline v${VERSION}"
 log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
-log.info "Adapter sequence used: 	${adapters}"
+log.info "Adapter sequence used:	${adapters}"
 log.info "Command Line:			$workflow.commandLine"
 log.info "========================================="
 
