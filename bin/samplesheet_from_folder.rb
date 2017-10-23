@@ -46,11 +46,11 @@ center = "ICMB"
 
 fastq_files = Dir["#{options.folder}/*_R*.fastq.gz"]
 
-groups = fastq_files.group_by{|f| f.split("/")[-1].split("_")[0] }
+groups = fastq_files.group_by{|f| f.split("/")[-1].split("_")[0..2].join("_") }
 
 puts "IndivID;SampleID;libraryID;rgID;rgPU;platform;platform_model;Center;Date;R1;R2"
 
-#AS-167616-LR-25610_R1.fastq.gz
+#G00076-L2_S19_L003_R1_001.fastq.gz
 
 groups.each do |group, files|
 
