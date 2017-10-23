@@ -75,6 +75,14 @@ The pipeline parses a config file to find the input files and relevant meta data
 
 A template file (SampleTemplate.csv) is included with this code base. 
 
+You can use the script bin/samplesheet_from_folder.rb to generate a automatic sample sheet:
+
+`ruby /path/to/git/samplesheet_from_folder.rb -f /path/to/fastq_folder`
+
+where /path/to/fastq_folder points to a directory from which to read the fastq files. This requires a Ruby version >= 2.0 (available as software module on RZCluster.
+
+WARNING: The script uses the base library ID to group read files; this will usually also take care of merging libraries that were sequenced across multiple lanes. However, it is advisable to make sure that each pair of FastQ files has the appropriate library and sample ID to accurately represent the experimental setup. 
+
 ### Read group ID tags
 
 The read group ID and platform unit can be derived from the fastq headers like so:

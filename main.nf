@@ -12,6 +12,9 @@ inputFile = file(params.samples)
 // Specify the tool chain to use - can be either gatk for GATK4 or freebayes for Freebayes 1.10
 params.tool = "freebayes"
 
+// Specify a custom interval file for coverage metric calculations
+params.custom_intervals = false
+
 // This will eventually enable switching between multiple assembly versions
 // Currently, only hg19 has all the required reference files available
 params.assembly = "hg19_clinical"
