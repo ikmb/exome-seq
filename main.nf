@@ -97,11 +97,6 @@ log.info "Adapter sequence used:	${adapters}"
 log.info "Command Line:			$workflow.commandLine"
 log.info "========================================="
 
-// Take bait file and split into chunks for parallel processing
-Channel.fromPath(TARGETS)
-	.splitText(by: 5000, file: true)
-	.set { TargetIntervalChunks }
-
 // Read sample file 
 Channel.from(inputFile)
        .splitCsv(sep: ';', header: true)
