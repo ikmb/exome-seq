@@ -127,3 +127,30 @@ by specifying "--outdir /some/other/folder" on the command line.
 The output will be spread across several folders - one for each sample, one for the combined variant calls and a generic folder for library statistics and such. 
 
 A brief description of the pipeline outputs is available under http://git.ikmb.uni-kiel.de/bfx-core/NF-diagnostics-exome/tree/master/doc
+
+# If you wish to use this pipeline
+
+Assuming you are not working at the IKMB with access to our software modules and other resources, these are the basic steps you need to follow to be able to deploy this pipeline in your own compute environment.
+Please note that the following instructions are directed at bioinformaticians with a good understanding of software administration and linux (obviuosly). 
+
+1. Software requirements
+
+This pipeline requires a number of software tools (and versions) to function. There are two basic options to meed these requirements.
+
+  * Install the different packages on your compute system and make sure they are loaded in i.e. $PATH. A clean way to achieve this are environment-modules, which are supported by various linux distributions. 
+  * Use the included bootstrap file (singularity/exomes.definition) to build a singularity container in which all the relevant tools will be installed automatically. 
+
+2. Create your own configuration file
+
+Nextflow uses a configuration file to determine how to run individual processes. As an example, you can refer to config/rzcluster.config - which is the IKMB setup using our own environment-module system and a SLURM queue. You will have to create you own version of this file, setting it up to i.e. work yith the software on your cluster or use singularity containers (please refer to the Nextflow documentation on how that can be done). You can run the pipeline with your custom config file using the `-c`flag (as by the examples above). 
+
+3. Gather the various reference files
+
+One tricky aspect is to gather the different reference files - genome assembly, target and bait files for your exome kit of choice, reference variant files etc. 
+
+Briefly, we are basing our analyses (mostly) on the GATK bundle distributed by the BROAD institute (https://software.broadinstitute.org/gatk/download/bundle). The interval files for the exome kit are provided by the respective vendor. 
+
+All these information need to be added to the config file also with their full path on your compute system (see config/rzcluster.config for examples). 
+
+
+
