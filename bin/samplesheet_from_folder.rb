@@ -32,6 +32,7 @@ opts = OptionParser.new()
 opts.banner = "Reads Fastq files from a folder and writes a sample sheet to STDOUT"
 opts.separator ""
 opts.on("-f","--folder", "=FOLDER","Folder to scan") {|argument| options.folder = argument }
+opts.on("-c","--centre", "=CENTRE","Name of sequencing centre") {|argument| options.centre = argument }
 opts.on("-h","--help","Display the usage information") {
  puts opts
  exit
@@ -42,7 +43,7 @@ opts.parse!
 abort "Folder not found (#{options.folder})" unless File.directory?(options.folder)
 
 date = Time.now.strftime("%Y-%m-%d")
-center = "ICMB"
+options.centre ? center = options.centre : center = "IKMB"
 
 fastq_files = Dir["#{options.folder}/*_R*.fastq.gz"]
 
