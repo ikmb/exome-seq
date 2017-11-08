@@ -12,31 +12,31 @@ Both Freebayes and GATK4 are open-source - i.e. as user, you do not have to worr
 
 This pipeline performs exome analysis on a set of samples. The following steps are included:
 
-* Read trimming (Trimmomatic 0.36)
+1. Read trimming (Trimmomatic 0.36)
 
-* Read alignment (BWA 0.7.15, Samtools 1.5)
+2. Read alignment (BWA 0.7.15, Samtools 1.5)
 
-* Marking of duplicates (GATK4b5 or Picard 2.9.2)
+3. Marking of duplicates (GATK4b5 or Picard 2.9.2)
 
-* GATK4 workflow
+4a. GATK4 workflow
 
-   Base quality recalibration (GATK4b5)
+   * Base quality recalibration (GATK4b5)
 
-   Variant calling using HaplotypeCaller (GATK4b5) 
+   * Variant calling using HaplotypeCaller (GATK4b5) 
 
-   Merged genotype calls using GenotypeGVCFs (GATK4b5) [Includes 17 IKMB control exomes)
+   * Merged genotype calls using GenotypeGVCFs (GATK4b5) [Includes 17 IKMB control exomes)
 
-   Recalibration of SNPs and Indels (GATK4b5)
+   * Recalibration of SNPs and Indels (GATK4b5)
 
-   Merged gVCF with control exomes removed
+   * Merged gVCF with control exomes removed
 
-* FreeBayes workflow
+4b. FreeBayes workflow
 
-   Joint Variant calling (Freebayes 1.1.0)
+   * Joint Variant calling (Freebayes 1.1.0)
 
-   Hard filtering of resulting VCF file (VCFtools)
+   * Hard filtering of resulting VCF file (VCFtools)
 
-* Effect prediction with VEP (EnsEMBL86) and Annovar (2017)
+5. Effect prediction with VEP (EnsEMBL86) and Annovar (2017)
 
 ## Installing the pipeline
 
