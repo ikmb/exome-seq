@@ -97,9 +97,9 @@ This pipeline can be run with one of two processing chains - GATK4 and Freebayes
 
 To use one of the two processing chains, use the `tool` option:
 
-`nextflow run bfx-core/NF-diagnostics-exome --samples /path/to/sample_list.csv -hub ikmb --tool gatk`
+`nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv --tool gatk --kit Nextera`
 
-`nextflow run bfx-core/NF-diagnostics-exome --samples /path/to/sample_list.csv -hub ikmb --tool freebayes`
+`nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv --tool freebayes --kit Nextera`
 
 Note that Freebayes is the default and does not need to be specified. 
 
