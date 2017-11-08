@@ -2,7 +2,7 @@
 
 # IKMB Diagonistc Exome Pipeline
 
-# Please not
+# Please note
 
 This pipeline is under development. Specifically, the user can chose one of two processing chains for variant calling using either Freebayes or GATK4. The Freebayes workflow should work as expected. However, GATK4 is still being worked on by the BROAD Institute and the recommended processing chain not yet finalized. 
 
