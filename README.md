@@ -138,7 +138,7 @@ Please note that the following instructions are directed at bioinformaticians wi
     This pipeline requires a number of software tools (and versions) to function. There are two basic options to meet these requirements.
 
   * Install the different packages on your compute system and make sure they are loaded in i.e. $PATH. A clean way to achieve this are environment-modules, which are supported by various linux distributions. 
-  * Use the included bootstrap file (singularity/exomes.definition) to build a singularity container in which all the relevant tools will be installed automatically. 
+  * Use the corresponding bootstrap file from our container repo (http://git.ikmb.uni-kiel.de/bfx-core/singularity-images) to build a singularity container in which all the relevant tools will be installed automatically. 
 
 2. Create your own configuration file
 
