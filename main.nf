@@ -686,7 +686,7 @@ if (params.tool == "freebayes") {
     	set indivID, sampleID, realign_bam, recal_table from runBaseRecalibratorOutput 
 
     	output:
-    	set indivID, sampleID, file(outfile_bam), file(outfile_bai) into runPrintReadsOutput_for_DepthOfCoverage, runPrintReadsOutput_for_HC_Metrics, runPrintReadsOutput_for_Multiple_Metrics, runPrintReadsOutput_for_OxoG_Metrics
+    	set indivID, sampleID, file(outfile_bam), file(outfile_bai) into runPrintReadsOutput_for_DepthOfCoverage, runPrintReadsOutput_for_HC_Metrics, runPrintReadsOutput_for_Multiple_Metrics, runPrintReadsOutput_for_OxoG_Metrics, inputHCSample
     	set indivID, sampleID, realign_bam, recal_table into runPrintReadsOutput_for_PostRecal
             
     	script:
@@ -758,13 +758,13 @@ if (params.tool == "freebayes") {
     process runHCSampleGATK3 {
 
   	tag "${id}"
-  	publishDir "${OUTDIR}/HaplotypeCaller/${id}" , mode: 'copy'
+  	publishDir "${OUTDIR}/${indivID}/${sampleID}/HaplotypeCaller/" , mode: 'copy'
 
   	input: 
-  	set id,file(bam) from inputHCSample
+  	set IndivID,SampleID,file(bam),file(bai) from inputHCSample
 
   	output:
-  	file(vcf) into outputHCSample
+  	set id,file(vcf) into outputHCSample
 
   	script:
   
