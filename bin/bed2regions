@@ -4,7 +4,7 @@ f = File.open(ARGV.shift, "r")
 chr = ARGV.shift
 
 while (line = f.gets)
-	next if line.match(/^#.*/)
+	next if line.match(/^#.*/) or line.match(/^@.*/)
 	
 	seq,from,to,name = line.strip.split("\t")
 
