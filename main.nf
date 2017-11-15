@@ -84,7 +84,7 @@ slidingwindow = params.slidingwindow
 minlen = params.minlen
 adapters = params.adapters
 
-logParams(params, "${OUTDIR}/pipeline_parameters.txt")
+logParams(params, "pipeline_parameters.txt")
 
 VERSION = "0.1"
 
@@ -145,7 +145,6 @@ process runBWA {
 }
 
 runBWAOutput_grouped_by_sample = runBWAOutput.groupTuple(by: [0,1])
-
 
 process runMarkDuplicates {
 
@@ -671,7 +670,8 @@ if (params.tool == "freebayes") {
 			-knownSites ${GOLD1} \
 			-knownSites ${DBSNP} \
 	                -knownSites ${G1K} \
-			-o ${recal_table}
+			-o ${recal_table} \
+			-nct ${task.cpus}
 		"""
     }
 
@@ -700,7 +700,8 @@ if (params.tool == "freebayes") {
 		-R ${REF} \
 		-I ${realign_bam} \
 		-BQSR ${recal_table} \
-		-o ${outfile_bam}
+		-o ${outfile_bam} \
+		-nct ${task.cputs}
     	"""
     }
 
@@ -808,7 +809,7 @@ if (params.tool == "freebayes") {
 		--variant $calibration_exomes \
 		--dbsnp $dbsnp \
                 -o $gvcf \
-		-nt 8 \
+		-nt ${task.cpus} \
 		--useNewAFCalculator
   	"""
     }
