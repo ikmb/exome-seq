@@ -1,9 +1,9 @@
 #!/bin/env ruby
 
-f = File.open(ARGV.shift, "r")
 chr = ARGV.shift
+lines = $stdin
 
-while (line = f.gets)
+lines.each do |line|
 	next if line.match(/^#.*/) or line.match(/^@.*/)
 	
 	seq,from,to,name = line.strip.split("\t")
@@ -11,6 +11,5 @@ while (line = f.gets)
 	next unless seq == chr
 
         puts "#{seq}:#{from}-#{to}"
-
 end
 

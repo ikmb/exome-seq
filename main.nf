@@ -205,7 +205,7 @@ if (params.tool == "freebayes") {
 		vcf = "freebayes.${chr}.vcf"
 
 		"""
-			freebayes-parallel <(ruby $baseDir/bin/bed2regions $TARGETS $chr) ${task.cpus} -f ${REF} $freebayes_options ${bam_files} > ${vcf}
+			freebayes-parallel <(ruby $baseDir/bin/bed2regions $chr < $TARGETS) ${task.cpus} -f ${REF} $freebayes_options ${bam_files} > ${vcf}
 		"""
 	
 	}
