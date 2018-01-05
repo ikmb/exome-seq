@@ -238,7 +238,7 @@ if (params.tool == "freebayes") {
 		file(vcf) from outputVcfMerged
 
 		output:
-		file(vcf_filtered) into ( inputVep, inputAnnovar )
+		file(vcf_filtered) into inputLeftNormalize
 
 		script: 
 		vcf_filtered = "freebayes.merged.filtered.vcf"
@@ -626,7 +626,7 @@ if (params.tool == "freebayes") {
 	  file(merged_vcf) from outputCombineVariants
 
 	  output:
-	  file(filtered_vcf) into (inputVep, inputAnnovar)
+	  file(filtered_vcf) into inputLeftNormalize
 
 	  script:
 	  filtered_vcf = "merged_callset.calibration_removed.vcf"
@@ -992,7 +992,7 @@ if (params.tool == "freebayes") {
   	file(merged_vcf) from outputCombineVariants
 
   	output:
-  	file(filtered_vcf) into (inputVep, inputAnnovar)
+  	file(filtered_vcf) into inputLeftNormalize
 
   	script:
   	filtered_vcf = "merged_callset.calibration_removed.vcf"
@@ -1218,6 +1218,27 @@ process runMultiQCSample {
 // *************************
 // Variant effect prediction
 // *************************
+
+process runLeftNormalize {
+
+   tag "ALL"
+   publishDir "#{OUTDIR}/Final", mode: 'copy'
+
+   input:
+   file(vcf_file) from inputLeftNormalize
+ 
+   output:
+   file(vcf_normalized) into ( inputVep, inputAnnovar)
+
+   script:
+
+   vcf_normalized = "variants.merged.normalized.vcf"
+
+   """
+	bcftools norm -f $REF $vcf_file > $vcf_normalized
+   """
+
+}
 
 process runVep {
 
