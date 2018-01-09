@@ -299,7 +299,7 @@ if (params.tool == "freebayes") {
     		set indivID, sampleID, realign_bam, recal_table from runBaseRecalibratorOutput 
 
     		output:
-    		set indivID, sampleID, file(outfile_bam), file(outfile_bai) into runPrintReadsOutput_for_HC_Metrics, runPrintReadsOutput_for_Multiple_Metrics, runPrintReadsOutput_for_OxoG_Metrics
+    		set indivID, sampleID, file(outfile_bam), file(outfile_bai) into runPrintReadsOutput_for_HC_Metrics, runPrintReadsOutput_for_Multiple_Metrics
     		set indivID, sampleID, realign_bam, recal_table into runPrintReadsOutput_for_PostRecal
     		set indivID, sampleID, file(outfile_bam), file(outfile_bai) into inputHCSample
 		set indivID, outfile_md5 into BamMD5
@@ -662,7 +662,6 @@ if (params.tool == "freebayes") {
     	recal_table = sampleID + "_recal_table.txt" 
        
     	"""
-    
 		java -XX:ParallelGCThreads=2 -Xmx${task.memory.toGiga()}G -Djava.io.tmpdir=tmp/ -jar ${GATK} \
 			-T BaseRecalibrator \
 			-R ${REF} \
@@ -686,7 +685,7 @@ if (params.tool == "freebayes") {
     	set indivID, sampleID, realign_bam, recal_table from runBaseRecalibratorOutput 
 
     	output:
-    	set indivID, sampleID, file(outfile_bam), file(outfile_bai) into runPrintReadsOutput_for_DepthOfCoverage, runPrintReadsOutput_for_HC_Metrics, runPrintReadsOutput_for_Multiple_Metrics, runPrintReadsOutput_for_OxoG_Metrics, inputHCSample
+    	set indivID, sampleID, file(outfile_bam), file(outfile_bai) into runPrintReadsOutput_for_DepthOfCoverage, runPrintReadsOutput_for_Multiple_Metrics, inputHCSample
     	set indivID, sampleID, realign_bam, recal_table into runPrintReadsOutput_for_PostRecal
             
     	script:
@@ -701,7 +700,7 @@ if (params.tool == "freebayes") {
 		-I ${realign_bam} \
 		-BQSR ${recal_table} \
 		-o ${outfile_bam} \
-		-nct ${task.cputs}
+		-nct ${task.cpus}
     	"""
     }
 
@@ -757,18 +756,18 @@ if (params.tool == "freebayes") {
 
     process runHCSampleGATK3 {
 
-  	tag "${id}"
+  	tag "${sampleID}"
   	publishDir "${OUTDIR}/${indivID}/${sampleID}/HaplotypeCaller/" , mode: 'copy'
 
   	input: 
   	set IndivID,SampleID,file(bam),file(bai) from inputHCSample
 
   	output:
-  	set id,file(vcf) into outputHCSample
+  	set SampleID,file(vcf) into outputHCSample
 
   	script:
   
-  	vcf = id + ".raw_variants.g.vcf"
+  	vcf = SampleID + ".raw_variants.g.vcf"
 
   	"""
 		java -jar -Xmx${task.memory.toGiga()}G $GATK \
@@ -1222,7 +1221,7 @@ process runMultiQCSample {
 process runLeftNormalize {
 
    tag "ALL"
-   publishDir "#{OUTDIR}/Final", mode: 'copy'
+   publishDir "${OUTDIR}/Final", mode: 'copy'
 
    input:
    file(vcf_file) from inputLeftNormalize
