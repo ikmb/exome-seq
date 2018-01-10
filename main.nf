@@ -9,11 +9,21 @@ using either the GATK processing chain or Freebayes
 
 inputFile = file(params.samples)
 
+valid_tools = [ "freebayes", "gatk3", "gatk4" ]
 // Specify the tool chain to use - can be either gatk for GATK4 or freebayes for Freebayes 1.10
 params.tool = "freebayes"
 
+if (valid_tools.contains(params.tool) == false) {
+   exit 1; "Specified an unknown tool chain, please consult the documentation for valid assemblies."
+}
+
 // Specify a custom interval file for coverage metric calculations
 params.custom_intervals = false
+
+// EXOMISER input data
+params.hpo = false
+params.ped = false
+params.omim = false
 
 // This will eventually enable switching between multiple assembly versions
 // Currently, only hg19 has all the required reference files available
@@ -42,6 +52,7 @@ GATK = file(params.gatk_jar)
 PICARD = file(params.picard_jar)
 OUTDIR = file(params.outdir)
 
+// Allow for custom freebayes filter options
 params.freebayes_options = "--min-alternate-fraction 0.2 --min-base-quality 20 --min-alternate-qsum 90"
 freebayes_options = params.freebayes_options
 
@@ -52,6 +63,7 @@ if (params.genomes[params.assembly].kits.containsKey(params.kit) == false) {
 TARGETS= params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS= params.genomes[params.assembly].kits[ params.kit ].baits
 
+// Determine valid intervals for freebayes parallel processing from the exome target file
 chromosomes =  []
 file(TARGETS).eachLine { line ->
 	elements = line.trim().split("\t")
@@ -65,18 +77,17 @@ file(TARGETS).eachLine { line ->
 
 // We add 17 reference exome gVCFs to make sure that variant filtration works
 // These are in hg19 so need to be updated to other assemblies if multiple assemblies are to be supported
+
 calibration_exomes = file(params.calibration_exomes)
 calibration_samples_list = file(params.calibration_exomes_samples)
 
-// Get the names of all sequences and create a list for parallel processing in Freebayes
-// For this we use the index file of the genome fasta
-
-TRIMMOMATIC=file(params.trimmomatic)
-
+// Whether to send a notification upon workflow completion
 params.email = false
 
 // Whether to use a local scratch disc
 use_scratch = params.scratch
+
+TRIMMOMATIC=file(params.trimmomatic)
 
 leading = params.leading
 trailing = params.trailing
@@ -278,7 +289,7 @@ if (params.tool == "freebayes") {
     		recal_table = sampleID + "_recal_table.txt" 
        
     		"""
-			gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" BaseRecalibrator \
+			gatk --javaOptions "-Xmx${task.memory.toGiga()}G" BaseRecalibrator \
 			--reference ${REF} \
 			--input ${dedup_bam} \
 			--knownSites ${GOLD1} \
@@ -299,9 +310,8 @@ if (params.tool == "freebayes") {
     		set indivID, sampleID, realign_bam, recal_table from runBaseRecalibratorOutput 
 
     		output:
-    		set indivID, sampleID, file(outfile_bam), file(outfile_bai) into runPrintReadsOutput_for_HC_Metrics, runPrintReadsOutput_for_Multiple_Metrics
+    		set indivID, sampleID, file(outfile_bam), file(outfile_bai) into runPrintReadsOutput_for_Multiple_Metrics,inputHCSample
     		set indivID, sampleID, realign_bam, recal_table into runPrintReadsOutput_for_PostRecal
-    		set indivID, sampleID, file(outfile_bam), file(outfile_bai) into inputHCSample
 		set indivID, outfile_md5 into BamMD5
             
     		script:
@@ -310,7 +320,7 @@ if (params.tool == "freebayes") {
 		outfile_md5 = sampleID + ".clean.bam.md5"
            
     		"""
-                gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" ApplyBQSR \
+                gatk --javaOptions "-Xmx${task.memory.toGiga()}G" ApplyBQSR \
                 --reference ${REF} \
                 --input ${realign_bam} \
                 --bqsr_recal_file ${recal_table} \
@@ -334,7 +344,7 @@ if (params.tool == "freebayes") {
     		post_recal_table = sampleID + "_post_recal_table.txt" 
    
     		"""
-			gatk-launch --javaOptions "-Xmx25G" BaseRecalibrator \
+			gatk --javaOptions "-Xmx25G" BaseRecalibrator \
 			--reference ${REF} \
 			--input ${realign_bam} \
 			--knownSites ${GOLD1} \
@@ -358,12 +368,14 @@ if (params.tool == "freebayes") {
     		recal_plots = sampleID + "_recal_plots.pdf" 
 
     		"""
-			gatk-launch --javaOptions "-Xmx5G" AnalyzeCovariates \
+			gatk --javaOptions "-Xmx5G" AnalyzeCovariates \
 				--beforeReportFile ${recal_table} \
 				--afterReportFile ${post_recal_table} \
 				--plotsReportFile ${recal_plots}
 		"""
 	}    
+
+	// Call variants on a per-sample basis
 
 	process runHCSample {
 
@@ -383,7 +395,7 @@ if (params.tool == "freebayes") {
 		vcf_index = vcf + ".tbi"
 
   		"""
-		gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" HaplotypeCaller \
+		gatk --javaOptions "-Xmx${task.memory.toGiga()}G" HaplotypeCaller \
 			-R $REF \
 			-I ${bam} \
 			-L $TARGETS \
@@ -397,14 +409,16 @@ if (params.tool == "freebayes") {
   		"""
 	}
 
+	// Import individual vcf files into a GenomicsDB database on a per chromosome basis
+	// From here on all samples are in the same file
 	process runGenomicsDBImport  {
 
 		tag "ALL - using 17 IKMB reference exomes for calibration"
                 publishDir "${OUTDIR}/Variants/JoinedGenotypes"
 
 		input:
-                file(vcf_list) from inputMergeVcf
-		file(index_list) from inputMergeVcfIndex
+                file(vcf_list) from outputHCSample
+		file(index_list) from outputHCSampleIndex
 
 		each chr from chromosomes
 
@@ -412,10 +426,10 @@ if (params.tool == "freebayes") {
                 set chr,file(genodb) into inputJoinedGenotyping
 
 		script:
-		genodb = "genodb"
+		genodb = "genodb_${chr}"
 
 		"""
-		gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" GenomicsDBImport  \
+		gatk --javaOptions "-Xmx${task.memory.toGiga()}G" GenomicsDBImport  \
 			--variant ${vcf_list.join(" --variant ")} \
                         --variant $calibration_exomes \
 			--reference $REF \
@@ -425,23 +439,25 @@ if (params.tool == "freebayes") {
 
 	}
 
+	// Perform genotyping on a per chromosome basis
+
 	process runJoinedGenotyping {
   
   		tag "ALL - using 17 IKMB reference exomes for calibration"
-  		publishDir "${OUTDIR}/Variants/JoinedGenotypes"
+  		publishDir "${OUTDIR}/Variants/JoinedGenotypes/PerRegion"
   
   		input:
   		set chr,file(genodb) from inputJoinedGenotyping
   
   		output:
-  		file(gvcf) into (inputRecalSNP , inputRecalIndel)
+  		file(gvcf) into inputCombineVariantsFromGenotyping
   
   		script:
   
   		gvcf = "genotypes." + chr + ".gvcf"
   
   		"""
-	 	gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" GenotypeGVCFs \
+	 	gatk --javaOptions "-Xmx${task.memory.toGiga()}G" GenotypeGVCFs \
 			--reference $REF \
 			--dbsnp $DBSNP \
 			--genomicsDBWorkspace gendb://${genodb} \
@@ -449,6 +465,27 @@ if (params.tool == "freebayes") {
                         -G StandardAnnotation -newQual \
   		"""
 	}
+
+	// Merging the scatter-gather VCF files into one file
+
+	process combineVariantsFromGenotyping {
+		tag "ALL - using 17 IKMB reference exomes for calibration"
+		publishDir "${OUTDIR}/Variants/JoinedGenotypes"
+
+		input:
+		file(vcf_files) from inputCombineVariantsFromGenotyping.collect()
+
+		output:
+		file(gvcf) into (inputRecalSNP , inputRecalIndel)
+
+		script:
+
+		gvcf = "genotypes.merged.gvcf"
+
+		"""
+        		vcf-concat ${vcf_files.join(" ")} | vcf-sort | bgzip > $gvcf
+		"""
+        }
 
 	process runRecalibrationModeSNP {
 
@@ -467,7 +504,7 @@ if (params.tool == "freebayes") {
   		rscript = "genotypes.recal_SNP.R"
 
   		"""
-		gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
+		gatk --javaOptions "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
 			-R $REF \
 			-input $gvcf \
                 	--recal_file $recal_file \
@@ -500,7 +537,7 @@ if (params.tool == "freebayes") {
 		rscript = "genotypes.recal_Indel.R"
 
   		"""
-	        gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
+	        gatk --javaOptions "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
         	        -R $REF \
 	                -input $gvcf \
                 	--recal_file $recal_file \
@@ -529,7 +566,7 @@ if (params.tool == "freebayes") {
   		vcf_snp = "genotypes.recal_SNP.vcf"
 
   		"""
-	 	gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" ApplyRecalibration \
+	 	gatk --javaOptions "-Xmx${task.memory.toGiga()}G" ApplyRecalibration \
 			-R $REF \
 			-input $gvcf \
 		        -recalFile $recal_file \
@@ -556,7 +593,7 @@ if (params.tool == "freebayes") {
   		vcf_indel = "genotypes.recal_Indel.vcf"
 
   		"""
-        	gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" ApplyRecalibration \
+        	gatk --javaOptions "-Xmx${task.memory.toGiga()}G" ApplyRecalibration \
                 	-R $REF \
 	                -input $gvcf \
         	        -recalFile $recal_file \
@@ -583,7 +620,7 @@ if (params.tool == "freebayes") {
 	  	filtered_gvcf = "genotypes.recal_Indel.filtered.vcf"
 
   		"""
-		gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" VariantFiltration \
+		gatk --javaOptions "-Xmx${task.memory.toGiga()}G" VariantFiltration \
                 -R $REF \
                 -V $gvcf \
 		-filter "QD < 2.0" \
@@ -609,7 +646,7 @@ if (params.tool == "freebayes") {
 		merged_file = "merged_callset.vcf"
 
 		"""
-			gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" CombineVariants \
+			gatk --javaOptions "-Xmx${task.memory.toGiga()}G" CombineVariants \
 			-R $REF \
 			--variant $indel --variant $snp \
 			-o $merged_file \
@@ -632,7 +669,7 @@ if (params.tool == "freebayes") {
 	  filtered_vcf = "merged_callset.calibration_removed.vcf"
 
 	  """
-		gatk-launch --javaOptions "-Xmx${task.memory.toGiga()}G" SelectVariants \
+		gatk --javaOptions "-Xmx${task.memory.toGiga()}G" SelectVariants \
 	        -R $REF \
 		-V $merged_vcf \
 		--exclude_sample_file $calibration_samples_list \
