@@ -763,7 +763,7 @@ if (params.tool == "freebayes") {
   	set IndivID,SampleID,file(bam),file(bai) from inputHCSample
 
   	output:
-  	set SampleID,file(vcf) into outputHCSample
+  	set file(vcf) into outputHCSample
 
   	script:
   
@@ -806,7 +806,7 @@ if (params.tool == "freebayes") {
                 -R $REF \
                 --variant ${vcf_list.join(" --variant ")} \
 		--variant $calibration_exomes \
-		--dbsnp $dbsnp \
+		--dbsnp $DBSNP \
                 -o $gvcf \
 		-nt ${task.cpus} \
 		--useNewAFCalculator
@@ -838,15 +838,15 @@ if (params.tool == "freebayes") {
                 --rscript_file $rscript \
 		-an MQ -an MQRankSum -an ReadPosRankSum -an FS -an DP \
                 --mode SNP \
-		-resource:hapmap,known=false,training=true,truth=true,prior=15.0 $hapmap \
-		-resource:omni,known=false,training=true,truth=true,prior=12.0 $omni \
-		-resource:1000G,known=false,training=true,truth=false,prior=10.0 $g1k \
-		-resource:dbsnp,known=true,training=false,truth=false,prior=2.0 $dbsnp \
+		-resource:hapmap,known=false,training=true,truth=true,prior=15.0 $HAPMAP \
+		-resource:omni,known=false,training=true,truth=true,prior=12.0 $OMNI \
+		-resource:1000G,known=false,training=true,truth=false,prior=10.0 $G1K \
+		-resource:dbsnp,known=true,training=false,truth=false,prior=2.0 $DBSNP \
 		-nt ${task.cpus}
   	"""
      }
 
-    process RunRecalibrationModeIndelGATK3 {
+    process runRecalibrationModeIndelGATK3 {
 
   	tag "ALL"
   	publishDir "${OUTDIR}/Recal"
@@ -872,8 +872,8 @@ if (params.tool == "freebayes") {
                 --rscript_file $rscript \
                 -an MQ -an MQRankSum -an SOR -an ReadPosRankSum -an FS  \
                 --mode INDEL \
-                -resource:mills,known=false,training=true,truth=true,prior=15.0 $mills \
-                -resource:dbsnp,known=true,training=false,truth=false,prior=2.0 $dbsnp \
+                -resource:mills,known=false,training=true,truth=true,prior=15.0 $GOLD1 \
+                -resource:dbsnp,known=true,training=false,truth=false,prior=2.0 $DBSNP \
                 -nt ${task.cpus}
   	"""
     }
