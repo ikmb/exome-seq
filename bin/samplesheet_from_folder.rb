@@ -68,7 +68,7 @@ groups.each do |group, files|
 
         pgu = header[0].gsub("@", "")
 
-        puts "Indiv_#{sample};Sam_#{sample};#{library};#{readgroup};#{pgu};Illumina;HiSeq3000;#{center};#{date};#{left};#{right}"
+        puts "Indiv_#{sample};Sample_#{sample};#{library};#{readgroup};#{pgu};Illumina;HiSeq3000;#{center};#{date};#{left};#{right}"
 
 end
 

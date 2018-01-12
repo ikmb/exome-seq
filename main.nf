@@ -7,18 +7,20 @@ This Pipeline performs one of two workflows to generate variant calls and effect
 using either the GATK processing chain or Freebayes
 **/
 
+// #############
+// INPUT OPTIONS
+// #############
+
 inputFile = file(params.samples)
 
+// Available tool chains
+
 valid_tools = [ "freebayes", "gatk3", "gatk4" ]
-// Specify the tool chain to use - can be either gatk for GATK4 or freebayes for Freebayes 1.10
 params.tool = "freebayes"
 
 if (valid_tools.contains(params.tool) == false) {
-   exit 1; "Specified an unknown tool chain, please consult the documentation for valid assemblies."
+   exit 1; "Specified an unknown tool chain, please consult the documentation for valid tool chains."
 }
-
-// Specify a custom interval file for coverage metric calculations
-params.custom_intervals = false
 
 // EXOMISER input data
 params.hpo = false
@@ -35,6 +37,7 @@ if (params.genomes.containsKey(params.assembly) == false) {
 
 REF = file(params.genomes[ params.assembly ].fasta)
 REF_CHR_ROOT = params.genomes[ params.assembly ].per_sequence_root
+DICT = file(params.genomes[params.assembly ].dict)
 
 DBSNP = file(params.genomes[ params.assembly ].dbsnp )
 G1K = file(params.genomes[ params.assembly ].g1k )
@@ -47,8 +50,8 @@ ANNOVAR_DB = file(params.genomes[ params.assembly ].annovar_db )
 
 VEP_CACHE = params.vep_cache
 
+// Location of applications used
 GATK = file(params.gatk_jar)
-
 PICARD = file(params.picard_jar)
 OUTDIR = file(params.outdir)
 
@@ -56,6 +59,7 @@ OUTDIR = file(params.outdir)
 params.freebayes_options = "--min-alternate-fraction 0.2 --min-base-quality 20 --min-alternate-qsum 90"
 freebayes_options = params.freebayes_options
 
+// Available exome kits
 if (params.genomes[params.assembly].kits.containsKey(params.kit) == false) {
    exit 1, "Specified unknown Exome kit, please consult the documentation for valid kits."
 }
@@ -63,11 +67,11 @@ if (params.genomes[params.assembly].kits.containsKey(params.kit) == false) {
 TARGETS= params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS= params.genomes[params.assembly].kits[ params.kit ].baits
 
-// Determine valid intervals for freebayes parallel processing from the exome target file
+// Determine valid intervals for parallel processing from the exome target file
 chromosomes =  []
 file(TARGETS).eachLine { line ->
 	elements = line.trim().split("\t")
-	seq = elements[0]
+	seq = elements[0].trim()
 	if (seq =~ /^chr.*/) {
 		if (chromosomes.contains(seq) == false)	{
 			chromosomes << seq
@@ -81,12 +85,24 @@ file(TARGETS).eachLine { line ->
 calibration_exomes = file(params.calibration_exomes)
 calibration_samples_list = file(params.calibration_exomes_samples)
 
+// GATK4 requires a specific name extension...
+if (params.tool == "gatk4") {
+	calibration_samples_list = file(params.calibration_exomes_samples_args)
+}
+
+calibration_vcfs = [ ]
+file(calibration_exomes).eachLine { line ->
+        location = line.trim()
+        calibration_vcfs << location
+}
+
 // Whether to send a notification upon workflow completion
 params.email = false
 
 // Whether to use a local scratch disc
 use_scratch = params.scratch
 
+// Trimmomatic options
 TRIMMOMATIC=file(params.trimmomatic)
 
 leading = params.leading
@@ -157,6 +173,24 @@ process runBWA {
 
 runBWAOutput_grouped_by_sample = runBWAOutput.groupTuple(by: [0,1])
 
+process mergeBamFiles {
+
+        tag "${indivID}|${sampleID}"
+	
+	input:
+        set indivID, sampleID, file(aligned_bam_list) from runBWAOutput_grouped_by_sample
+
+	output:
+	set indivID,sampleID,file(merged_bam) into mergedBamFile_by_Sample
+
+	script:
+	merged_bam = sampleID + "merged.bam"
+
+	"""
+		samtools merge -p -c -@ ${task.cpus} $merged_bam ${aligned_bam_list.join(' ')}
+	"""
+}
+
 process runMarkDuplicates {
 
 	tag "${indivID}|${sampleID}"
@@ -165,7 +199,7 @@ process runMarkDuplicates {
         // scratch use_scratch
 
         input:
-        set indivID, sampleID, file(aligned_bam_list) from runBWAOutput_grouped_by_sample
+        set indivID, sampleID, file(merged_bam) from mergedBamFile_by_Sample
 
         output:
         set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics, runPrintReadsOutput_for_OxoG_Metrics, runPrintReadsOutput_for_HC_Metrics, BamForDepthOfCoverage
@@ -183,7 +217,7 @@ process runMarkDuplicates {
 
 	"""
         	java -Xmx${task.memory.toGiga()}G -XX:ParallelGCThreads=5 -Djava.io.tmpdir=tmp/ -jar ${PICARD} MarkDuplicates \
-                	INPUT=${aligned_bam_list.join(" INPUT=")} \
+                	INPUT=${merged_bam} \
 	                OUTPUT=${outfile_bam} \
         	        METRICS_FILE=${outfile_metrics} \
                         CREATE_INDEX=true \
@@ -289,12 +323,12 @@ if (params.tool == "freebayes") {
     		recal_table = sampleID + "_recal_table.txt" 
        
     		"""
-			gatk --javaOptions "-Xmx${task.memory.toGiga()}G" BaseRecalibrator \
+			gatk --java-options "-Xmx${task.memory.toGiga()}G" BaseRecalibrator \
 			--reference ${REF} \
 			--input ${dedup_bam} \
-			--knownSites ${GOLD1} \
-			--knownSites ${DBSNP} \
-        	        --knownSites ${G1K} \
+			--known-sites ${GOLD1} \
+			--known-sites ${DBSNP} \
+        	        --known-sites ${G1K} \
 			--output ${recal_table}
 		"""
 	}
@@ -320,12 +354,12 @@ if (params.tool == "freebayes") {
 		outfile_md5 = sampleID + ".clean.bam.md5"
            
     		"""
-                gatk --javaOptions "-Xmx${task.memory.toGiga()}G" ApplyBQSR \
+                gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyBQSR \
                 --reference ${REF} \
                 --input ${realign_bam} \
-                --bqsr_recal_file ${recal_table} \
+                -bqsr ${recal_table} \
                 --output ${outfile_bam} \
-                --createOutputBamMD5 true
+                -OBM true
     		"""
 	}    
 
@@ -344,11 +378,11 @@ if (params.tool == "freebayes") {
     		post_recal_table = sampleID + "_post_recal_table.txt" 
    
     		"""
-			gatk --javaOptions "-Xmx25G" BaseRecalibrator \
+			gatk --java-options "-Xmx25G" BaseRecalibrator \
 			--reference ${REF} \
 			--input ${realign_bam} \
-			--knownSites ${GOLD1} \
-			--knownSites ${DBSNP} \
+			--known-sites ${GOLD1} \
+			--known-sites ${DBSNP} \
 			--output ${post_recal_table}
 		"""
 	}	
@@ -368,10 +402,10 @@ if (params.tool == "freebayes") {
     		recal_plots = sampleID + "_recal_plots.pdf" 
 
     		"""
-			gatk --javaOptions "-Xmx5G" AnalyzeCovariates \
-				--beforeReportFile ${recal_table} \
-				--afterReportFile ${post_recal_table} \
-				--plotsReportFile ${recal_plots}
+			gatk --java-options "-Xmx5G" AnalyzeCovariates \
+				--before-report-file ${recal_table} \
+				--after-report-file ${post_recal_table} \
+				--plots-report-file ${recal_plots}
 		"""
 	}    
 
@@ -395,17 +429,16 @@ if (params.tool == "freebayes") {
 		vcf_index = vcf + ".tbi"
 
   		"""
-		gatk --javaOptions "-Xmx${task.memory.toGiga()}G" HaplotypeCaller \
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" HaplotypeCaller \
 			-R $REF \
 			-I ${bam} \
 			-L $TARGETS \
 			-L chrM \
-			--genotyping_mode DISCOVERY \
-			--emitRefConfidence GVCF \
-			--createOutputVariantIndex true \
+			--genotyping-mode DISCOVERY \
+			--emit-ref-confidence GVCF \
+			-OVI true \
     			--output $vcf \
-			--nativePairHmmThreads 8 \
-			&& tabix $vcf
+			--native-pair-hmm-threads ${task.cpus} &> log.txt \
   		"""
 	}
 
@@ -413,12 +446,12 @@ if (params.tool == "freebayes") {
 	// From here on all samples are in the same file
 	process runGenomicsDBImport  {
 
-		tag "ALL - using 17 IKMB reference exomes for calibration"
-                publishDir "${OUTDIR}/Variants/JoinedGenotypes"
+		tag "${chr} - using 17 IKMB reference exomes for calibration"
+                publishDir "${OUTDIR}/Variants/JoinedGenotypes/PerRegion"
 
 		input:
-                file(vcf_list) from outputHCSample
-		file(index_list) from outputHCSampleIndex
+                file(vcf_list) from outputHCSample.collect()
+		file(index_list) from outputHCSampleIndex.collect()
 
 		each chr from chromosomes
 
@@ -429,12 +462,12 @@ if (params.tool == "freebayes") {
 		genodb = "genodb_${chr}"
 
 		"""
-		gatk --javaOptions "-Xmx${task.memory.toGiga()}G" GenomicsDBImport  \
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" GenomicsDBImport  \
 			--variant ${vcf_list.join(" --variant ")} \
-                        --variant $calibration_exomes \
+                        --variant ${calibration_vcfs.join(" --variant ")} \
 			--reference $REF \
 			--intervals $chr \
-			--genomicsDBWorkspace $genodb
+			--genomicsdb-workspace-path $genodb
 		"""
 
 	}
@@ -443,7 +476,7 @@ if (params.tool == "freebayes") {
 
 	process runJoinedGenotyping {
   
-  		tag "ALL - using 17 IKMB reference exomes for calibration"
+  		tag "${chr} - using 17 IKMB reference exomes for calibration"
   		publishDir "${OUTDIR}/Variants/JoinedGenotypes/PerRegion"
   
   		input:
@@ -457,12 +490,12 @@ if (params.tool == "freebayes") {
   		gvcf = "genotypes." + chr + ".gvcf"
   
   		"""
-	 	gatk --javaOptions "-Xmx${task.memory.toGiga()}G" GenotypeGVCFs \
+	 	gatk --java-options "-Xmx${task.memory.toGiga()}G" GenotypeGVCFs \
 			--reference $REF \
 			--dbsnp $DBSNP \
-			--genomicsDBWorkspace gendb://${genodb} \
+			-V gendb://${genodb} \
                 	--output $gvcf \
-                        -G StandardAnnotation -newQual \
+                        -G StandardAnnotation -new-qual \
   		"""
 	}
 
@@ -480,7 +513,7 @@ if (params.tool == "freebayes") {
 
 		script:
 
-		gvcf = "genotypes.merged.gvcf"
+		gvcf = "genotypes.merged.gvcf.gz"
 
 		"""
         		vcf-concat ${vcf_files.join(" ")} | vcf-sort | bgzip > $gvcf
@@ -504,18 +537,18 @@ if (params.tool == "freebayes") {
   		rscript = "genotypes.recal_SNP.R"
 
   		"""
-		gatk --javaOptions "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
 			-R $REF \
-			-input $gvcf \
-                	--recal_file $recal_file \
-        	        --tranches_file $tranches \
-	                --rscript_file $rscript \
+			-V $gvcf \
+                	-O $recal_file \
+        	        --tranches-file $tranches \
+	                --rscript-file $rscript \
 			-an MQ -an MQRankSum -an ReadPosRankSum -an FS -an DP \
-        	        --mode SNP \
-			-resource:hapmap,known=false,training=true,truth=true,prior=15.0 $HAPMAP \
-			-resource:omni,known=false,training=true,truth=true,prior=12.0 $OMNI \
-			-resource:1000G,known=false,training=true,truth=false,prior=10.0 $G1K \
-			-resource:dbsnp,known=true,training=false,truth=false,prior=2.0 $DBSNP \
+        	        -mode SNP \
+			--resource hapmap,known=false,training=true,truth=true,prior=15.0:$HAPMAP \
+			--resource omni,known=false,training=true,truth=true,prior=12.0:$OMNI \
+			--resource 1000G,known=false,training=true,truth=false,prior=10.0:$G1K \
+			--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
   		"""
 	}
 
@@ -537,16 +570,16 @@ if (params.tool == "freebayes") {
 		rscript = "genotypes.recal_Indel.R"
 
   		"""
-	        gatk --javaOptions "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
+	        gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
         	        -R $REF \
-	                -input $gvcf \
-                	--recal_file $recal_file \
-        	        --tranches_file $tranches \
-	                --rscript_file $rscript \
+	                -V $gvcf \
+                	-O $recal_file \
+        	        --tranches-file $tranches \
+	                --rscript-file $rscript \
                 	-an MQ -an MQRankSum -an SOR -an ReadPosRankSum -an FS  \
-        	        --mode INDEL \
-	                -resource:mills,known=false,training=true,truth=true,prior=15.0 $GOLD1 \
-                	-resource:dbsnp,known=true,training=false,truth=false,prior=2.0 $DBSNP \
+        	        -mode INDEL \
+	                --resource mills,known=false,training=true,truth=true,prior=15.0:$GOLD1 \
+                	--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
   		"""
 	}
 
@@ -563,17 +596,18 @@ if (params.tool == "freebayes") {
 
   		script:
  
-  		vcf_snp = "genotypes.recal_SNP.vcf"
+  		vcf_snp = "genotypes.recal_SNP.vcf.gz"
 
   		"""
-	 	gatk --javaOptions "-Xmx${task.memory.toGiga()}G" ApplyRecalibration \
+		gatk IndexFeatureFile -F $recal_file
+	 	gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyVQSR \
 			-R $REF \
-			-input $gvcf \
-		        -recalFile $recal_file \
-                	-tranchesFile $tranches \
-			--mode SNP \
-			--ts_filter_level 99.0 \
-			-o $vcf_snp	
+			-V $gvcf \
+		        --recal-file $recal_file \
+                	--tranches-file $tranches \
+			-mode SNP \
+			--ts-filter-level 99.0 \
+			-O $vcf_snp	
   		"""
 	}
 
@@ -590,17 +624,18 @@ if (params.tool == "freebayes") {
 
 	  	script:
 
-  		vcf_indel = "genotypes.recal_Indel.vcf"
+  		vcf_indel = "genotypes.recal_Indel.vcf.gz"
 
   		"""
-        	gatk --javaOptions "-Xmx${task.memory.toGiga()}G" ApplyRecalibration \
+                gatk IndexFeatureFile -F $recal_file
+        	gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyVQSR \
                 	-R $REF \
-	                -input $gvcf \
-        	        -recalFile $recal_file \
-                	-tranchesFile $tranches \
-	                --mode Indel \
-        	        --ts_filter_level 99.0 \
-                	-o $vcf_indel
+	                -V $gvcf \
+        	        --recal-file $recal_file \
+                	--tranches-file $tranches \
+	                -mode INDEL \
+        	        --ts-filter-level 99.0 \
+                	-O $vcf_indel
 	  	"""
 	}
 
@@ -617,15 +652,15 @@ if (params.tool == "freebayes") {
 
 	  	script:
 
-	  	filtered_gvcf = "genotypes.recal_Indel.filtered.vcf"
+	  	filtered_gvcf = "genotypes.recal_Indel.filtered.vcf.gz"
 
   		"""
-		gatk --javaOptions "-Xmx${task.memory.toGiga()}G" VariantFiltration \
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantFiltration \
                 -R $REF \
                 -V $gvcf \
-		-filter "QD < 2.0" \
-		-filterName "QDFilter" \
-                -o $filtered_gvcf
+		--filter-expression "QD < 2.0" \
+		--filter-name "QDFilter" \
+                -O $filtered_gvcf
   		"""
 	}
 
@@ -634,7 +669,7 @@ if (params.tool == "freebayes") {
 	process runCombineVariants {
 
   		tag "ALL"
-	  	publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
+	  	// publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
 
   		input: 
 	     	set file(indel),file(snp) from inputCombineVariants.collect()
@@ -643,21 +678,22 @@ if (params.tool == "freebayes") {
 		file(merged_file) into outputCombineVariants
 
 		script:
-		merged_file = "merged_callset.vcf"
+		merged_file = "merged_callset.vcf.gz"
 
 		"""
-			gatk --javaOptions "-Xmx${task.memory.toGiga()}G" CombineVariants \
-			-R $REF \
-			--variant $indel --variant $snp \
-			-o $merged_file \
-			--genotypemergeoption UNSORTED
+			java -jar $PICARD MergeVcfs \
+			I=$indel \
+			I=$snp \
+			O=$merged_file \
+			R=$REF \
+			D=$DICT
   		"""
 	}
 
 	process runRemoveCalibrationExomes {
 
 	  tag "ALL"
-	  publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
+	  // publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
 
 	  input:
 	  file(merged_vcf) from outputCombineVariants
@@ -669,17 +705,17 @@ if (params.tool == "freebayes") {
 	  filtered_vcf = "merged_callset.calibration_removed.vcf"
 
 	  """
-		gatk --javaOptions "-Xmx${task.memory.toGiga()}G" SelectVariants \
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" SelectVariants \
 	        -R $REF \
 		-V $merged_vcf \
 		--exclude_sample_file $calibration_samples_list \
-        	-o $filtered_vcf
+        	-O $filtered_vcf
   	  """
   
 	}
 
 // ++++++++++++++++++
-// GATK3 workflow
+// GATK3 workflow -  for legacy purposes only
 // ++++++++++++++++++
 
 } else if (params.tool == "gatk3") {
@@ -794,7 +830,7 @@ if (params.tool == "freebayes") {
     process runHCSampleGATK3 {
 
   	tag "${sampleID}"
-  	publishDir "${OUTDIR}/${indivID}/${sampleID}/HaplotypeCaller/" , mode: 'copy'
+  	publishDir "${OUTDIR}/${IndivID}/${SampleID}/HaplotypeCaller/" , mode: 'copy'
 
   	input: 
   	set IndivID,SampleID,file(bam),file(bai) from inputHCSample
@@ -999,7 +1035,7 @@ if (params.tool == "freebayes") {
     process runCombineVariantsGATK3 {
 
   	tag "ALL"
-  	publishDir "${OUTDIR}/Final", mode: 'copy'
+  	// publishDir "${OUTDIR}/Final", mode: 'copy'
 
   	input: 
      	set file(indel),file(snp) from inputCombineVariants.collect()
@@ -1022,7 +1058,7 @@ if (params.tool == "freebayes") {
     process runRemoveCalibrationExomesGATK3 {
 
   	tag "ALL"
-  	publishDir "${OUTDIR}/Final", mode: 'copy'
+  	// publishDir "${OUTDIR}/Final", mode: 'copy'
 
   	input:
   	file(merged_vcf) from outputCombineVariants

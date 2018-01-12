@@ -14,8 +14,8 @@ This pipeline performs exome analysis on a set of samples. The following steps a
 
 1. Read trimming (Trimmomatic 0.36)
 2. Read alignment (BWA 0.7.15, Samtools 1.5)
-3. Marking of duplicates (GATK4b5 or Picard 2.9.2)
-4. GATK4 workflow
+3. Marking of duplicates (Picard 2.9.2)
+4. GATK3/4 workflow
   * Base quality recalibration (GATK4b5)
   * Variant calling using HaplotypeCaller (GATK4b5) 
   * Merged genotype calls using GenotypeGVCFs (GATK4b5) [Includes 17 IKMB control exomes)
@@ -93,13 +93,11 @@ Should the pipeline crash, you can try and resume it (after the problem has been
 
 ### Supported Tool chains
 
-This pipeline can be run with one of two processing chains - GATK4 and Freebayes. 
+Three analytical tool chains are currenly supported - freebayes, gatk3 and gatk4. For example:
 
-To use one of the two processing chains, use the `tool` option:
+`nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv --tool gatk4 --kit Nextera`
 
-`nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv --tool gatk --kit Nextera`
-
-`nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv --tool freebayes --kit Nextera`
+These tool chains use the same processing steps for producing the alignment files for analysis as well as the same variant annotation workflows. The however differ in how they produce the final VCF file. 
 
 Note that Freebayes is the default and does not need to be specified. 
 
