@@ -138,10 +138,10 @@ process runTrimmomatic {
     scratch use_scratch
 
     input:
-    set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, run_date, center, fastqR1, fastqR2 from readPairsTrimmomatic
+    set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, center, date, fastqR1, fastqR2 from readPairsTrimmomatic
 
     output:
-    set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, run_date, center, file("${libraryID}_R1.paired.fastq.gz"),file("${libraryID}_R2.paired.fastq.gz") into inputBwa, readPairsFastQC
+    set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, date, center, file("${libraryID}_R1.paired.fastq.gz"),file("${libraryID}_R2.paired.fastq.gz") into inputBwa, readPairsFastQC
 
     script:
 
@@ -187,7 +187,12 @@ process mergeBamFiles_bySample {
 	merged_bam = sampleID + "merged.bam"
 
 	"""
-		samtools merge -p -c -@ ${task.cpus} $merged_bam ${aligned_bam_list.join(' ')}
+		java -jar -Xmx${task.memory.toGiga()}G -Djava.io.tmpdir=tmp/ -jar ${PICARD} MergeSamFiles \
+			INPUT=${aligned_bam_list.join(' INPUT=')} \
+			OUTPUT=${merged_bam} \
+			CREATE_INDEX=false \
+			CREATE_MD5_FILE=false \
+			SORT_ORDER=coordinate
 	"""
 }
 
@@ -283,13 +288,15 @@ if (params.tool == "freebayes") {
 		file(vcf) from outputVcfMerged
 
 		output:
-		file(vcf_filtered) into inputLeftNormalize
+		set file(vcf_filtered),file(vcf_index) into inputLeftNormalize
 
 		script: 
 		vcf_filtered = "freebayes.merged.filtered.vcf"
+		vcf_filtered_index = vcf_filtered + ".tbi"
 
 		"""
-			vcffilter -f "QUAL > 5" ${vcf} > ${vcf_filtered}
+			vcffilter -f "QUAL > 5" ${vcf} | bgzip > ${vcf_filtered}
+			tabix ${vcf_filtered}
 		"""
 	}
 
@@ -693,10 +700,11 @@ if (params.tool == "freebayes") {
 	     	set file(indel),file(snp) from inputCombineVariants.collect()
 
   		output:
-		file(merged_file) into inputLeftNormalize
+		set file(merged_file),file(merged_file_index) into inputLeftNormalize
 
 		script:
 		merged_file = "merged_callset.vcf.gz"
+		merged_file_index = merged_file + ".tbi"
 
 		"""
 
@@ -857,7 +865,7 @@ if (params.tool == "freebayes") {
     process runJoinedGenotypingGATK3 {
   
   	tag "ALL - using 17 IKMB reference exomes for calibration"
-  	publishDir "${OUTDIR}/GATK3/JoinedGenotypes"
+  	publishDir "${OUTDIR}/gatk3/JoinedGenotypes"
   
   	input:
   	file(vcf_list) from inputHCJoined
@@ -1025,7 +1033,7 @@ if (params.tool == "freebayes") {
   	// publishDir "${OUTDIR}/Filtered"
 
   	input:
-  	file(gvcf) from outputRecalIndelApply
+  	set file(gvcf),file(idx) from outputRecalIndelApply
 
   	output:
   	file(filtered_gvcf) into outputVariantFiltrationIndel
@@ -1059,13 +1067,14 @@ if (params.tool == "freebayes") {
      	set file(indel),file(snp) from inputCombineVariants.collect()
 
   	output:
-    	file(merged_file) into outputCombineVariants
+    	set file(merged_file),file(merged_file_index) into outputCombineVariants
 
   	script:
     	merged_file = "merged_callset.vcf.gz"
+	merged_file_index = merged_file + ".tbi"
 
   	"""
-		tabix $index
+		tabix $indel
 		tabix $snp
 		
 		java -jar -Xmx${task.memory.toGiga()}G $GATK -T CombineVariants \
@@ -1082,20 +1091,25 @@ if (params.tool == "freebayes") {
   	// publishDir "${OUTDIR}/Final", mode: 'copy'
 
   	input:
-  	file(merged_vcf) from outputCombineVariants
+  	set file(merged_vcf),file(merged_vcf_index) from outputCombineVariants
 
   	output:
-  	file(filtered_vcf) into inputLeftNormalize
+  	set file(filtered_vcf),file(filtered_vcf_index) into inputLeftNormalize
 
   	script:
-  	filtered_vcf = "merged_callset.calibration_removed.vcf"
+  	filtered_vcf = "merged_callset.calibration_removed.vcf.gz"
+	filtered_vcf_index = filtered_vcf + ".tbi"
 
   	"""
 		java -jar -Xmx${task.memory.toGiga()}G $GATK -T SelectVariants \
         	-R $REF \
 		-V $merged_vcf \
+		-L chrM \
+		-L $TARGETS \
 		--exclude_sample_file $calibration_samples_list \
-        	-o $filtered_vcf
+        	-o $filtered_vcf \
+		-env \
+		-trimAlternates
   	"""
     }
 
@@ -1319,7 +1333,7 @@ process runLeftNormalize {
    publishDir "${OUTDIR}/${params.tool}/Final", mode: 'copy'
 
    input:
-   file(vcf_file) from inputLeftNormalize
+   set file(vcf_file),file(index) from inputLeftNormalize
  
    output:
    file(vcf_normalized) into ( inputVep, inputAnnovar)
@@ -1339,7 +1353,7 @@ process runVep {
  tag "ALL"
  publishDir "${OUTDIR}/${params.tool}/Annotation/VEP", mode: 'copy'
  
-input:
+ input:
    file(vcf_file) from inputVep
 
  output:

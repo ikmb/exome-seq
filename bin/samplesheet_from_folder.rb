@@ -61,12 +61,14 @@ groups.each do |group, files|
         sample = group.split("-")[0]
 
         e = `zcat #{left} | head -n1 `
+	header = e
 
-        header = e.to_s.strip.split(":")
+        instrument,run_id,flowcell_id,lane,tile,x,y = header.split(" ")[0].split(":")
 
-        readgroup = "#{header[0]}.#{header[2]}.#{header[3]}.#{library}"
+	index = header.split(" ")[-1].split(":")[-1]
+        readgroup = library + "." + lane
 
-        pgu = header[0].gsub("@", "")
+        pgu = flowcell_id + "." + lane + "." + index
 
         puts "Indiv_#{sample};Sample_#{sample};#{library};#{readgroup};#{pgu};Illumina;HiSeq3000;#{center};#{date};#{left};#{right}"
 
