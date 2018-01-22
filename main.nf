@@ -288,14 +288,14 @@ if (params.tool == "freebayes") {
 		file(vcf) from outputVcfMerged
 
 		output:
-		set file(vcf_filtered),file(vcf_index) into inputLeftNormalize
+		set file(vcf_filtered),file(vcf_filtered_index) into inputLeftNormalize
 
 		script: 
-		vcf_filtered = "freebayes.merged.filtered.vcf"
+		vcf_filtered = "freebayes.merged.filtered.vcf.gz"
 		vcf_filtered_index = vcf_filtered + ".tbi"
 
 		"""
-			vcffilter -f "QUAL > 5" ${vcf} | bgzip > ${vcf_filtered}
+			vcffilter -f "QUAL > 20" ${vcf} | bgzip > ${vcf_filtered}
 			tabix ${vcf_filtered}
 		"""
 	}

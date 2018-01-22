@@ -66,7 +66,7 @@ groups.each do |group, files|
         instrument,run_id,flowcell_id,lane,tile,x,y = header.split(" ")[0].split(":")
 
 	index = header.split(" ")[-1].split(":")[-1]
-        readgroup = library + "." + lane
+        readgroup = flowcell_id + "." + lane + "." + library 
 
         pgu = flowcell_id + "." + lane + "." + index
 
