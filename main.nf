@@ -539,7 +539,7 @@ if (params.tool == "freebayes") {
 	  	set file(recal_file),file(tranches),file(rscript),file(snp_file) into inputRecalSNPApply
 
   		script:
-		snp_file = genotypes.merged.snps.vcf.gz
+		snp_file = "genotypes.merged.snps.vcf.gz"
   		recal_file = "genotypes.recal_SNP.recal"
   		tranches = "genotypes.recal_SNP.tranches"
   		rscript = "genotypes.recal_SNP.R"
