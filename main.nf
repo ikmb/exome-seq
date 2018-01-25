@@ -318,7 +318,7 @@ if (params.tool == "freebayes") {
 	process runBaseRecalibrator {
 
     		tag "${indivID}|${sampleID}"
-    		// publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
+    		// publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
 	    
     		input:
     		set indivID, sampleID, dedup_bam, dedup_bai from MarkDuplicatesOutput
@@ -343,7 +343,7 @@ if (params.tool == "freebayes") {
 	process runApplyBQSR {
 
 		tag "${indivID}|${sampleID}"
-    		publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
+    		publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/", mode: 'copy'
 
     		scratch use_scratch
 	    
@@ -373,7 +373,7 @@ if (params.tool == "freebayes") {
 	process runBaseRecalibratorPostRecal {
 
 		tag "${indivID}|${sampleID}"
-    		// publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibratorPostRecal/", mode: 'copy'
+    		// publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Processing/BaseRecalibratorPostRecal/", mode: 'copy'
 	    
     		input:
     		set indivID, sampleID, realign_bam, recal_table from runPrintReadsOutput_for_PostRecal
@@ -397,7 +397,7 @@ if (params.tool == "freebayes") {
 	process runAnalyzeCovariates {
 
     		tag "${indivID}|${sampleID}"
-    		publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/AnalyzeCovariates/", mode: 'copy'
+    		publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Processing/AnalyzeCovariates/", mode: 'copy'
 	    
     		input:
     		set indivID, sampleID, recal_table, post_recal_table from runBaseRecalibratorPostRecalOutput_Analyze
@@ -421,7 +421,7 @@ if (params.tool == "freebayes") {
 	process runHCSample {
 
   		tag "${indivID}|${sampleID}"
-  		// publishDir "${OUTDIR}/${indivID}/${sampleID}/Variants/HaplotypeCaller/perChromosome" , mode: 'copy'
+  		// publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Variants/HaplotypeCaller/perChromosome" , mode: 'copy'
 
   		input: 
   		set indivID,sampleID,file(bam),file(bai) from inputHCSample
@@ -454,7 +454,7 @@ if (params.tool == "freebayes") {
 	process runGenomicsDBImport  {
 
 		tag "${chr} - using 17 IKMB reference exomes for calibration"
-                // publishDir "${OUTDIR}/Variants/JoinedGenotypes/PerRegion"
+                // publishDir "${OUTDIR}/${params.tool}/Variants/JoinedGenotypes/PerRegion"
 
 		input:
                 file(vcf_list) from outputHCSample.collect()
@@ -483,7 +483,7 @@ if (params.tool == "freebayes") {
 	process runJoinedGenotyping {
   
   		tag "${chr} - using 17 IKMB reference exomes for calibration"
-  		// publishDir "${OUTDIR}/Variants/JoinedGenotypes/PerRegion"
+  		// publishDir "${OUTDIR}/${params.tool}/Variants/JoinedGenotypes/PerRegion"
   
   		input:
   		set chr,file(genodb) from inputJoinedGenotyping
@@ -493,7 +493,7 @@ if (params.tool == "freebayes") {
   
   		script:
   
-  		gvcf = "genotypes." + chr + ".gvcf"
+  		gvcf = "genotypes." + chr + ".gvcf.gz"
   
   		"""
 	 	gatk --java-options "-Xmx${task.memory.toGiga()}G" GenotypeGVCFs \
@@ -501,7 +501,8 @@ if (params.tool == "freebayes") {
 			--dbsnp $DBSNP \
 			-V gendb://${genodb} \
                 	--output $gvcf \
-                        -G StandardAnnotation -new-qual \
+                        -G StandardAnnotation \
+			-OVI true
   		"""
 	}
 
@@ -509,17 +510,17 @@ if (params.tool == "freebayes") {
 
 	process combineVariantsFromGenotyping {
 		tag "ALL - using 17 IKMB reference exomes for calibration"
-		// publishDir "${OUTDIR}/Variants/JoinedGenotypes"
+		// publishDir "${OUTDIR}/${params.tool}/Variants/JoinedGenotypes"
 
 		input:
 		file(vcf_files) from inputCombineVariantsFromGenotyping.collect()
 
 		output:
-		file(vcf) into (inputRecalSNP , inputRecalIndel)
+		file(gvcf) into (inputRecalSNP , inputRecalIndel)
 
 		script:
 
-		vcf = "genotypes.merged.vcf.gz"
+		gvcf = "genotypes.merged.vcf.gz"
 
 		"""
         		vcf-concat ${vcf_files.join(" ")} | vcf-sort | bgzip > $gvcf
@@ -529,15 +530,16 @@ if (params.tool == "freebayes") {
 	process runRecalibrationModeSNP {
 
   		tag "ALL"
-  		// publishDir "${OUTDIR}/Variants/Recal"
+  		// publishDir "${OUTDIR}/${params.tool}/Variants/Recal"
 
   		input:
   		file(vcf) from inputRecalSNP
 
   		output:
-	  	set file(recal_file),file(tranches),file(rscript),file(vcf) into inputRecalSNPApply
+	  	set file(recal_file),file(tranches),file(rscript),file(snp_file) into inputRecalSNPApply
 
   		script:
+		snp_file = genotypes.merged.snps.vcf.gz
   		recal_file = "genotypes.recal_SNP.recal"
   		tranches = "genotypes.recal_SNP.tranches"
   		rscript = "genotypes.recal_SNP.R"
@@ -547,12 +549,12 @@ if (params.tool == "freebayes") {
 		gatk --java-options "-Xmx${task.memory.toGiga()}G" SelectVariants \
 			-R $REF \
 			-V $vcf \
-			-selectType SNP \
-			-O snps.vcf
+			-select-type SNP \
+			-O $snp_file
 
 		gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
 			-R $REF \
-			-V snps.vcf \
+			-V $snp_file \
                 	-O $recal_file \
         	        --tranches-file $tranches \
 	                --rscript-file $rscript \
@@ -568,16 +570,16 @@ if (params.tool == "freebayes") {
 	process runRecalibrationModeIndel {
 
   		tag "ALL"
-  		// publishDir "${OUTDIR}/Variants/Recal"
+  		// publishDir "${OUTDIR}/${params.tool}/Variants/Recal"
 
   		input:
   		file(vcf) from inputRecalIndel
 
   		output:
-  		set file(recal_file),file(tranches),file(rscript),file(vcf) into inputRecalIndelApply
+  		set file(recal_file),file(tranches),file(rscript),file(indel_file) into inputRecalIndelApply
 
   		script:
-
+		indel_file = "genotypes.merged.indel.vcf.gz"
   		recal_file = "genotypes.recal_Indel.recal"
   		tranches = "genotypes.recal_Indel.tranches"
 		rscript = "genotypes.recal_Indel.R"
@@ -587,16 +589,16 @@ if (params.tool == "freebayes") {
 		gatk --java-options "-Xmx${task.memory.toGiga()}G" SelectVariants \
 			-R $REF \
 			-V $vcf \
-			-selectType INDEL \
-			-selectType MIXED \
-			-selectType MNP \
-			-selectType SYMBOLIC \
-			-selectType NO_VARIATION \
-			-O indels.vcf
+			-select-type INDEL \
+			-select-type MIXED \
+			-select-type MNP \
+			-select-type SYMBOLIC \
+			-select-type NO_VARIATION \
+			-O $indel_file
 
 	        gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
         	        -R $REF \
-	                -V indels.vcf \
+	                -V $indel_file \
                 	-O $recal_file \
         	        --tranches-file $tranches \
 	                --rscript-file $rscript \
@@ -611,7 +613,7 @@ if (params.tool == "freebayes") {
 	process runRecalSNPApply {
 
   		tag "ALL"
-  		// publishDir "${OUTDIR}/Variants/Filtered"
+  		// publishDir "${OUTDIR}/${params.tool}/Variants/Filtered"
 
   		input:
   		set file(recal_file),file(tranches),file(rscript),file(gvcf) from inputRecalSNPApply
@@ -639,7 +641,7 @@ if (params.tool == "freebayes") {
 	process runRecalIndelApply {
 
   		tag "ALL"
-	  	// publishDir "${OUTDIR}/Variants/Recal"
+	  	// publishDir "${OUTDIR}/${params.tool}/Variants/Recal"
 
   		input:
 	  	set file(recal_file),file(tranches),file(rscript),file(gvcf) from inputRecalIndelApply
@@ -667,7 +669,7 @@ if (params.tool == "freebayes") {
 	process runVariantFiltrationIndel {
 
   		tag "ALL"
-  		// publishDir "${OUTDIR}/Variants/Filtered"
+  		// publishDir "${OUTDIR}/${params.tool}/Variants/Filtered"
 
 	  	input:
   		file(gvcf) from outputRecalIndelApply
@@ -694,7 +696,7 @@ if (params.tool == "freebayes") {
 	process runCombineVariants {
 
   		tag "ALL"
-	  	// publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
+	  	// publishDir "${OUTDIR}/${params.tool}/Variants/Final", mode: 'copy'
 
   		input: 
 	     	set file(indel),file(snp) from inputCombineVariants.collect()
@@ -713,8 +715,15 @@ if (params.tool == "freebayes") {
 			gatk MergeVcfs \
 			-I=indels.sorted.vcf.gz \
 			-I=snps.sorted.vcf.gz \
-			-O=$merged_file \
+			-O=merged.vcf.gz \
 			-R=$REF \
+
+			gatk SelectVariants \
+			-R $REF \
+			-V merged.vcf.gz \
+			-O $merged_file \
+			--remove-unused-alternates true \
+			--exclude-non-variants true
   		"""
 	}
 
@@ -727,7 +736,7 @@ if (params.tool == "freebayes") {
    process runBaseRecalibratorGATK3 {
 
     	tag "${indivID}|${sampleID}"
-    	// publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
+    	// publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
 	    
     	input:
     	set indivID, sampleID, dedup_bam, dedup_bai from MarkDuplicatesOutput
@@ -754,7 +763,7 @@ if (params.tool == "freebayes") {
     process runPrintReadsGATK3 {
 
     	tag "${indivID}|${sampleID}"
-    	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
+    	publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/", mode: 'copy'
 
     	scratch use_scratch
 	    
@@ -784,7 +793,7 @@ if (params.tool == "freebayes") {
     process runBaseRecalibratorPostRecalGATK3 {
 
     	tag "${indivID}|${sampleID}"
-    	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibratorPostRecal/", mode: 'copy'
+    	publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Processing/BaseRecalibratorPostRecal/", mode: 'copy'
 	    
     	input:
     	set indivID, sampleID, realign_bam, recal_table from runPrintReadsOutput_for_PostRecal
@@ -809,7 +818,7 @@ if (params.tool == "freebayes") {
     }
     process runAnalyzeCovariatesGATK3 {
 	tag "${indivID}|${sampleID}"
-    	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/AnalyzeCovariates/", mode: 'copy'
+    	publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Processing/AnalyzeCovariates/", mode: 'copy'
 	    
     	input:
     	set indivID, sampleID, recal_table, post_recal_table from runBaseRecalibratorPostRecalOutput_Analyze
@@ -834,7 +843,7 @@ if (params.tool == "freebayes") {
     process runHCSampleGATK3 {
 
   	tag "${SampleID}"
-  	publishDir "${OUTDIR}/${IndivID}/${SampleID}/HaplotypeCaller/" , mode: 'copy'
+  	publishDir "${OUTDIR}/${params.tool}/${IndivID}/${SampleID}/HaplotypeCaller/" , mode: 'copy'
 
   	input: 
   	set IndivID,SampleID,file(bam),file(bai) from inputHCSample
@@ -893,7 +902,7 @@ if (params.tool == "freebayes") {
     process runRecalibrationModeSNPGATK3 {
 
   	tag "ALL"
-  	// publishDir "${OUTDIR}/Recal"
+  	// publishDir "${OUTDIR}/${params.tool}/Recal"
 
   	input:
   	file(gvcf) from inputRecalSNP
@@ -932,7 +941,7 @@ if (params.tool == "freebayes") {
     process runRecalibrationModeIndelGATK3 {
 
   	tag "ALL"
-  	// publishDir "${OUTDIR}/Recal"
+  	// publishDir "${OUTDIR}/${params.tool}/Recal"
 
   	input:
   	file(gvcf) from inputRecalIndel
@@ -975,7 +984,7 @@ if (params.tool == "freebayes") {
     process runRecalSNPApplyGATK3 {
 
   	tag "ALL"
-  	// publishDir "${OUTDIR}/Filtered"
+  	// publishDir "${OUTDIR}/${params.tool}/Filtered"
 
   	input:
   	set file(recal_file),file(tranches),file(rscript),file(gvcf) from inputRecalSNPApply
@@ -1002,7 +1011,7 @@ if (params.tool == "freebayes") {
     process runRecalIndelApplyGATK3 {
 
   	tag "ALL"
-  	// publishDir "${OUTDIR}/Recal"
+  	// publishDir "${OUTDIR}/${params.tool}/Recal"
 
   	input:
   	set file(recal_file),file(tranches),file(rscript),file(gvcf) from inputRecalIndelApply
@@ -1030,7 +1039,7 @@ if (params.tool == "freebayes") {
     process runVariantFiltrationIndelGATK3 {
 
   	tag "ALL"
-  	// publishDir "${OUTDIR}/Filtered"
+  	// publishDir "${OUTDIR}/${params.tool}/Filtered"
 
   	input:
   	set file(gvcf),file(idx) from outputRecalIndelApply
@@ -1061,7 +1070,7 @@ if (params.tool == "freebayes") {
     process runCombineVariantsGATK3 {
 
   	tag "ALL"
-  	// publishDir "${OUTDIR}/Final", mode: 'copy'
+  	// publishDir "${OUTDIR}/${params.tool}/Final", mode: 'copy'
 
   	input: 
      	set file(indel),file(snp) from inputCombineVariants.collect()
@@ -1088,7 +1097,7 @@ if (params.tool == "freebayes") {
     process runRemoveCalibrationExomesGATK3 {
 
   	tag "ALL"
-  	// publishDir "${OUTDIR}/Final", mode: 'copy'
+  	// publishDir "${OUTDIR}/${params.tool}/Final", mode: 'copy'
 
   	input:
   	set file(merged_vcf),file(merged_vcf_index) from outputCombineVariants
