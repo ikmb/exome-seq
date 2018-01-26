@@ -133,7 +133,7 @@ Channel.from(inputFile)
 process runTrimmomatic {
 
     tag "${indivID}|${sampleID}|${libraryID}|${rgID}"
-    //publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/Trimmomatic/", mode: 'copy'
+    //publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/Trimmomatic/", mode: 'copy'
 
     scratch use_scratch
 
@@ -153,7 +153,7 @@ process runTrimmomatic {
 process runBWA {
 
     tag "${indivID}|${sampleID}|${libraryID}|${rgID}"
-    //publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/BWA/", mode: 'copy'
+    //publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/BWA/", mode: 'copy'
 
     scratch use_scratch
 	
@@ -199,7 +199,7 @@ process mergeBamFiles_bySample {
 process runMarkDuplicates {
 
 	tag "${indivID}|${sampleID}"
-        publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
+        publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
 
         // scratch use_scratch
 
@@ -241,7 +241,7 @@ if (params.tool == "freebayes") {
 	process runFreebayes {
 
 		tag "ALL|${chr}"
-                // publishDir "${OUTDIR}/Variants/Freebayes/ByChromosome", mode: 'copy'
+                // publishDir "${OUTDIR}/${params.tool}/Variants/ByChromosome", mode: 'copy'
 
 		input:
 		file(bam_files) from FreebayesBamInput.collect()
@@ -263,7 +263,7 @@ if (params.tool == "freebayes") {
 	process runConcatVcf {
 
 		tag "ALL"
-                // publishDir "${OUTDIR}/Variants/Freebayes", mode: 'copy'
+                // publishDir "${OUTDIR}/${params.tool}/Variants/Freebayes", mode: 'copy'
 
 		input:
 		file(vcf_files) from outputFreebayes.collect()
@@ -282,7 +282,7 @@ if (params.tool == "freebayes") {
 	process runFilterVcf {
 
 		tag "ALL"
-		// publishDir "${OUTDIR}/Variants/Freebayes", mode: 'copy'	
+		// publishDir "${OUTDIR}/${params.tool}/Variants/Freebayes", mode: 'copy'	
 
 		input:
 		file(vcf) from outputVcfMerged
@@ -1130,7 +1130,7 @@ if (params.tool == "freebayes") {
 
 process runCollectMultipleMetrics {
 	tag "${indivID}|${sampleID}"
-	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+	publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
  
 	scratch use_scratch
 	    
@@ -1167,7 +1167,7 @@ process runCollectMultipleMetrics {
 process runHybridCaptureMetrics {
 
     tag "${indivID}|${sampleID}"
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+    publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
     input:
     set indivID, sampleID, file(bam), file(bai) from runPrintReadsOutput_for_HC_Metrics
@@ -1192,7 +1192,7 @@ process runHybridCaptureMetrics {
 process runOxoGMetrics {
 
     tag "${indivID}|${sampleID}"
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+    publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
     input:
     set indivID, sampleID, file(bam), file(bai) from runPrintReadsOutput_for_OxoG_Metrics
@@ -1218,7 +1218,7 @@ process runOxoGMetrics {
 process runDepthOfCoverage {
 
        tag "${indivID}|${sampleID}"
-       publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/DepthOfCoverage", mode: 'copy'
+       publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/DepthOfCoverage", mode: 'copy'
 
        scratch use_scratch
 
@@ -1247,7 +1247,7 @@ process runDepthOfCoverage {
 process runFastQC {
 
     tag "${indivID}|${sampleID}|${libraryID}|${rgID}"
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/FastQC/", mode: 'copy'
+    publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/FastQC/", mode: 'copy'
 
     scratch use_scratch
 
@@ -1345,14 +1345,16 @@ process runLeftNormalize {
    set file(vcf_file),file(index) from inputLeftNormalize
  
    output:
-   file(vcf_normalized) into ( inputVep, inputAnnovar)
+   set file(vcf_normalized),file(vcf_normalized_index) into ( inputVep, inputAnnovar)
 
    script:
 
-   vcf_normalized = "variants.merged.normalized.vcf"
+   vcf_normalized = "variants.merged.normalized.vcf.gz"
+   vcf_normalized_index = vcf_normalized + ".tbi"
 
    """
-	bcftools norm -f $REF $vcf_file > $vcf_normalized
+	bcftools norm -f $REF $vcf_file | bgzip > $vcf_normalized
+	tabix $vcf_normalized
    """
 
 }
@@ -1363,7 +1365,7 @@ process runVep {
  publishDir "${OUTDIR}/${params.tool}/Annotation/VEP", mode: 'copy'
  
  input:
-   file(vcf_file) from inputVep
+   set file(vcf_file),file(vcf_index) from inputVep
 
  output:
    file('annotation.vep.vcf') into outputVep
@@ -1389,7 +1391,7 @@ process runAnnovar {
  publishDir "${OUTDIR}/${params.tool}/Annotation/Annovar", mode: 'copy'
 
  input:
-   file(vcf_file) from inputAnnovar
+   set file(vcf_file),file(vcf_index) from inputAnnovar
 
  output:
    file(annovar_result) into outputAnnovar
