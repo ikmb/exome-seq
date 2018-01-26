@@ -120,9 +120,10 @@ The pipeline will send out an Email notification upon completion if a recipient 
 By default, the pipeline output will be stored in the "output" subfolder from where you ran the nextflow process. You can provide an alternative location 
 by specifying "--outdir /some/other/folder" on the command line. 
 
-The output will be spread across several folders - one for each sample, one for the combined variant calls and a generic folder for library statistics and such. 
+Within the output folder will be three subfolders:
 
-A brief description of the pipeline outputs is available under http://git.ikmb.uni-kiel.de/bfx-core/NF-diagnostics-exome/tree/master/doc
+- Common (files common to all tool chains - i.e. duplicate marked read alignments and alignment statistics)
+- gatk4 / gatk3 or freebayes - output from the specific tool chain; of interest here are the folders "Final" and "Annotation" (final VCF and annotated VCF). 
 
 # If you wish to use this pipeline
 

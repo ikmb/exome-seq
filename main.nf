@@ -28,7 +28,7 @@ Author: Marc P. Hoeppner, m.hoeppner@ikmb.uni-kiel.de
 **/
 
 // Pipeline version
-VERSION = "0.1"
+VERSION = "0.9"
 
 // Help message
 helpMessage = """
@@ -44,8 +44,8 @@ Required parameters:
 --tool 			       Name of processing chain to use. Available options: gatk3, gatk4, freebayes
 Output:
 --outdir                       Local directory to which all output is written (default: output)
-Kit files:
---kit                          Exome sample kit used (default: Nextera)
+Exome kit:
+--kit                          Exome kit used (default: Nextera)
 """
 
 params.help = false
@@ -495,7 +495,7 @@ if (params.tool == "freebayes") {
 	// From here on all samples are in the same file
 	process runGenomicsDBImport  {
 
-		tag "${chr} - using 17 IKMB reference exomes for calibration"
+		tag "${chr}"
                 // publishDir "${OUTDIR}/${params.tool}/Variants/JoinedGenotypes/PerRegion"
 
 		input:
@@ -524,7 +524,7 @@ if (params.tool == "freebayes") {
 
 	process runJoinedGenotyping {
   
-  		tag "${chr} - using 17 IKMB reference exomes for calibration"
+  		tag "${chr}"
   		// publishDir "${OUTDIR}/${params.tool}/Variants/JoinedGenotypes/PerRegion"
   
   		input:
@@ -551,7 +551,7 @@ if (params.tool == "freebayes") {
 	// Merging the scatter-gather VCF files into one file
 
 	process combineVariantsFromGenotyping {
-		tag "ALL - using 17 IKMB reference exomes for calibration"
+		tag "ALL"
 		// publishDir "${OUTDIR}/${params.tool}/Variants/JoinedGenotypes"
 
 		input:
