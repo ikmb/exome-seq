@@ -124,6 +124,7 @@ Within the output folder will be three subfolders:
 
 - Common (files common to all tool chains - i.e. duplicate marked read alignments and alignment statistics)
 - gatk4 / gatk3 or freebayes - output from the specific tool chain; of interest here are the folders "Final" and "Annotation" (final VCF and annotated VCF). 
+- Summary - graphical summary reports for Fastq files, libraries and samples
 
 # If you wish to use this pipeline
 
