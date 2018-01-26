@@ -4,27 +4,19 @@
 
 # Please note
 
-This pipeline is under development. Specifically, the user can choose one of two processing chains for variant calling using either Freebayes or GATK4. The Freebayes workflow should work as expected. However, GATK4 is still being worked on by the BROAD Institute and the recommended processing chain not yet finalized. 
+This pipeline offers a end-to-end workflow for exome analysis. Currently, three independent tool chains can be used (mutually exclusive):
 
-Both Freebayes and GATK4 are open-source - i.e. as user, you do not have to worry about licensing fees.
+GATK3 - the tried and tested "old-school" GATK workflow. Note that no realignment step will be performed in this pipeline as the HaplotypeCaller performs local reassembly of active regions on the fly. This pipeline may *not* be used outside of academic projects as this would require a license by the BROAD.
 
-# Overview
+GATK4 - The new implementation of GATK. Most of the processing steps are similar to the GATK3 workflow. Again, no indel realignment will be performed. This pipeline does not require a license for non-academic use. 
 
-This pipeline performs exome analysis on a set of samples. The following steps are included:
+Freebayes - An alterantive variant calling workflow using the open-source Freebayes software. No licencse is required for non-academic use. 
 
-1. Read trimming (Trimmomatic 0.36)
-2. Read alignment (BWA 0.7.15, Samtools 1.5)
-3. Marking of duplicates (Picard 2.9.2)
-4. GATK3/4 workflow
-  * Base quality recalibration (GATK4b5)
-  * Variant calling using HaplotypeCaller (GATK4b5) 
-  * Merged genotype calls using GenotypeGVCFs (GATK4b5) [Includes 17 IKMB control exomes)
-  * Recalibration of SNPs and Indels (GATK4b5)
-  * Merged gVCF with control exomes removed
-4. FreeBayes workflow
-  * Joint Variant calling (Freebayes 1.1.0)
-  * Hard filtering of resulting VCF file (VCFtools)
-5. Effect prediction with VEP (EnsEMBL86) and Annovar (2017)
+All of these three options use the same read processing workflow up to duplicate marking:
+- trimming with Trimmomatic
+- read alignment with BWA
+- Duplicate marking using Picard MarkDuplicates
+
 
 ## Installing the pipeline
 
@@ -46,6 +38,10 @@ any ALT contigs (hg19_clinical). To choose an assembly, use:
 `--assembly hg19`
 
 `--assembly hg19_clinical`
+
+Optionally, the pipeline can be used with the `GRCh37` reference assembly used by the 1000 genomes project (largely untested, but should work):
+
+`-assembly GRCh37`
 
 ## Input format
 
