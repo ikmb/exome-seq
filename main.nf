@@ -1,31 +1,75 @@
 #!/usr/bin/env nextflow
 
+
 /**
+===============================
 IKMB Diagnostic Exome Pipeline
+===============================
 
 This Pipeline performs one of two workflows to generate variant calls and effect predictions
-using either the GATK processing chain or Freebayes
+using either the GATK processing chain or Freebayes.
+
+### Homepage / git
+http://git.ikmb.uni-kiel.de/bfx-core/NF-diagnostics-exome
+### Implementation
+Implemented in Q1 2018
+
+This pipeline is based on the updated GATK best-practices (where applicable).
+ - trimming (Trimmomatic)
+ - Alignment (BWA)
+ - Duplicate marking (Picard)
+ - recalibration (GATK if GATK tool chain)
+ - variant calling (GATK or Freebayes)
+ - variant recalibration and filtering
+ - variant effect prediction
+
+Author: Marc P. Hoeppner, m.hoeppner@ikmb.uni-kiel.de
+
 **/
+
+// Pipeline version
+VERSION = "0.1"
+
+// Help message
+helpMessage = """
+===============================================================================
+IKMB Diagnostic Exome pipeline | version ${VERSION}
+===============================================================================
+Usage: nextflow -c /path/to/git/nextflow.config run /path/to/git/main.nf --assembly hg19_clinical --tool gatk4 --kit Nextera --samples Samples.csv
+This example will perform an exome analysis against the hg19 (with decoys) assembly, assuming that exome reads were generated with
+the Nextera kit and using the GATK4 best-practice workflow. 
+Required parameters:
+--samples                      A sample list in CSV format (see website for formatting hints)
+--assembly                     Name of the reference assembly to use
+--tool 			       Name of processing chain to use. Available options: gatk3, gatk4, freebayes
+Output:
+--outdir                       Local directory to which all output is written (default: output)
+Kit files:
+--kit                          Exome sample kit used (default: Nextera)
+"""
+
+params.help = false
+
+// Show help when needed
+if (params.help){
+    log.info helpMessage
+    exit 0
+}
 
 // #############
 // INPUT OPTIONS
 // #############
 
+// Sample input file
 inputFile = file(params.samples)
 
 // Available tool chains
-
 valid_tools = [ "freebayes", "gatk3", "gatk4" ]
-params.tool = "freebayes"
+params.tool = "define_from_commandline"
 
 if (valid_tools.contains(params.tool) == false) {
    exit 1; "Specified an unknown tool chain, please consult the documentation for valid tool chains."
 }
-
-// EXOMISER input data
-params.hpo = false
-params.ped = false
-params.omim = false
 
 // This will eventually enable switching between multiple assembly versions
 // Currently, only hg19 has all the required reference files available
@@ -35,6 +79,7 @@ if (params.genomes.containsKey(params.assembly) == false) {
    exit 1, "Specified unknown genome assembly, please consult the documentation for valid assemblies."
 }
 
+// Reference files as determined by the assembly (see config file for details)
 REF = file(params.genomes[ params.assembly ].fasta)
 REF_CHR_ROOT = params.genomes[ params.assembly ].per_sequence_root
 DICT = file(params.genomes[params.assembly ].dict)
@@ -47,7 +92,6 @@ HAPMAP = file(params.genomes[ params.assembly ].hapmap )
 EXAC = file(params.genomes[ params.assembly ].exac )
 CADD = file(params.genomes[ params.assembly ].cadd )
 ANNOVAR_DB = file(params.genomes[ params.assembly ].annovar_db )
-
 VEP_CACHE = params.vep_cache
 
 // Location of applications used
@@ -112,8 +156,6 @@ minlen = params.minlen
 adapters = params.adapters
 
 logParams(params, "pipeline_parameters.txt")
-
-VERSION = "0.1"
 
 // Header log info
 log.info "========================================="

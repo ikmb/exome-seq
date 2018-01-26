@@ -13,10 +13,12 @@ GATK4 - The new implementation of GATK. Most of the processing steps are similar
 Freebayes - An alterantive variant calling workflow using the open-source Freebayes software. No licencse is required for non-academic use. 
 
 All of these three options use the same read processing workflow up to duplicate marking:
+
 - trimming with Trimmomatic
 - read alignment with BWA
 - Duplicate marking using Picard MarkDuplicates
 
+Afterwards, the resulting VCF file will be left-normalized and annotated with both Annovar and VEP. 
 
 ## Installing the pipeline
 
