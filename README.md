@@ -1,6 +1,6 @@
 ![](images/ikmb_bfx_logo.png)
 
-# IKMB Diagonistc Exome Pipeline
+# IKMB Diagnostic Exome Pipeline
 
 # Please note
 

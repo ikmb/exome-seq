@@ -552,20 +552,23 @@ if (params.tool == "freebayes") {
 
 	process combineVariantsFromGenotyping {
 		tag "ALL"
-		// publishDir "${OUTDIR}/${params.tool}/Variants/JoinedGenotypes"
+		publishDir "${OUTDIR}/${params.tool}/Variants/JoinedGenotypes"
 
 		input:
 		file(vcf_files) from inputCombineVariantsFromGenotyping.collect()
 
 		output:
 		file(gvcf) into (inputRecalSNP , inputRecalIndel)
+		file(gvcf_index) into combinedVariantsIndex
 
 		script:
 
 		gvcf = "genotypes.merged.vcf.gz"
+		gvcf_index = gvcf + ".tbi"
 
 		"""
         		vcf-concat ${vcf_files.join(" ")} | vcf-sort | bgzip > $gvcf
+			tabix gvcf
 		"""
         }
 
