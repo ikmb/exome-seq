@@ -1390,7 +1390,7 @@ process runLeftNormalize {
    set file(vcf_file),file(index) from inputLeftNormalize
  
    output:
-   set file(vcf_normalized),file(vcf_normalized_index) into ( inputVep, inputAnnovar)
+   set file(vcf_normalized),file(vcf_normalized_index) into inputAnnovar
 
    script:
 
@@ -1400,32 +1400,6 @@ process runLeftNormalize {
    """
 	bcftools norm -f $REF $vcf_file | bgzip > $vcf_normalized
 	tabix $vcf_normalized
-   """
-
-}
-
-process runVep {
-
- tag "ALL"
- publishDir "${OUTDIR}/${params.tool}/Annotation/VEP", mode: 'copy'
- 
- input:
-   set file(vcf_file),file(vcf_index) from inputVep
-
- output:
-   file('annotation.vep.vcf') into outputVep
-
- script:
-
-   """
-     vep --offline --cache --dir $VEP_CACHE --fork ${task.cpus} \
- 	--assembly GRCh37 -i $vcf_file -o annotation.vep.vcf --allele_number --canonical \
-	--force_overwrite --vcf --no_progress \
-	--pubmed \
-	--plugin ExAC,$EXAC \
-	--plugin CADD,$CADD \
-	--plugin LoFtool --plugin LoF \
-	--fasta /ifs/data/nfs_share/ikmb_repository/references/genomes/homo_sapiens/EnsEMBL/GRCh37/genome.fa
    """
 
 }

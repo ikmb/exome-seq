@@ -70,7 +70,7 @@ groups.each do |group, files|
 
         pgu = flowcell_id + "." + lane + "." + index
 
-        puts "Indiv_#{sample};Sample_#{sample};#{library};#{readgroup};#{pgu};Illumina;HiSeq3000;#{center};#{date};#{left};#{right}"
+        puts "Indiv_#{sample};Sample_#{sample};#{library};#{readgroup};#{pgu};Illumina;NextSeq500;#{center};#{date};#{left};#{right}"
 
 end
 
