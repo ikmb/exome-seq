@@ -60,6 +60,8 @@ if (params.help){
 // INPUT OPTIONS
 // #############
 
+mem_adjust = params.mem_adjust
+
 // Sample input file
 inputFile = file(params.samples)
 
@@ -188,7 +190,7 @@ process runTrimmomatic {
     script:
 
     """
-	java -jar ${TRIMMOMATIC}/trimmomatic-0.36.jar PE -threads 8 $fastqR1 $fastqR2 ${libraryID}_R1.paired.fastq.gz ${libraryID}.1U.fastq.gz ${libraryID}_R2.paired.fastq.gz ${libraryID}.2U.fastq.gz ILLUMINACLIP:${TRIMMOMATIC}/adapters/${adapters}:2:30:10:3:TRUE LEADING:${leading} TRAILING:${trailing} SLIDINGWINDOW:${slidingwindow} MINLEN:${minlen}
+	java -jar ${TRIMMOMATIC}/trimmomatic-0.36.jar PE -threads ${task.cpus} $fastqR1 $fastqR2 ${libraryID}_R1.paired.fastq.gz ${libraryID}.1U.fastq.gz ${libraryID}_R2.paired.fastq.gz ${libraryID}.2U.fastq.gz ILLUMINACLIP:${TRIMMOMATIC}/adapters/${adapters}:2:30:10:3:TRUE LEADING:${leading} TRAILING:${trailing} SLIDINGWINDOW:${slidingwindow} MINLEN:${minlen}
      """
 }
 
@@ -229,7 +231,7 @@ process mergeBamFiles_bySample {
 	merged_bam = sampleID + "merged.bam"
 
 	"""
-		java -jar -Xmx${task.memory.toGiga()}G -Djava.io.tmpdir=tmp/ -jar ${PICARD} MergeSamFiles \
+		java -jar -Djava.io.tmpdir=tmp/ -jar ${PICARD} MergeSamFiles \
 			INPUT=${aligned_bam_list.join(' INPUT=')} \
 			OUTPUT=${merged_bam} \
 			CREATE_INDEX=false \
@@ -263,7 +265,7 @@ process runMarkDuplicates {
         outfile_metrics = sampleID + "_duplicate_metrics.txt"
 
 	"""
-        	java -Xmx${task.memory.toGiga()}G -XX:ParallelGCThreads=5 -Djava.io.tmpdir=tmp/ -jar ${PICARD} MarkDuplicates \
+        	java -Xms1G -Xmx${task.memory.toGiga()-mem_adjust}G -Djava.io.tmpdir=tmp/ -jar ${PICARD} MarkDuplicates \
                 	INPUT=${merged_bam} \
 	                OUTPUT=${outfile_bam} \
         	        METRICS_FILE=${outfile_metrics} \
@@ -372,7 +374,7 @@ if (params.tool == "freebayes") {
     		recal_table = sampleID + "_recal_table.txt" 
        
     		"""
-			gatk --java-options "-Xmx${task.memory.toGiga()}G" BaseRecalibrator \
+			gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" BaseRecalibrator \
 			--reference ${REF} \
 			--input ${dedup_bam} \
 			--known-sites ${GOLD1} \
@@ -403,7 +405,7 @@ if (params.tool == "freebayes") {
 		outfile_md5 = sampleID + ".clean.bam.md5"
            
     		"""
-                gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyBQSR \
+                gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" ApplyBQSR \
                 --reference ${REF} \
                 --input ${realign_bam} \
                 -bqsr ${recal_table} \
@@ -427,7 +429,7 @@ if (params.tool == "freebayes") {
     		post_recal_table = sampleID + "_post_recal_table.txt" 
    
     		"""
-			gatk --java-options "-Xmx25G" BaseRecalibrator \
+			gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" BaseRecalibrator \
 			--reference ${REF} \
 			--input ${realign_bam} \
 			--known-sites ${GOLD1} \
@@ -451,7 +453,7 @@ if (params.tool == "freebayes") {
     		recal_plots = sampleID + "_recal_plots.pdf" 
 
     		"""
-			gatk --java-options "-Xmx5G" AnalyzeCovariates \
+			gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" AnalyzeCovariates \
 				--before-report-file ${recal_table} \
 				--after-report-file ${post_recal_table} \
 				--plots-report-file ${recal_plots}
@@ -478,7 +480,7 @@ if (params.tool == "freebayes") {
 		vcf_index = vcf + ".tbi"
 
   		"""
-		gatk --java-options "-Xmx${task.memory.toGiga()}G" HaplotypeCaller \
+		gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" HaplotypeCaller \
 			-R $REF \
 			-I ${bam} \
 			-L $TARGETS \
@@ -511,7 +513,7 @@ if (params.tool == "freebayes") {
 		genodb = "genodb_${chr}"
 
 		"""
-		gatk --java-options "-Xmx${task.memory.toGiga()}G" GenomicsDBImport  \
+		gatk --java-options "-Xmx${task.memory.toGiga()-3}G" GenomicsDBImport  \
 			--variant ${vcf_list.join(" --variant ")} \
 			--reference $REF \
 			--intervals $chr \
@@ -538,7 +540,7 @@ if (params.tool == "freebayes") {
   		gvcf = "genotypes." + chr + ".gvcf.gz"
   
   		"""
-	 	gatk --java-options "-Xmx${task.memory.toGiga()}G" GenotypeGVCFs \
+	 	gatk --java-options "-Xmx${task.memory.toGiga()-3}G" GenotypeGVCFs \
 			--reference $REF \
 			--dbsnp $DBSNP \
 			-V gendb://${genodb} \
@@ -591,13 +593,13 @@ if (params.tool == "freebayes") {
 
   		"""
 
-		gatk --java-options "-Xmx${task.memory.toGiga()}G" SelectVariants \
+		gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" SelectVariants \
 			-R $REF \
 			-V $vcf \
 			-select-type SNP \
 			-O $snp_file
 
-		gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
+		gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" VariantRecalibrator \
 			-R $REF \
 			-V $snp_file \
                 	-O $recal_file \
@@ -631,7 +633,7 @@ if (params.tool == "freebayes") {
 
   		"""
 		
-		gatk --java-options "-Xmx${task.memory.toGiga()}G" SelectVariants \
+		gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" SelectVariants \
 			-R $REF \
 			-V $vcf \
 			-select-type INDEL \
@@ -641,7 +643,7 @@ if (params.tool == "freebayes") {
 			-select-type NO_VARIATION \
 			-O $indel_file
 
-	        gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
+	        gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" VariantRecalibrator \
         	        -R $REF \
 	                -V $indel_file \
                 	-O $recal_file \
@@ -672,7 +674,7 @@ if (params.tool == "freebayes") {
 
   		"""
 		gatk IndexFeatureFile -F $recal_file
-	 	gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyVQSR \
+	 	gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" ApplyVQSR \
 			-R $REF \
 			-V $gvcf \
 		        --recal-file $recal_file \
@@ -700,7 +702,7 @@ if (params.tool == "freebayes") {
 
   		"""
                 gatk IndexFeatureFile -F $recal_file
-        	gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyVQSR \
+        	gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" ApplyVQSR \
                 	-R $REF \
 	                -V $gvcf \
         	        --recal-file $recal_file \
@@ -727,7 +729,7 @@ if (params.tool == "freebayes") {
 	  	filtered_gvcf = "genotypes.recal_Indel.filtered.vcf.gz"
 
   		"""
-		gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantFiltration \
+		gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" VariantFiltration \
                 -R $REF \
                 -V $gvcf \
 		--filter-expression "QD < 2.0" \
@@ -793,7 +795,7 @@ if (params.tool == "freebayes") {
     	recal_table = sampleID + "_recal_table.txt" 
        
     	"""
-		java -XX:ParallelGCThreads=2 -Xmx${task.memory.toGiga()}G -Djava.io.tmpdir=tmp/ -jar ${GATK} \
+		java -XX:ParallelGCThreads=2 -Xmx${task.memory.toGiga()-mem_adjust}G -Djava.io.tmpdir=tmp/ -jar ${GATK} \
 			-T BaseRecalibrator \
 			-R ${REF} \
 			-I ${dedup_bam} \
@@ -825,7 +827,7 @@ if (params.tool == "freebayes") {
            
     	"""
 
-		java -XX:ParallelGCThreads=1 -Xmx${task.memory.toGiga()}G -Djava.io.tmpdir=tmp/ -jar ${GATK} \
+		java -XX:ParallelGCThreads=1 -Xmx${task.memory.toGiga()-mem_adjust}G -Djava.io.tmpdir=tmp/ -jar ${GATK} \
 		-T PrintReads \
 		-R ${REF} \
 		-I ${realign_bam} \
@@ -851,7 +853,7 @@ if (params.tool == "freebayes") {
    
     	"""
     
-	java -XX:ParallelGCThreads=1 -Xmx${task.memory.toGiga()}G -Djava.io.tmpdir=tmp/ -jar ${GATK} \
+	java -XX:ParallelGCThreads=1 -Xmx${task.memory.toGiga()-mem_adjust}G -Djava.io.tmpdir=tmp/ -jar ${GATK} \
 		-T BaseRecalibrator \
 		-R ${REF} \
 		-I ${realign_bam} \
@@ -876,7 +878,7 @@ if (params.tool == "freebayes") {
 
     	"""
     
-	java -XX:ParallelGCThreads=1 -Xmx${task.memory.toGiga()}G -Djava.io.tmpdir=tmp/ -jar ${GATK} \
+	java -XX:ParallelGCThreads=1 -Xmx${task.memory.toGiga()-mem_adjust}G -Djava.io.tmpdir=tmp/ -jar ${GATK} \
 		-T AnalyzeCovariates \
 		-R ${REF} \
 		-before ${recal_table} \
@@ -901,7 +903,7 @@ if (params.tool == "freebayes") {
   	vcf = SampleID + ".raw_variants.g.vcf"
 
   	"""
-		java -jar -Xmx${task.memory.toGiga()}G $GATK \
+		java -jar -Xmx${task.memory.toGiga()-mem_adjust}G $GATK \
 		-T HaplotypeCaller \
 		-R $REF \
 		-I $bam \
@@ -932,7 +934,7 @@ if (params.tool == "freebayes") {
   	gvcf = "genotypes.gvcf"
   
   	"""
-	 java -jar -Xmx${task.memory.toGiga()}G $GATK \
+	 java -jar -Xmx${task.memory.toGiga()-mem_adjust}G $GATK \
                 -T GenotypeGVCFs \
                 -R $REF \
                 --variant ${vcf_list.join(" --variant ")} \
@@ -961,13 +963,13 @@ if (params.tool == "freebayes") {
   	rscript = "genotypes.recal_SNP.R"
 
   	"""
-		java -jar -Xmx${task.memory.toGiga()}G $GATK -T SelectVariants \
+		java -jar -Xmx${task.memory.toGiga()-mem_adjust}G $GATK -T SelectVariants \
 			-R $REF \
 			-V $gvcf \
 			-o snps.vcf \
 			-selectType SNP
 
-		java -jar -Xmx${task.memory.toGiga()}G $GATK -T VariantRecalibrator \
+		java -jar -Xmx${task.memory.toGiga()-mem_adjust}G $GATK -T VariantRecalibrator \
 		-R $REF \
 		-input snps.vcf \
                 --recal_file $recal_file \
@@ -1002,7 +1004,7 @@ if (params.tool == "freebayes") {
 
   	"""
 
-                java -jar -Xmx${task.memory.toGiga()}G $GATK -T SelectVariants \
+                java -jar -Xmx${task.memory.toGiga()-mem_adjust}G $GATK -T SelectVariants \
                         -R $REF \
                         -V $gvcf \
                         -o snps.vcf \
@@ -1012,7 +1014,7 @@ if (params.tool == "freebayes") {
 			-selectType SYMBOLIC \
 			-selectType NO_VARIATION
 
-        	java -jar -Xmx${task.memory.toGiga()}G $GATK -T VariantRecalibrator \
+        	java -jar -Xmx${task.memory.toGiga()-mem_adjust}G $GATK -T VariantRecalibrator \
                 -R $REF \
                 -input $gvcf \
                 --recal_file $recal_file \
@@ -1042,7 +1044,7 @@ if (params.tool == "freebayes") {
   	vcf_snp = "genotypes.recal_SNP.vcf.gz"
 
   	"""
-	 java -jar -Xmx${task.memory.toGiga()}G $GATK -T ApplyRecalibration \
+	 java -jar -Xmx${task.memory.toGiga()-mem_adjust}G $GATK -T ApplyRecalibration \
 		-R $REF \
 		-input $gvcf \
 	        -recalFile $recal_file \
@@ -1070,7 +1072,7 @@ if (params.tool == "freebayes") {
 	vcf_index = vcf_indel + ".tbi"
 
   	"""
-         java -jar -Xmx${task.memory.toGiga()}G $GATK -T ApplyRecalibration \
+         java -jar -Xmx${task.memory.toGiga()-mem_adjust}G $GATK -T ApplyRecalibration \
                 -R $REF \
                 -input $gvcf \
                 -recalFile $recal_file \
@@ -1097,7 +1099,7 @@ if (params.tool == "freebayes") {
   	filtered_gvcf = "genotypes.recal_Indel.filtered.vcf.gz"
 
   	"""
-		java -jar -Xmx${task.memory.toGiga()}G $GATK -T VariantFiltration \
+		java -jar -Xmx${task.memory.toGiga()-mem_adjust}G $GATK -T VariantFiltration \
                 -R $REF \
                 -V $gvcf \
 		--filterName GATKStandardQD \
@@ -1131,7 +1133,7 @@ if (params.tool == "freebayes") {
 		tabix $indel
 		tabix $snp
 		
-		java -jar -Xmx${task.memory.toGiga()}G $GATK -T CombineVariants \
+		java -jar -Xmx${task.memory.toGiga()-mem_adjust}G $GATK -T CombineVariants \
 		-R $REF \
 		--variant $indel --variant $snp \
 		-o $merged_file \
@@ -1155,7 +1157,7 @@ if (params.tool == "freebayes") {
 	filtered_vcf_index = filtered_vcf + ".tbi"
 
   	"""
-		java -jar -Xmx${task.memory.toGiga()}G $GATK -T SelectVariants \
+		java -jar -Xmx${task.memory.toGiga()-mem_adjust}G $GATK -T SelectVariants \
         	-R $REF \
 		-V $merged_vcf \
 		-L chrM \
@@ -1224,7 +1226,7 @@ process runHybridCaptureMetrics {
     outfile = sampleID + ".hybrid_selection_metrics.txt"
 
     """
-        java -XX:ParallelGCThreads=1 -Xmx10g -Djava.io.tmpdir=tmp/ -jar $PICARD CollectHsMetrics \
+        java -XX:ParallelGCThreads=1 -Xmx${task.memory.toGiga()-mem_adjust}G -Djava.io.tmpdir=tmp/ -jar $PICARD CollectHsMetrics \
                 INPUT=${bam} \
                 OUTPUT=${outfile} \
                 TARGET_INTERVALS=${TARGETS} \
@@ -1250,7 +1252,7 @@ process runOxoGMetrics {
 
     """
 
-        java -XX:ParallelGCThreads=1 -Xmx10g -Djava.io.tmpdir=tmp/ -jar $PICARD CollectOxoGMetrics \
+        java -XX:ParallelGCThreads=1 -Xmx${task.memory.toGiga()-mem_adjust}G -Djava.io.tmpdir=tmp/ -jar $PICARD CollectOxoGMetrics \
                 INPUT=${bam} \
                 OUTPUT=${outfile} \
                 DB_SNP=${DBSNP} \
@@ -1278,7 +1280,7 @@ process runDepthOfCoverage {
 
        """
 
-       java -XX:ParallelGCThreads=1 -Djava.io.tmpdir=tmp/ -Xmx10g -jar ${GATK} \
+       java -XX:ParallelGCThreads=1 -Djava.io.tmpdir=tmp/ -Xmx${task.memory.toGiga()-mem_adjust}G -jar ${GATK} \
              -R ${REF} \
              -T DepthOfCoverage \
              -I ${bam} \
