@@ -185,12 +185,14 @@ process runTrimmomatic {
     set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, center, date, fastqR1, fastqR2 from readPairsTrimmomatic
 
     output:
-    set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, date, center, file("${libraryID}_R1.paired.fastq.gz"),file("${libraryID}_R2.paired.fastq.gz") into inputBwa, readPairsFastQC
+    set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, date, center, file("${baseID}_R1.paired.fastq.gz"),file("${baseID}_R2.paired.fastq.gz") into inputBwa, readPairsFastQC
 
     script:
 
-    """
-	java -jar ${TRIMMOMATIC}/trimmomatic-0.36.jar PE -threads ${task.cpus} $fastqR1 $fastqR2 ${libraryID}_R1.paired.fastq.gz ${libraryID}.1U.fastq.gz ${libraryID}_R2.paired.fastq.gz ${libraryID}.2U.fastq.gz ILLUMINACLIP:${TRIMMOMATIC}/adapters/${adapters}:2:30:10:3:TRUE LEADING:${leading} TRAILING:${trailing} SLIDINGWINDOW:${slidingwindow} MINLEN:${minlen}
+    baseID = fastqR1.split(/\//)[-1].split("_R")[0]
+	
+     """
+	java -jar ${TRIMMOMATIC}/trimmomatic-0.36.jar PE -threads ${task.cpus} $fastqR1 $fastqR2 ${baseID}_R1.paired.fastq.gz ${baseID}.1U.fastq.gz ${baseID}_R2.paired.fastq.gz ${baseID}.2U.fastq.gz ILLUMINACLIP:${TRIMMOMATIC}/adapters/${adapters}:2:30:10:3:TRUE LEADING:${leading} TRAILING:${trailing} SLIDINGWINDOW:${slidingwindow} MINLEN:${minlen}
      """
 }
 
@@ -560,8 +562,7 @@ if (params.tool == "freebayes") {
 		file(vcf_files) from inputCombineVariantsFromGenotyping.collect()
 
 		output:
-		file(gvcf) into (inputRecalSNP , inputRecalIndel)
-		file(gvcf_index) into combinedVariantsIndex
+		set file(gvcf),file(gvcf_index) into (inputRecalSNP , inputRecalIndel)
 
 		script:
 
@@ -570,7 +571,7 @@ if (params.tool == "freebayes") {
 
 		"""
         		vcf-concat ${vcf_files.join(" ")} | vcf-sort | bgzip > $gvcf
-			tabix gvcf
+			tabix $gvcf
 		"""
         }
 
@@ -580,7 +581,7 @@ if (params.tool == "freebayes") {
   		// publishDir "${OUTDIR}/${params.tool}/Variants/Recal"
 
   		input:
-  		file(vcf) from inputRecalSNP
+  		set file(vcf),file(vcf_index) from inputRecalSNP
 
   		output:
 	  	set file(recal_file),file(tranches),file(rscript),file(snp_file) into inputRecalSNPApply
@@ -597,6 +598,7 @@ if (params.tool == "freebayes") {
 			-R $REF \
 			-V $vcf \
 			-select-type SNP \
+			-OVI true \
 			-O $snp_file
 
 		gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" VariantRecalibrator \
@@ -611,6 +613,7 @@ if (params.tool == "freebayes") {
 			--resource omni,known=false,training=true,truth=true,prior=12.0:$OMNI \
 			--resource 1000G,known=false,training=true,truth=false,prior=10.0:$G1K \
 			--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
+			--max-gaussians 4
   		"""
 	}
 
@@ -620,7 +623,7 @@ if (params.tool == "freebayes") {
   		// publishDir "${OUTDIR}/${params.tool}/Variants/Recal"
 
   		input:
-  		file(vcf) from inputRecalIndel
+  		set file(vcf),file(vcf_index) from inputRecalIndel
 
   		output:
   		set file(recal_file),file(tranches),file(rscript),file(indel_file) into inputRecalIndelApply
@@ -653,6 +656,7 @@ if (params.tool == "freebayes") {
         	        -mode INDEL \
 	                --resource mills,known=false,training=true,truth=true,prior=15.0:$GOLD1 \
                 	--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
+			--max-gaussians 4
   		"""
 
 	}
@@ -666,7 +670,7 @@ if (params.tool == "freebayes") {
   		set file(recal_file),file(tranches),file(rscript),file(gvcf) from inputRecalSNPApply
 
   		output:
-  		file vcf_snp   into outputRecalSNPApply
+  		file vcf_snp into outputRecalSNPApply
 
   		script:
  
@@ -1321,7 +1325,7 @@ process runFastQC {
 process runMultiQCFastq {
 
     tag "Generating fastq level summary and QC plots"
-	publishDir "${OUTDIR}/Summary/Fastq", mode: 'copy'
+    publishDir "${OUTDIR}/Summary/Fastq", mode: 'copy'
 	    
     input:
     file('*') from FastQCOutput.flatten().toList()

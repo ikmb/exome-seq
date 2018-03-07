@@ -47,31 +47,36 @@ options.centre ? center = options.centre : center = "IKMB"
 
 fastq_files = Dir["#{options.folder}/*_R*.fastq.gz"]
 
-groups = fastq_files.group_by{|f| f.split("/")[-1].split(/_R[1,2]/)[0] }
+groups = fastq_files.group_by{|f| f.split("/")[-1].split(/_L0/)[0] }
 
 puts "IndivID;SampleID;libraryID;rgID;rgPU;platform;platform_model;Center;Date;R1;R2"
 
 #G00076-L2_S19_L003_R1_001.fastq.gz
 
+# group = the library id, may be split across lanes
 groups.each do |group, files|
 
-        left,right = files.sort.collect{|f| File.absolute_path(f)}
+	pairs = files.group_by{|f| f.split("/")[-1].split(/_R[1,2]/)[0] }
 
-        library = group.split("_")[0]
-        sample = group.split("-")[0]
+	pairs.each do |p,reads|
 
-        e = `zcat #{left} | head -n1 `
-	header = e
+        	left,right = reads.sort.collect{|f| File.absolute_path(f)}
 
-        instrument,run_id,flowcell_id,lane,tile,x,y = header.split(" ")[0].split(":")
+        	library = group.split("_")[0]
+        	sample = group.split("-")[0]
 
-	index = header.split(" ")[-1].split(":")[-1]
-        readgroup = flowcell_id + "." + lane + "." + library 
+        	e = `zcat #{left} | head -n1 `
+		header = e
 
-        pgu = flowcell_id + "." + lane + "." + index
+        	instrument,run_id,flowcell_id,lane,tile,x,y = header.split(" ")[0].split(":")
 
-        puts "Indiv_#{sample};Sample_#{sample};#{library};#{readgroup};#{pgu};Illumina;NextSeq500;#{center};#{date};#{left};#{right}"
+		index = header.split(" ")[-1].split(":")[-1]
+        	readgroup = flowcell_id + "." + lane + "." + library 
 
+        	pgu = flowcell_id + "." + lane + "." + index
+
+        	puts "Indiv_#{sample};Sample_#{sample};#{library};#{readgroup};#{pgu};Illumina;NextSeq500;#{center};#{date};#{left};#{right}"
+	end
 end
 
 
