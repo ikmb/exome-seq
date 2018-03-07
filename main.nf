@@ -702,11 +702,12 @@ if (params.tool == "freebayes") {
 	  	set file(recal_file),file(tranches),file(rscript),file(gvcf),file(gvcf_index) from inputRecalIndelApply
 
 	  	output:
-	  	file vcf_indel into outputRecalIndelApply
+	  	set file(vcf_indel),file(vcf_indel_index) into outputRecalIndelApply
 
 	  	script:
 
   		vcf_indel = "genotypes.recal_Indel.vcf.gz"
+		vcf_indel_index = vcf_indel + ".tbi"
 
   		"""
                 gatk IndexFeatureFile -F $recal_file
@@ -717,6 +718,7 @@ if (params.tool == "freebayes") {
                 	--tranches-file $tranches \
 	                -mode INDEL \
         	        --ts-filter-level 99.0 \
+			-OVI true \
                 	-O $vcf_indel
 	  	"""
 	}
@@ -727,7 +729,7 @@ if (params.tool == "freebayes") {
   		// publishDir "${OUTDIR}/${params.tool}/Variants/Filtered"
 
 	  	input:
-  		file(gvcf) from outputRecalIndelApply
+  		set file(gvcf),file(gvcf_indel) from outputRecalIndelApply
 
 	  	output:
 	  	file(filtered_gvcf) into outputVariantFiltrationIndel
