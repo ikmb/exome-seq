@@ -286,7 +286,7 @@ if (params.tool == "freebayes") {
 
 	process runFreebayes {
 
-		tag "ALL|${chr}"
+		tag "ALL|${chr}|${params.tool}"
                 // publishDir "${OUTDIR}/${params.tool}/Variants/ByChromosome", mode: 'copy'
 
 		input:
@@ -308,7 +308,7 @@ if (params.tool == "freebayes") {
 
 	process runConcatVcf {
 
-		tag "ALL"
+		tag "ALL|${params.tool}"
                 // publishDir "${OUTDIR}/${params.tool}/Variants/Freebayes", mode: 'copy'
 
 		input:
@@ -327,7 +327,7 @@ if (params.tool == "freebayes") {
 
 	process runFilterVcf {
 
-		tag "ALL"
+		tag "ALL|${params.tool}"
 		// publishDir "${OUTDIR}/${params.tool}/Variants/Freebayes", mode: 'copy'	
 
 		input:
@@ -363,7 +363,7 @@ if (params.tool == "freebayes") {
 
 	process runBaseRecalibrator {
 
-    		tag "${indivID}|${sampleID}"
+    		tag "${indivID}|${sampleID}|${params.tool}"
     		// publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
 	    
     		input:
@@ -388,7 +388,7 @@ if (params.tool == "freebayes") {
 
 	process runApplyBQSR {
 
-		tag "${indivID}|${sampleID}"
+		tag "${indivID}|${sampleID}|${params.tool}"
     		publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/", mode: 'copy'
 
     		scratch use_scratch
@@ -418,7 +418,7 @@ if (params.tool == "freebayes") {
 
 	process runBaseRecalibratorPostRecal {
 
-		tag "${indivID}|${sampleID}"
+		tag "${indivID}|${sampleID}|${params.tool}"
     		// publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Processing/BaseRecalibratorPostRecal/", mode: 'copy'
 	    
     		input:
@@ -442,7 +442,7 @@ if (params.tool == "freebayes") {
 
 	process runAnalyzeCovariates {
 
-    		tag "${indivID}|${sampleID}"
+    		tag "${indivID}|${sampleID}|${params.tool}"
     		publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Processing/AnalyzeCovariates/", mode: 'copy'
 	    
     		input:
@@ -466,7 +466,7 @@ if (params.tool == "freebayes") {
 
 	process runHCSample {
 
-  		tag "${indivID}|${sampleID}"
+  		tag "${indivID}|${sampleID}|${params.tool}"
   		// publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Variants/HaplotypeCaller/perChromosome" , mode: 'copy'
 
   		input: 
@@ -499,7 +499,7 @@ if (params.tool == "freebayes") {
 	// From here on all samples are in the same file
 	process runGenomicsDBImport  {
 
-		tag "${chr}"
+		tag "${chr}|${params.tool}"
                 // publishDir "${OUTDIR}/${params.tool}/Variants/JoinedGenotypes/PerRegion"
 
 		input:
@@ -528,7 +528,7 @@ if (params.tool == "freebayes") {
 
 	process runJoinedGenotyping {
   
-  		tag "${chr}"
+  		tag "${chr}|${params.tool}"
   		// publishDir "${OUTDIR}/${params.tool}/Variants/JoinedGenotypes/PerRegion"
   
   		input:
@@ -555,7 +555,7 @@ if (params.tool == "freebayes") {
 	// Merging the scatter-gather VCF files into one file
 
 	process combineVariantsFromGenotyping {
-		tag "ALL"
+		tag "ALL|${params.tool}"
 		publishDir "${OUTDIR}/${params.tool}/Variants/JoinedGenotypes"
 
 		input:
@@ -577,17 +577,18 @@ if (params.tool == "freebayes") {
 
 	process runRecalibrationModeSNP {
 
-  		tag "ALL"
+  		tag "ALL|${params.tool}"
   		// publishDir "${OUTDIR}/${params.tool}/Variants/Recal"
 
   		input:
   		set file(vcf),file(vcf_index) from inputRecalSNP
 
   		output:
-	  	set file(recal_file),file(tranches),file(rscript),file(snp_file) into inputRecalSNPApply
+	  	set file(recal_file),file(tranches),file(rscript),file(snp_file),file(snp_index) into inputRecalSNPApply
 
   		script:
 		snp_file = "genotypes.merged.snps.vcf.gz"
+		snp_index = snp_file + ".tbi"
   		recal_file = "genotypes.recal_SNP.recal"
   		tranches = "genotypes.recal_SNP.tranches"
   		rscript = "genotypes.recal_SNP.R"
@@ -609,6 +610,7 @@ if (params.tool == "freebayes") {
 	                --rscript-file $rscript \
 			-an MQ -an MQRankSum -an ReadPosRankSum -an FS -an DP \
         	        -mode SNP \
+			-OVI true \
 			--resource hapmap,known=false,training=true,truth=true,prior=15.0:$HAPMAP \
 			--resource omni,known=false,training=true,truth=true,prior=12.0:$OMNI \
 			--resource 1000G,known=false,training=true,truth=false,prior=10.0:$G1K \
@@ -619,17 +621,18 @@ if (params.tool == "freebayes") {
 
 	process runRecalibrationModeIndel {
 
-  		tag "ALL"
+  		tag "ALL|${params.tool}"
   		// publishDir "${OUTDIR}/${params.tool}/Variants/Recal"
 
   		input:
   		set file(vcf),file(vcf_index) from inputRecalIndel
 
   		output:
-  		set file(recal_file),file(tranches),file(rscript),file(indel_file) into inputRecalIndelApply
+  		set file(recal_file),file(tranches),file(rscript),file(indel_file),file(indel_index) into inputRecalIndelApply
 
   		script:
 		indel_file = "genotypes.merged.indel.vcf.gz"
+		indel_index = indel_file + ".tbi"
   		recal_file = "genotypes.recal_Indel.recal"
   		tranches = "genotypes.recal_Indel.tranches"
 		rscript = "genotypes.recal_Indel.R"
@@ -654,6 +657,7 @@ if (params.tool == "freebayes") {
 	                --rscript-file $rscript \
                 	-an MQ -an MQRankSum -an SOR -an ReadPosRankSum -an FS  \
         	        -mode INDEL \
+			-OVI true \
 	                --resource mills,known=false,training=true,truth=true,prior=15.0:$GOLD1 \
                 	--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
 			--max-gaussians 4
@@ -663,11 +667,11 @@ if (params.tool == "freebayes") {
 
 	process runRecalSNPApply {
 
-  		tag "ALL"
+  		tag "ALL|${params.tool}"
   		// publishDir "${OUTDIR}/${params.tool}/Variants/Filtered"
 
   		input:
-  		set file(recal_file),file(tranches),file(rscript),file(gvcf) from inputRecalSNPApply
+  		set file(recal_file),file(tranches),file(rscript),file(gvcf),file(gvcf_index) from inputRecalSNPApply
 
   		output:
   		file vcf_snp into outputRecalSNPApply
@@ -691,11 +695,11 @@ if (params.tool == "freebayes") {
 
 	process runRecalIndelApply {
 
-  		tag "ALL"
+  		tag "ALL|${params.tool}"
 	  	// publishDir "${OUTDIR}/${params.tool}/Variants/Recal"
 
   		input:
-	  	set file(recal_file),file(tranches),file(rscript),file(gvcf) from inputRecalIndelApply
+	  	set file(recal_file),file(tranches),file(rscript),file(gvcf),file(gvcf_index) from inputRecalIndelApply
 
 	  	output:
 	  	file vcf_indel into outputRecalIndelApply
@@ -719,7 +723,7 @@ if (params.tool == "freebayes") {
 
 	process runVariantFiltrationIndel {
 
-  		tag "ALL"
+  		tag "ALL|${params.tool}"
   		// publishDir "${OUTDIR}/${params.tool}/Variants/Filtered"
 
 	  	input:
@@ -746,7 +750,7 @@ if (params.tool == "freebayes") {
 
 	process runCombineVariants {
 
-  		tag "ALL"
+  		tag "ALL|${params.tool}"
 	  	// publishDir "${OUTDIR}/${params.tool}/Variants/Final", mode: 'copy'
 
   		input: 
@@ -786,7 +790,7 @@ if (params.tool == "freebayes") {
 
    process runBaseRecalibratorGATK3 {
 
-    	tag "${indivID}|${sampleID}"
+    	tag "${indivID}|${sampleID}|${params.tool}"
     	// publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
 	    
     	input:
@@ -813,7 +817,7 @@ if (params.tool == "freebayes") {
 
     process runPrintReadsGATK3 {
 
-    	tag "${indivID}|${sampleID}"
+    	tag "${indivID}|${sampleID}|${params.tool}"
     	publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/", mode: 'copy'
 
     	scratch use_scratch
@@ -843,7 +847,7 @@ if (params.tool == "freebayes") {
 
     process runBaseRecalibratorPostRecalGATK3 {
 
-    	tag "${indivID}|${sampleID}"
+    	tag "${indivID}|${sampleID}|${params.tool}"
     	publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Processing/BaseRecalibratorPostRecal/", mode: 'copy'
 	    
     	input:
@@ -868,7 +872,7 @@ if (params.tool == "freebayes") {
 	"""
     }
     process runAnalyzeCovariatesGATK3 {
-	tag "${indivID}|${sampleID}"
+	tag "${indivID}|${sampleID}|${params.tool}"
     	publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Processing/AnalyzeCovariates/", mode: 'copy'
 	    
     	input:
@@ -893,7 +897,7 @@ if (params.tool == "freebayes") {
 
     process runHCSampleGATK3 {
 
-  	tag "${SampleID}"
+  	tag "${SampleID}|${params.tool}"
   	publishDir "${OUTDIR}/${params.tool}/${IndivID}/${SampleID}/HaplotypeCaller/" , mode: 'copy'
 
   	input: 
@@ -924,7 +928,7 @@ if (params.tool == "freebayes") {
 
     process runJoinedGenotypingGATK3 {
   
-  	tag "ALL - using 17 IKMB reference exomes for calibration"
+  	tag "ALL - using 17 IKMB reference exomes for calibration|${params.tool}"
   	publishDir "${OUTDIR}/gatk3/JoinedGenotypes"
   
   	input:
@@ -952,7 +956,7 @@ if (params.tool == "freebayes") {
 
     process runRecalibrationModeSNPGATK3 {
 
-  	tag "ALL"
+  	tag "ALL|${params.tool}"
   	// publishDir "${OUTDIR}/${params.tool}/Recal"
 
   	input:
@@ -991,7 +995,7 @@ if (params.tool == "freebayes") {
 
     process runRecalibrationModeIndelGATK3 {
 
-  	tag "ALL"
+  	tag "ALL|${params.tool}"
   	// publishDir "${OUTDIR}/${params.tool}/Recal"
 
   	input:
@@ -1034,7 +1038,7 @@ if (params.tool == "freebayes") {
 
     process runRecalSNPApplyGATK3 {
 
-  	tag "ALL"
+  	tag "ALL|${params.tool}"
   	// publishDir "${OUTDIR}/${params.tool}/Filtered"
 
   	input:
@@ -1061,7 +1065,7 @@ if (params.tool == "freebayes") {
 
     process runRecalIndelApplyGATK3 {
 
-  	tag "ALL"
+  	tag "ALL|${params.tool}"
   	// publishDir "${OUTDIR}/${params.tool}/Recal"
 
   	input:
@@ -1089,7 +1093,7 @@ if (params.tool == "freebayes") {
 
     process runVariantFiltrationIndelGATK3 {
 
-  	tag "ALL"
+  	tag "ALL|${params.tool}"
   	// publishDir "${OUTDIR}/${params.tool}/Filtered"
 
   	input:
@@ -1120,7 +1124,7 @@ if (params.tool == "freebayes") {
 
     process runCombineVariantsGATK3 {
 
-  	tag "ALL"
+  	tag "ALL|${params.tool}"
   	// publishDir "${OUTDIR}/${params.tool}/Final", mode: 'copy'
 
   	input: 
@@ -1147,7 +1151,7 @@ if (params.tool == "freebayes") {
 
     process runRemoveCalibrationExomesGATK3 {
 
-  	tag "ALL"
+  	tag "ALL|${params.tool}"
   	// publishDir "${OUTDIR}/${params.tool}/Final", mode: 'copy'
 
   	input:
