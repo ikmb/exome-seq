@@ -23,7 +23,7 @@ The outputs should be fairly self-explanatory; note that the HTML outputs contai
 
 The primary output of this pipeline are the aligned, duplicate-marked reads. These can be found in the folder:
 
-output/<Tool-Chain>/IndividualID/SamplesID/Processing/MarkDuplicates
+output/TOOL-CHAIN/IndividualID/SamplesID/Processing/MarkDuplicates
 
 where Tool-Chain can be either gatk3, gatk4 or freebayes - depending on which of the three was run. 
 
@@ -31,13 +31,13 @@ where Tool-Chain can be either gatk3, gatk4 or freebayes - depending on which of
 
 Variants are called using either Freebayes or GATK. The primary VCF file will be located under:
 
-output/<Tool-Chain>/Variants/VariantCaller/some_file.vcf
+output/TOOL-CHAIN/Variants/VariantCaller/some_file.vcf
 
 ## Annotated variant calls
 
 The final VCF file (after filtering) is usually annotated using Annovar (Mid 2017). The resulting annotated VCF files can be found under
 
-output/<Tool-Chain>/Annotation/<AnnotationTool>/some_file.vcf
+output/TOOL-CHAIN/Annotation/<AnnotationTool>/some_file.vcf
 
 
 
