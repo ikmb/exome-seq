@@ -102,7 +102,7 @@ PICARD = file(params.picard_jar)
 OUTDIR = file(params.outdir)
 
 // Allow for custom freebayes filter options
-params.freebayes_options = "--min-alternate-fraction 0.2 --min-base-quality 20 --min-alternate-qsum 90"
+params.freebayes_options = "--min-alternate-fraction 0.2 --min-base-quality 20 --min-alternate-qsum 90 --genotype-qualities"
 freebayes_options = params.freebayes_options
 
 // Available exome kits
@@ -615,7 +615,7 @@ if (params.tool == "freebayes") {
 			--resource omni,known=false,training=true,truth=true,prior=12.0:$OMNI \
 			--resource 1000G,known=false,training=true,truth=false,prior=10.0:$G1K \
 			--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
-			--max-gaussians 4
+			--max-gaussians 6
   		"""
 	}
 
@@ -660,7 +660,7 @@ if (params.tool == "freebayes") {
 			-OVI true \
 	                --resource mills,known=false,training=true,truth=true,prior=15.0:$GOLD1 \
                 	--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
-			--max-gaussians 4
+			--max-gaussians 3
   		"""
 
 	}

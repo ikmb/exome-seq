@@ -2,7 +2,7 @@
 
 # IKMB Diagnostic Exome Pipeline -  Outputs
 
-This pipeline runs with one of two processing chains using either GATK4 or Freebayes 1.1.0. The output is structured as follows:
+This pipeline runs with one of three processing chains using either GATK3, GATK4 or Freebayes 1.1.0. The output is structured as follows:
 
 ## Reference data
 
@@ -23,19 +23,21 @@ The outputs should be fairly self-explanatory; note that the HTML outputs contai
 
 The primary output of this pipeline are the aligned, duplicate-marked reads. These can be found in the folder:
 
-output/IndividualID/SamplesID/Processing/MarkDuplicates
+output/<Tool-Chain>/IndividualID/SamplesID/Processing/MarkDuplicates
+
+where Tool-Chain can be either gatk3, gatk4 or freebayes - depending on which of the three was run. 
 
 ## Primary variant calls
 
 Variants are called using either Freebayes or GATK. The primary VCF file will be located under:
 
-output/Variants/VariantCaller/some_file.vcf
+output/<Tool-Chain>/Variants/VariantCaller/some_file.vcf
 
 ## Annotated variant calls
 
-The final VCF file (after filtering) is usually annotated using both Annovar (Mid 2017) and the EnsEMBL VEP (release 90). The resulting annotated VCF files can be found under
+The final VCF file (after filtering) is usually annotated using Annovar (Mid 2017). The resulting annotated VCF files can be found under
 
-output/Annotation/AnnotationTool/some_file.vcf
+output/<Tool-Chain>/Annotation/<AnnotationTool>/some_file.vcf
 
 
 
