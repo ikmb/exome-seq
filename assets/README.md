@@ -24,7 +24,6 @@ Et voila.
 As a final step, you will need to create a config file (see config/template for a blank template). Specifically, the config file requires information about where
 the container is located as well as any and all settings related to your resource management system (suxh as Slurm, LSF etc). If you are unsure, you can check the other config files, such as rzcluster.config which is configured for a Slurm cluster consisting of nodes with 16 cores and 128GB Ram. 
 
+## Reference data
 
-
-
-
+This pipeline uses a number of reference data sets, including genome assemblies and data indices. The location of these data are specified in the cluster config file (see config/rzcluster.config for an example). The data used by us comes from the BROAD resource bundle; simply copy it to some location on your cluster and set the relevant paths in your config file.
