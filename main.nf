@@ -1450,6 +1450,32 @@ process runAnnovar {
 
 }
 
+process runVep {
+
+ tag "ALL"
+ publishDir "${OUTDIR}/${params.tool}/Annotation/VEP", mode: 'copy'
+ 
+input:
+   file(vcf_file) from inputVep
+
+ output:
+   file('annotation.vep.vcf') into outputVep
+
+ script:
+
+   """
+     vep --offline --cache --dir $VEP_CACHE --fork ${task.cpus} \
+ 	--assembly GRCh37 -i $vcf_file -o annotation.vep.vcf --allele_number --canonical \
+	--force_overwrite --vcf --no_progress \
+	--pubmed \
+	--plugin ExAC,$EXAC \
+	--plugin CADD,$CADD \
+	--plugin LoFtool --plugin LoF \
+	--fasta /ifs/data/nfs_share/ikmb_repository/references/genomes/homo_sapiens/EnsEMBL/GRCh37/genome.fa
+   """
+
+}
+
 workflow.onComplete {
   log.info "========================================="
   log.info "Duration:		$workflow.duration"
