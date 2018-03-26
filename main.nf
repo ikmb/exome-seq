@@ -1406,7 +1406,7 @@ process runLeftNormalize {
    set file(vcf_file),file(index) from inputLeftNormalize
  
    output:
-   set file(vcf_normalized),file(vcf_normalized_index) into inputAnnovar
+   set file(vcf_normalized),file(vcf_normalized_index) into inputAnnovar, inputVep
 
    script:
 
