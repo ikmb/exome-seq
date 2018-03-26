@@ -1,30 +1,9 @@
 #!/bin/env ruby
-# == NAME
-# samplesheet_from_folder.rb
-#
-# == USAGE
-# ./this_script.rb [ -h | --help ]
-#[ -i | --infile ] |[ -o | --outfile ] | 
-# == DESCRIPTION
-# A script to produce a basic sample sheet for exome processing from a folder of fastQ files
-#
-# == OPTIONS
-# -h,--help Show help
-# -i,--infile=INFILE input file
-# -o,--outfile=OUTFILE : output file
-
-#
-# == EXPERT OPTIONS
-#
-# == AUTHOR
-#  Marc Hoeppner, mphoeppner@gmail.com
 
 require 'optparse'
 require 'ostruct'
 
-
 ### Define modules and classes here
-
 
 ### Get the script arguments and open relevant files
 options = OpenStruct.new()

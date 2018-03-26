@@ -65,7 +65,7 @@ A template file (SampleTemplate.csv) is included with this code base.
 
 You can use the script bin/samplesheet_from_folder.rb to generate a automatic sample sheet:
 
-`ruby /path/to/git/samplesheet_from_folder.rb -f /path/to/fastq_folder`
+`ruby /path/to/git/bin/samplesheet_from_folder.rb -f /path/to/fastq_folder`
 
 where /path/to/fastq_folder points to a directory from which to read the fastq files. This requires a Ruby version >= 2.0 (available as software module on RZCluster.
 
