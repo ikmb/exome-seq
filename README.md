@@ -107,6 +107,8 @@ The pipeline is built to support more than one Exome kit. These can be selected 
 
 `--kit xGen` (the IDT xGEN panel, version 1.0)
 
+`--kit xGen_custom`(the IDT xGEN panel, version 1.0, with additional custom targets)
+
 This option defaults to "Nextera", so make sure this is in fact the kit you have used!
 
 ### Email notification
