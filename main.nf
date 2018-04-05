@@ -128,13 +128,9 @@ file(TARGETS).eachLine { line ->
 // We add 17 reference exome gVCFs to make sure that variant filtration works
 // These are in hg19 so need to be updated to other assemblies if multiple assemblies are to be supported
 
-calibration_exomes = file(params.calibration_exomes)
-calibration_samples_list = file(params.calibration_exomes_samples)
-
-// GATK4 requires a specific name extension...
-if (params.tool == "gatk4") {
-	calibration_samples_list = file(params.calibration_exomes_samples_args)
-}
+calibration_exomes = file(params.genomes[params.assembly].calibration_exomes_gatk3)
+calibration_samples_list = file(params.genomes[params.assembly].calibration_exomes_samples)
+calibration_samples_list_args = file(params.genomes[params.assembly].calibration_exomes_samples_args)
 
 calibration_vcfs = [ ]
 file(calibration_exomes).eachLine { line ->

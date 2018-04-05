@@ -31,11 +31,11 @@ where Tool-Chain can be either gatk3, gatk4 or freebayes - depending on which of
 
 Variants are called using either Freebayes or GATK. The primary VCF file will be located under:
 
-output/TOOL-CHAIN/Variants/VariantCaller/some_file.vcf
+output/TOOL-CHAIN/Final/some_file.vcf
 
 ## Annotated variant calls
 
-The final VCF file (after filtering) is usually annotated using Annovar (Mid 2017). The resulting annotated VCF files can be found under
+The final VCF file (after filtering) is usually annotated using Annovar (Mid 2017) and the VEP (EnsEMBL 90). The resulting annotated VCF files can be found under
 
 output/TOOL-CHAIN/Annotation/<AnnotationTool>/some_file.vcf
 
