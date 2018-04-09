@@ -128,7 +128,13 @@ file(TARGETS).eachLine { line ->
 // We add 17 reference exome gVCFs to make sure that variant filtration works
 // These are in hg19 so need to be updated to other assemblies if multiple assemblies are to be supported
 
-calibration_exomes = file(params.genomes[params.assembly].calibration_exomes_gatk3)
+calibration_exomes = ""
+if (params.tool == "gatk3") {
+	calibration_exomes = file(params.genomes[params.assembly].calibration_exomes_gatk3)
+} else if (params.tool == "gatk4") {
+	calibration_exomes = file(params.genomes[params.assembly].calibration_exomes_gatk4)
+}
+
 calibration_samples_list = file(params.genomes[params.assembly].calibration_exomes_samples)
 calibration_samples_list_args = file(params.genomes[params.assembly].calibration_exomes_samples_args)
 
@@ -398,9 +404,9 @@ if (params.tool == "freebayes") {
 		set indivID, outfile_md5 into BamMD5
             
     		script:
-    		outfile_bam = sampleID + ".clean.bam"
-    		outfile_bai = sampleID + ".clean.bai"
-		outfile_md5 = sampleID + ".clean.bam.md5"
+    		outfile_bam = sampleID + ".clean.cram"
+    		outfile_bai = sampleID + ".clean.cram.bai"
+		outfile_md5 = sampleID + ".clean.cram.md5"
            
     		"""
                 gatk --java-options "-Xmx${task.memory.toGiga()-mem_adjust}G" ApplyBQSR \
@@ -513,6 +519,7 @@ if (params.tool == "freebayes") {
 		"""
 		gatk --java-options "-Xmx${task.memory.toGiga()-3}G" GenomicsDBImport  \
 			--variant ${vcf_list.join(" --variant ")} \
+			--variant ${calibration_vcfs.join(" --variant ")} \
 			--reference $REF \
 			--intervals $chr \
 			--genomicsdb-workspace-path $genodb
@@ -574,7 +581,7 @@ if (params.tool == "freebayes") {
 	process runRecalibrationModeSNP {
 
   		tag "ALL|${params.tool}"
-  		// publishDir "${OUTDIR}/${params.tool}/Variants/Recal"
+  		publishDir "${OUTDIR}/${params.tool}/Variants/Recal"
 
   		input:
   		set file(vcf),file(vcf_index) from inputRecalSNP
@@ -604,7 +611,7 @@ if (params.tool == "freebayes") {
                 	-O $recal_file \
         	        --tranches-file $tranches \
 	                --rscript-file $rscript \
-			-an MQ -an MQRankSum -an ReadPosRankSum -an FS -an QD -SOR -an ReadPosRankSum \
+			-an MQ -an MQRankSum -an ReadPosRankSum -an FS -an QD -an SOR -an ReadPosRankSum -an InbreedingCoeff \
         	        -mode SNP \
 			-OVI true \
 			--resource hapmap,known=false,training=true,truth=true,prior=15.0:$HAPMAP \
@@ -652,7 +659,7 @@ if (params.tool == "freebayes") {
                 	-O $recal_file \
         	        --tranches-file $tranches \
 	                --rscript-file $rscript \
-                	-an MQ -an MQRankSum -an SOR -an ReadPosRankSum -an FS -an ReadPosRankSum -an QD \
+                	-an MQ -an MQRankSum -an SOR -an ReadPosRankSum -an FS -an ReadPosRankSum -an QD -an InbreedingCoeff \
         	        -mode INDEL \
 			-OVI true \
 	                --resource mills,known=false,training=true,truth=true,prior=15.0:$GOLD1 \
@@ -777,6 +784,7 @@ if (params.tool == "freebayes") {
 			-R $REF \
 			-V merged.vcf.gz \
 			-O $merged_file \
+			--exclude-sample-name $calibration_samples_list_args \
 			--remove-unused-alternates true \
 			--exclude-non-variants true
   		"""
@@ -830,8 +838,8 @@ if (params.tool == "freebayes") {
     	set indivID, sampleID, realign_bam, recal_table into runPrintReadsOutput_for_PostRecal
             
     	script:
-	outfile_bam = sampleID + ".clean.bam"
-    	outfile_bai = sampleID + ".clean.bai"
+	outfile_bam = sampleID + ".clean.cram"
+    	outfile_bai = sampleID + ".clean.cram.bai"
            
     	"""
 
@@ -929,7 +937,7 @@ if (params.tool == "freebayes") {
     process runJoinedGenotypingGATK3 {
   
   	tag "ALL - using 17 IKMB reference exomes for calibration|${params.tool}"
-  	publishDir "${OUTDIR}/gatk3/JoinedGenotypes"
+  	//publishDir "${OUTDIR}/gatk3/JoinedGenotypes"
   
   	input:
   	file(vcf_list) from inputHCJoined
@@ -939,7 +947,7 @@ if (params.tool == "freebayes") {
   
   	script:
   
-  	gvcf = "genotypes.gvcf"
+  	gvcf = "genotypes.g.vcf.gz"
   
   	"""
 	 java -jar -Xmx${task.memory.toGiga()-mem_adjust}G $GATK \
