@@ -559,7 +559,7 @@ if (params.tool == "freebayes") {
 
 	process combineVariantsFromGenotyping {
 		tag "ALL|${params.tool}"
-		publishDir "${OUTDIR}/${params.tool}/Variants/JoinedGenotypes"
+		//publishDir "${OUTDIR}/${params.tool}/Variants/JoinedGenotypes"
 
 		input:
 		file(vcf_files) from inputCombineVariantsFromGenotyping.collect()
@@ -581,7 +581,7 @@ if (params.tool == "freebayes") {
 	process runRecalibrationModeSNP {
 
   		tag "ALL|${params.tool}"
-  		publishDir "${OUTDIR}/${params.tool}/Variants/Recal"
+  		//publishDir "${OUTDIR}/${params.tool}/Variants/Recal"
 
   		input:
   		set file(vcf),file(vcf_index) from inputRecalSNP
