@@ -619,7 +619,7 @@ if (params.tool == "freebayes") {
 			--resource 1000G,known=false,training=true,truth=false,prior=10.0:$G1K \
 			--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
                         -tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0 \
-			--max-gaussians 6
+			--max-gaussians 4
   		"""
 	}
 
