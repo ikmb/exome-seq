@@ -247,7 +247,11 @@ process mergeBamFiles_bySample {
 process runMarkDuplicates {
 
 	tag "${indivID}|${sampleID}"
-        publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
+        publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy',
+		saveAs: {filename ->
+            		if (params.tool == "freebayes") filename
+            		else null
+		}
 
         // scratch use_scratch
 
