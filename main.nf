@@ -473,7 +473,7 @@ if (params.tool == "freebayes") {
 	process runHCSample {
 
   		tag "${indivID}|${sampleID}|${params.tool}"
-  		// publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Variants/HaplotypeCaller/perChromosome" , mode: 'copy'
+  		publishDir "${OUTDIR}/${params.tool}/${indivID}/${sampleID}/Variants/HaplotypeCaller" , mode: 'copy'
 
   		input: 
   		set indivID,sampleID,file(bam),file(bai) from inputHCSample
