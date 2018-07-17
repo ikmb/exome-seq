@@ -100,6 +100,8 @@ clip_r2 = params.clip_r2
 three_prime_clip_r1 = params.three_prime_clip_r1
 three_prime_clip_r2 = params.three_prime_clip_r2
 
+params.saveTrimmed = false
+
 // Available exome kits
 if (params.genomes[params.assembly].kits.containsKey(params.kit) == false) {
    exit 1, "Specified unknown Exome kit, please consult the documentation for valid kits."
@@ -140,14 +142,18 @@ params.email = false
 // Whether to use a local scratch disc
 use_scratch = params.scratch
 
-// Trimmomatic options
-TRIMMOMATIC=file(params.trimmomatic)
-
-leading = params.leading
-trailing = params.trailing
-slidingwindow = params.slidingwindow
-minlen = params.minlen
-adapters = params.adapters
+// Make sure the Nextflow version is current enough
+try {
+    if( ! nextflow.version.matches(">= $params.nf_required_version") ){
+        throw GroovyException('Nextflow version too old')
+    }
+} catch (all) {
+    log.error "====================================================\n" +
+              "  Nextflow version $params.nf_required_version required! You are running v$workflow.nextflow.version.\n" +
+              "  Pipeline execution will continue, but things may break.\n" +
+              "  Please run `nextflow self-update` to update Nextflow.\n" +
+              "============================================================"
+}
 
 logParams(params, "pipeline_parameters.txt")
 
@@ -156,7 +162,6 @@ log.info "========================================="
 log.info "IKMB Diagnostic Exome pipeline v${VERSION}"
 log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
-log.info "Adapter sequence used:	${adapters}"
 log.info "Command Line:			$workflow.commandLine"
 log.info "========================================="
 
@@ -179,7 +184,7 @@ process runTrimgalore {
     	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, center, date, fastqR1, fastqR2 from readPairsTrimmomatic
 
     	output:
-    	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, date, center, file("*val_1*fastq.gz"),file("*val_2*fastq.gz") into inputBwa
+    	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, date, center, file("*val_1*fq.gz"),file("*val_2*fq.gz") into inputBwa
    	file "*trimming_report.txt" into trimgalore_results, trimgalore_logs   
    	file "*_fastqc.{zip,html}" into FastQCOutput
    
