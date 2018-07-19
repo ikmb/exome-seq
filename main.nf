@@ -345,52 +345,6 @@ process runApplyBQSR {
     	"""
 }    
 
-process runBaseRecalibratorPostRecal {
-
-	tag "${indivID}|${sampleID}"
-	// publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibratorPostRecal/", mode: 'copy'
-	    
-	input:
-	set indivID, sampleID, realign_bam, recal_table from runPrintReadsOutput_for_PostRecal
-    
-	output:
-	set indivID, sampleID, recal_table, file(post_recal_table) into runBaseRecalibratorPostRecalOutput_Analyze
-        
-	script:
-	post_recal_table = sampleID + "_post_recal_table.txt" 
-   
-	"""
-		gatk --java-options "-Xmx${task.memory.toGiga()}G" BaseRecalibrator \
-		--reference ${REF} \
-		--input ${realign_bam} \
-		--known-sites ${GOLD1} \
-		--known-sites ${DBSNP} \
-		--output ${post_recal_table}
-	"""
-}	
-
-process runAnalyzeCovariates {
-
-	tag "${indivID}|${sampleID}"
-	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/AnalyzeCovariates/", mode: 'copy'
-	    
-	input:
-	set indivID, sampleID, recal_table, post_recal_table from runBaseRecalibratorPostRecalOutput_Analyze
-
-	output:
-	set indivID, sampleID, recal_plots into runAnalyzeCovariatesOutput
-	    
-    	script:
-    	recal_plots = sampleID + "_recal_plots.pdf" 
-
- 	"""
-		gatk --java-options "-Xmx${task.memory.toGiga()}G" AnalyzeCovariates \
-			--before-report-file ${recal_table} \
-			--after-report-file ${post_recal_table} \
-			--plots-report-file ${recal_plots}
-	"""
-}    
-
 // Call variants on a per-sample basis
 
 process runHCSample {
@@ -469,7 +423,7 @@ process runJoinedGenotyping {
   
 	script:
   
-	gvcf = "genotypes." + chr + ".gvcf.gz"
+	gvcf = "genotypes." + chr + ".vcf.gz"
   
 	"""
  	gatk --java-options "-Xmx${task.memory.toGiga()-3}G" GenotypeGVCFs \
@@ -496,12 +450,20 @@ process combineVariantsFromGenotyping {
 
 	script:
 
-	gvcf = "genotypes.merged.vcf.gz"
-	gvcf_index = gvcf + ".tbi"
+	vcf = "genotypes.merged.vcf.gz"
+	gvcf_index = vcf + ".tbi"
+
+	def sorted_vcf = [ ]
+	chromosomes.each { chromosome ->
+		sorted_vcf << vcf_files.find { it =~ /.*\.${chromosome}\.vcf\.gz / }
+	}
 
 	"""
-      		vcf-concat ${vcf_files.join(" ")} | vcf-sort | bgzip > $gvcf
-		tabix $gvcf
+		picard GatherVcfs INPUT=${sorted_vcf.join(" INPUT=")} \
+			OUTPUT=$vcf
+
+		gatk IndexFeatureFile -F $vcf
+
 	"""
 }
 
