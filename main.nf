@@ -41,6 +41,8 @@ the Nextera kit and using the GATK4 best-practice workflow.
 Required parameters:
 --samples                      A sample list in CSV format (see website for formatting hints)
 --assembly                     Name of the reference assembly to use
+--effect_prediction	       Whether to run effect prediction on the final variant set (default: true)
+--hard_filter			Whether to run hard filtering on raw variants instead of machine learning (default: false)
 Output:
 --outdir                       Local directory to which all output is written (default: output)
 Exome kit:
@@ -72,8 +74,6 @@ if (params.genomes.containsKey(params.assembly) == false) {
 
 // Reference files as determined by the assembly (see config file for details)
 REF = file(params.genomes[ params.assembly ].fasta)
-DICT = file(params.genomes[params.assembly ].dict)
-
 DBSNP = file(params.genomes[ params.assembly ].dbsnp )
 G1K = file(params.genomes[ params.assembly ].g1k )
 GOLD1 = file(params.genomes[ params.assembly ].gold )
@@ -84,6 +84,9 @@ CADD = file(params.genomes[ params.assembly ].cadd )
 
 ANNOVAR_DB = file(params.genomes[ params.assembly ].annovar_db )
 VEP_CACHE = params.vep_cache
+params.effect_prediction = true
+
+params.hard_filter = false
 
 // Location of applications used
 OUTDIR = file(params.outdir)
@@ -115,7 +118,7 @@ chromosomes =  []
 file(TARGETS).eachLine { line ->
 	elements = line.trim().split("\t")
 	seq = elements[0].trim()
-	if (seq =~ /^chr.*/) {
+	if (seq =~ /^[A-Za-z0-9\-\:].*/) {
 		if (chromosomes.contains(seq) == false)	{
 			chromosomes << seq
 		}
@@ -125,9 +128,7 @@ file(TARGETS).eachLine { line ->
 // We add 17 reference exome gVCFs to make sure that variant filtration works
 // These are in hg19 so need to be updated to other assemblies if multiple assemblies are to be supported
 
-calibration_exomes = file(params.genomes[params.assembly].calibration_exomes_gatk4)
-
-//calibration_samples_list = file(params.genomes[params.assembly].calibration_exomes_samples)
+calibration_exomes = file(params.genomes[params.assembly].calibration_exomes_gatk)
 calibration_samples_list_args = file(params.genomes[params.assembly].calibration_exomes_samples_args)
 
 calibration_vcfs = [ ]
@@ -398,7 +399,7 @@ process runGenomicsDBImport  {
 	genodb = "genodb_${chr}"
 
 	"""
-	gatk --java-options "-Xmx${task.memory.toGiga()-3}G" GenomicsDBImport  \
+	gatk --java-options "-Xmx${task.memory.toGiga()}G" GenomicsDBImport  \
 		--variant ${vcf_list.join(" --variant ")} \
 		--variant ${calibration_vcfs.join(" --variant ")} \
 		--reference $REF \
@@ -426,7 +427,7 @@ process runJoinedGenotyping {
 	gvcf = "genotypes." + chr + ".vcf.gz"
   
 	"""
- 	gatk --java-options "-Xmx${task.memory.toGiga()-3}G" GenotypeGVCFs \
+ 	gatk --java-options "-Xmx${task.memory.toGiga()}G" GenotypeGVCFs \
 		--reference $REF \
 		--dbsnp $DBSNP \
 		-V gendb://${genodb} \
@@ -443,19 +444,20 @@ process combineVariantsFromGenotyping {
 	//publishDir "${OUTDIR}/Variants/JoinedGenotypes"
 
 	input:
-	file(vcf_files) from inputCombineVariantsFromGenotyping.collect()
+	val(vcf_files) from inputCombineVariantsFromGenotyping.collect()
 
 	output:
-	set file(gvcf),file(gvcf_index) into (inputRecalSNP , inputRecalIndel)
+	set file(vcf),file(vcf_index) into inputRecalSNP , inputRecalIndel
+	set file(vcf),file(vcf_index) into inputHardFilterSNP, inputHardFilterIndel
 
 	script:
 
 	vcf = "genotypes.merged.vcf.gz"
-	gvcf_index = vcf + ".tbi"
+	vcf_index = vcf + ".tbi"
 
 	def sorted_vcf = [ ]
 	chromosomes.each { chromosome ->
-		sorted_vcf << vcf_files.find { it =~ /.*\.${chromosome}\.vcf\.gz / }
+		sorted_vcf << vcf_files.find { it =~ /genotypes\.$chromosome\.vcf\.gz/ }
 	}
 
 	"""
@@ -467,216 +469,326 @@ process combineVariantsFromGenotyping {
 	"""
 }
 
-process runRecalibrationModeSNP {
+if ( params.hard_filter == true ) {
 
-	tag "ALL"
-	//publishDir "${OUTDIR}/Variants/Recal"
+	inputRecalSNP = Channel.from(false)
+	inputRecalIndel = Channel.from(false)
 
-	input:
-	set file(vcf),file(vcf_index) from inputRecalSNP
-
-	output:
- 	set file(recal_file),file(tranches),file(rscript),file(snp_file),file(snp_index) into inputRecalSNPApply
-
-	script:
-	snp_file = "genotypes.merged.snps.vcf.gz"
-	snp_index = snp_file + ".tbi"
-	recal_file = "genotypes.recal_SNP.recal"
-	tranches = "genotypes.recal_SNP.tranches"
-	rscript = "genotypes.recal_SNP.R"
-
-	"""
-
-	gatk --java-options "-Xmx${task.memory.toGiga()}G" SelectVariants \
-		-R $REF \
-		-V $vcf \
-		-select-type SNP \
-		-OVI true \
-		-O $snp_file
-
-	gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
-		-R $REF \
-		-V $snp_file \
-               	-O $recal_file \
-       	        --tranches-file $tranches \
-                --rscript-file $rscript \
-		-an MQ -an MQRankSum -an ReadPosRankSum -an FS -an QD -an SOR -an ReadPosRankSum -an InbreedingCoeff \
-       	        -mode SNP \
-		-OVI true \
-		--resource hapmap,known=false,training=true,truth=true,prior=15.0:$HAPMAP \
-		--resource omni,known=false,training=true,truth=true,prior=12.0:$OMNI \
-		--resource 1000G,known=false,training=true,truth=false,prior=10.0:$G1K \
-		--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
-                -tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0 \
-		--max-gaussians 4
-	"""
-}
-
-process runRecalibrationModeIndel {
-
-	tag "ALL"
-	// publishDir "${OUTDIR}/Variants/Recal"
-
-  	input:
-  	set file(vcf),file(vcf_index) from inputRecalIndel
-
-  	output:
-  	set file(recal_file),file(tranches),file(rscript),file(indel_file),file(indel_index) into inputRecalIndelApply
-
-  	script:
-	indel_file = "genotypes.merged.indel.vcf.gz"
-	indel_index = indel_file + ".tbi"
-  	recal_file = "genotypes.recal_Indel.recal"
-  	tranches = "genotypes.recal_Indel.tranches"
-	rscript = "genotypes.recal_Indel.R"
-
-  	"""
+	process runHardFilterSNP {
 		
-	gatk --java-options "-Xmx${task.memory.toGiga()}G" SelectVariants \
-		-R $REF \
-		-V $vcf \
-		-select-type INDEL \
-		-select-type MIXED \
-		-select-type MNP \
-		-select-type SYMBOLIC \
-		-select-type NO_VARIATION \
-		-O $indel_file
+		tag "ALL"
+		//publishDir "${OUTDIR}/Variants", mode: 'copy'
 
-	gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
-                -R $REF \
-	        -V $indel_file \
-               	-O $recal_file \
-                --tranches-file $tranches \
-	        --rscript-file $rscript \
-               	-an MQ -an MQRankSum -an SOR -an ReadPosRankSum -an FS -an ReadPosRankSum -an QD -an InbreedingCoeff \
-                -mode INDEL \
-		-OVI true \
-	        --resource mills,known=false,training=true,truth=true,prior=15.0:$GOLD1 \
-               	--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
-		-tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0 \
-		--max-gaussians 3
-  	"""
+		input:
+		set file(vcf),file(vcf_index) from inputHardFilterSNP
 
-}
+		output:
+		set file(vcf_filtered),file(vcf_filtered_index) into outputHardFilterSNP
 
-process runRecalSNPApply {
+		script:
+		vcf_filtered = "genotypes.merged.snps.filtered.vcf.gz"
+		vcf_filtered_index = vcf_filtered + ".tbi"
 
-	tag "ALL"
-	// publishDir "${OUTDIR}/Variants/Filtered"
+		"""
+			gatk SelectVariants \
+				-R $REF \
+				-V $vcf \
+				--select-type-to-include SNP
+				-O genotypes.merged.snps.vcf.gz
+				-OVI true
+				
+			gatk VariantFiltration \
+				-R $REF \
+				-V genotypes.merged.snps.vcf.gz \
+				-O $vcf_filtered \
+				-filterExpression "QD < 2.0 || FS > 60.0 || MQ < 40.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0" \
+				--filterName "hard_snp_filter" \
+				-OVI true
+		"""
 
-	input:
-	set file(recal_file),file(tranches),file(rscript),file(gvcf),file(gvcf_index) from inputRecalSNPApply
+	}
 
-	output:
-	file vcf_snp into outputRecalSNPApply
+	process runHardFilterIndel {
 
-	script:
- 
-	vcf_snp = "genotypes.recal_SNP.vcf.gz"
+                tag "ALL"
+                //publishDir "${OUTDIR}/Variants", mode: 'copy'
 
-	"""
-	gatk IndexFeatureFile -F $recal_file
-	gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyVQSR \
-		-R $REF \
-		-V $gvcf \
-	        --recal-file $recal_file \
-               	--tranches-file $tranches \
-		-mode SNP \
-		--ts-filter-level 99.0 \
-		-O $vcf_snp	
-  	"""
-}
+                input:
+                set file(vcf),file(vcf_index) from inputHardFilterIndex
 
-process runRecalIndelApply {
+                output:
+                set file(vcf_filtered),file(vcf_filtered_index) into outputHardFilterIndel
 
-	tag "ALL"
-  	// publishDir "${OUTDIR}/Variants/Recal"
+                script:
+                vcf_filtered = "genotypes.merged.snps.filtered.vcf.gz"
+                vcf_filtered_index = vcf_filtered + ".tbi"
 
-	input:
- 	set file(recal_file),file(tranches),file(rscript),file(gvcf),file(gvcf_index) from inputRecalIndelApply
+                """
+                        gatk SelectVariants \
+                                -R $REF \
+                                -V $vcf \
+                                --select-type-to-include SNP
+                                -O genotypes.merged.snps.vcf.gz
+                                -OVI true
 
-  	output:
-  	set file(vcf_indel),file(vcf_indel_index) into outputRecalIndelApply
+                        gatk VariantFiltration \
+                                -R $REF \
+                                -V genotypes.merged.snps.vcf.gz \
+                                -O $vcf_filtered \
+				--filterExpression "QD < 2.0 || FS > 200.0 || ReadPosRankSum < -20.0" \
+                                --filterName "hard_indel_filter" \
+				-OVI true
+                """
+        }
 
-  	script:
+        process runCombineVariants {
 
-	vcf_indel = "genotypes.recal_Indel.vcf.gz"
-	vcf_indel_index = vcf_indel + ".tbi"
+                tag "ALL"
+                // publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
 
-  	"""
-        	gatk IndexFeatureFile -F $recal_file
-        	gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyVQSR \
-                -R $REF \
-	             	-V $gvcf \
-        	     	--recal-file $recal_file \
-                	--tranches-file $tranches \
-	                -mode INDEL \
-        	        --ts-filter-level 99.0 \
+                input:
+                set file(indel),file(indel_index) from outputHardFilterIndel
+		set file(snp),file(snp_index) fromoutputHardFilterSNP
+
+                output:
+                set file(merged_file),file(merged_file_index) into inputAnnovar, inputVep
+
+                script:
+                merged_file = "merged_callset.hard.vcf.gz"
+                merged_file_index = merged_file + ".tbi"
+
+                """
+                        gatk SortVcf -I $indel -O indels.sorted.vcf.gz
+                        gatk SortVcf -I $snp -O snps.sorted.vcf.gz
+                        gatk MergeVcfs \
+                        -I=indels.sorted.vcf.gz \
+                        -I=snps.sorted.vcf.gz \
+                        -O=merged.vcf.gz \
+                        -R=$REF \
+
+                        gatk SelectVariants \
+                        -R $REF \
+                        -V merged.vcf.gz \
+                        -O $merged_file \
+                        --remove-unused-alternates true \
+                        --exclude-non-variants true
+                """
+	}
+
+} else  {
+
+	inputHardFilterSNP = Channel.from(false)
+	inputHardFilterIndel = Channel.from(false)
+
+	process runRecalibrationModeSNP {
+
+        	tag "ALL"
+	        //publishDir "${OUTDIR}/Variants/Recal"
+		input:
+		set file(vcf),file(vcf_index) from inputRecalSNP
+
+		output:
+	 	set file(recal_file),file(tranches),file(rscript),file(snp_file),file(snp_index) into inputRecalSNPApply
+
+		script:
+		snp_file = "genotypes.merged.snps.vcf.gz"
+		snp_index = snp_file + ".tbi"
+		recal_file = "genotypes.recal_SNP.recal"
+		tranches = "genotypes.recal_SNP.tranches"
+		rscript = "genotypes.recal_SNP.R"
+
+		"""
+
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" SelectVariants \
+			-R $REF \
+			-V $vcf \
+			-select-type SNP \
 			-OVI true \
-                	-O $vcf_indel
-	  """
+			-O $snp_file
+
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
+			-R $REF \
+			-V $snp_file \
+	               	-O $recal_file \
+       		        --tranches-file $tranches \
+			-an MQ -an MQRankSum -an ReadPosRankSum -an FS -an QD -an SOR -an ReadPosRankSum -an InbreedingCoeff \
+	       	        -mode SNP \
+			-OVI true \
+			--resource hapmap,known=false,training=true,truth=true,prior=15.0:$HAPMAP \
+			--resource omni,known=false,training=true,truth=true,prior=12.0:$OMNI \
+			--resource 1000G,known=false,training=true,truth=false,prior=10.0:$G1K \
+			--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
+	                -tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0 \
+			--max-gaussians 4
+		"""
+	}
+
+	process runRecalibrationModeIndel {
+	
+		tag "ALL"
+		// publishDir "${OUTDIR}/Variants/Recal"
+
+  		input:
+	  	set file(vcf),file(vcf_index) from inputRecalIndel
+
+  		output:
+	  	set file(recal_file),file(tranches),file(rscript),file(indel_file),file(indel_index) into inputRecalIndelApply
+
+  		script:
+		indel_file = "genotypes.merged.indel.vcf.gz"
+		indel_index = indel_file + ".tbi"
+	  	recal_file = "genotypes.recal_Indel.recal"
+  		tranches = "genotypes.recal_Indel.tranches"
+		rscript = "genotypes.recal_Indel.R"
+
+  		"""
+		
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" SelectVariants \
+			-R $REF \
+			-V $vcf \
+			-select-type INDEL \
+			-select-type MIXED \
+			-select-type MNP \
+			-select-type SYMBOLIC \
+			-select-type NO_VARIATION \
+			-O $indel_file
+
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
+        	        -R $REF \
+	        	-V $indel_file \
+	               	-O $recal_file \
+        	        --tranches-file $tranches \
+               		-an MQ -an MQRankSum -an SOR -an ReadPosRankSum -an FS -an ReadPosRankSum -an QD -an InbreedingCoeff \
+	                -mode INDEL \
+			-OVI true \
+	        	--resource mills,known=false,training=true,truth=true,prior=15.0:$GOLD1 \
+	               	--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
+			-tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0 \
+			--max-gaussians 4
+	  	"""
+
+	}
+
+	process runRecalSNPApply {
+	
+		tag "ALL"
+		// publishDir "${OUTDIR}/Variants/Filtered"
+	
+		input:
+		set file(recal_file),file(tranches),file(rscript),file(gvcf),file(gvcf_index) from inputRecalSNPApply
+
+		output:
+		file vcf_snp into outputRecalSNPApply
+
+		script:
+ 
+		vcf_snp = "genotypes.recal_SNP.vcf.gz"
+
+		"""
+		gatk IndexFeatureFile -F $recal_file
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyVQSR \
+			-R $REF \
+			-V $gvcf \
+		        --recal-file $recal_file \
+        	       	--tranches-file $tranches \
+			-mode SNP \
+			--ts-filter-level 99.0 \
+			-O $vcf_snp	
+  		"""
+	}
+
+	process runRecalIndelApply {
+	
+		tag "ALL"
+	  	// publishDir "${OUTDIR}/Variants/Recal"
+
+		input:
+	 	set file(recal_file),file(tranches),file(rscript),file(gvcf),file(gvcf_index) from inputRecalIndelApply
+
+  		output:
+	  	set file(vcf_indel),file(vcf_indel_index) into outputRecalIndelApply
+
+  		script:
+
+		vcf_indel = "genotypes.recal_Indel.vcf.gz"
+		vcf_indel_index = vcf_indel + ".tbi"
+
+	  	"""
+        		gatk IndexFeatureFile -F $recal_file
+        		gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyVQSR \
+	                -R $REF \
+		             	-V $gvcf \
+        		     	--recal-file $recal_file \
+                		--tranches-file $tranches \
+		                -mode INDEL \
+        		        --ts-filter-level 99.0 \
+				-OVI true \
+                		-O $vcf_indel
+	  	"""
+	}
+
+	process runVariantFiltrationIndel {
+
+		tag "ALL"
+		// publishDir "${OUTDIR}/Variants/Filtered"
+
+	  	input:
+		set file(gvcf),file(gvcf_indel) from outputRecalIndelApply
+
+	  	output:
+	  	file(filtered_gvcf) into outputVariantFiltrationIndel
+
+	  	script:
+
+	  	filtered_gvcf = "genotypes.recal_Indel.filtered.vcf.gz"
+
+		"""
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantFiltration \
+        	       -R $REF \
+               	-V $gvcf \
+			--filter-expression "QD < 2.0" \
+			--filter-name "QDFilter" \
+                	-O $filtered_gvcf
+	  	"""
+	}
+
+	inputCombineVariants = outputVariantFiltrationIndel.mix(outputRecalSNPApply)
+
+	process runCombineVariants {
+
+		tag "ALL"
+	  	// publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
+
+		input: 
+	     	set file(indel),file(snp) from inputCombineVariants.collect()
+
+		output:
+		set file(merged_file),file(merged_file_index) into inputAnnovar, inputVep
+
+		script:
+		merged_file = "merged_callset.vqsr.vcf.gz"
+		merged_file_index = merged_file + ".tbi"
+
+		"""
+			gatk SortVcf -I $indel -O indels.sorted.vcf.gz
+			gatk SortVcf -I $snp -O snps.sorted.vcf.gz
+			gatk MergeVcfs \
+			-I=indels.sorted.vcf.gz \
+			-I=snps.sorted.vcf.gz \
+			-O=merged.vcf.gz \
+			-R=$REF \
+
+			gatk SelectVariants \
+			-R $REF \
+			-V merged.vcf.gz \
+			-O $merged_file \
+			--exclude-sample-name $calibration_samples_list_args \
+			--remove-unused-alternates true \
+			--exclude-non-variants true
+		"""
+	}
 }
 
-process runVariantFiltrationIndel {
-
-	tag "ALL"
-	// publishDir "${OUTDIR}/Variants/Filtered"
-
-  	input:
-	set file(gvcf),file(gvcf_indel) from outputRecalIndelApply
-
-  	output:
-  	file(filtered_gvcf) into outputVariantFiltrationIndel
-
-  	script:
-
-  	filtered_gvcf = "genotypes.recal_Indel.filtered.vcf.gz"
-
-	"""
-	gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantFiltration \
-               -R $REF \
-               -V $gvcf \
-		--filter-expression "QD < 2.0" \
-		--filter-name "QDFilter" \
-                -O $filtered_gvcf
-  	"""
-}
-
-inputCombineVariants = outputVariantFiltrationIndel.mix(outputRecalSNPApply)
-
-process runCombineVariants {
-
-	tag "ALL"
-  	// publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
-
-	input: 
-     	set file(indel),file(snp) from inputCombineVariants.collect()
-
-	output:
-	set file(merged_file),file(merged_file_index) into inputAnnovar, inputVep
-
-	script:
-	merged_file = "merged_callset.vcf.gz"
-	merged_file_index = merged_file + ".tbi"
-
-	"""
-		gatk SortVcf -I $indel -O indels.sorted.vcf.gz
-		gatk SortVcf -I $snp -O snps.sorted.vcf.gz
-		gatk MergeVcfs \
-		-I=indels.sorted.vcf.gz \
-		-I=snps.sorted.vcf.gz \
-		-O=merged.vcf.gz \
-		-R=$REF \
-
-		gatk SelectVariants \
-		-R $REF \
-		-V merged.vcf.gz \
-		-O $merged_file \
-		--exclude-sample-name $calibration_samples_list_args \
-		--remove-unused-alternates true \
-		--exclude-non-variants true
-	"""
-}
 
 // *********************
 // Compute statistics for fastQ files, libraries and samples
@@ -850,6 +962,9 @@ process runAnnovar {
  output:
    file(annovar_result) into outputAnnovar
 
+ when:
+	params.effect_prediction == true
+
  script:
   annovar_target = vcf_file + ".annovar"
   annovar_result = vcf_file + ".annovar.hg19_multianno.vcf"
@@ -879,6 +994,9 @@ input:
 
  output:
    file('annotation.vep.vcf') into outputVep
+
+ when:
+ 	params.effect_prediction == true
 
  script:
 
