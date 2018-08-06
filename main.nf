@@ -1,6 +1,5 @@
 #!/usr/bin/env nextflow
 
-
 /**
 ===============================
 IKMB Diagnostic Exome Pipeline
@@ -68,24 +67,23 @@ inputFile = file(params.samples)
 // Currently, only hg19 has all the required reference files available
 params.assembly = "hg19_clinical"
 
-if (params.genomes.containsKey(params.assembly) == false) {
-   exit 1, "Specified unknown genome assembly, please consult the documentation for valid assemblies."
-}
-
-// Reference files as determined by the assembly (see config file for details)
-REF = file(params.genomes[ params.assembly ].fasta)
-DBSNP = file(params.genomes[ params.assembly ].dbsnp )
-G1K = file(params.genomes[ params.assembly ].g1k )
-GOLD1 = file(params.genomes[ params.assembly ].gold )
-OMNI = file(params.genomes[ params.assembly ].omni )
-HAPMAP = file(params.genomes[ params.assembly ].hapmap )
-EXAC = file(params.genomes[ params.assembly ].exac )
-CADD = file(params.genomes[ params.assembly ].cadd )
-
-ANNOVAR_DB = file(params.genomes[ params.assembly ].annovar_db )
+REF = params.fasta ?: file(params.genomes[ params.assembly ].fasta)
+DBSNP = params.dbsnp ?: file(params.genomes[ params.assembly ].dbsnp )
+G1K = params.g1k ?: file(params.genomes[ params.assembly ].g1k )
+GOLD1 = params.gold_indels ?: file(params.genomes[ params.assembly ].gold )
+OMNI = params.omni_indels ?: file(params.genomes[ params.assembly ].omni )
+HAPMAP = params.hapmap ?: file(params.genomes[ params.assembly ].hapmap )
+EXAC = params.exac ?:  file(params.genomes[ params.assembly ].exac )
+CADD = params.cadd ?:  file(params.genomes[ params.assembly ].cadd )
+ANNOVAR_DB = params.annovar_db ?: file(params.genomes[ params.assembly ].annovar_db )
 VEP_CACHE = params.vep_cache
-params.effect_prediction = true
+TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
+BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
 
+SNP_RULES = params.snp_filter_rules
+INDEL_RULES = params.indel_filter_rules
+
+params.effect_prediction = true
 params.hard_filter = false
 
 // Location of applications used
@@ -105,20 +103,21 @@ three_prime_clip_r2 = params.three_prime_clip_r2
 
 params.saveTrimmed = false
 
-// Available exome kits
-if (params.genomes[params.assembly].kits.containsKey(params.kit) == false) {
-   exit 1, "Specified unknown Exome kit, please consult the documentation for valid kits."
-}
 
-TARGETS= params.genomes[params.assembly].kits[ params.kit ].targets
-BAITS= params.genomes[params.assembly].kits[ params.kit ].baits
+// Available exome kits
+
+if (TARGETS == false || BAITS == false ) {
+   exit 1, "Information on enrichment kit incomplete or missing (please see the documentation for details!"
+}
 
 // Determine valid intervals for parallel processing from the exome target file
 chromosomes =  []
 file(TARGETS).eachLine { line ->
 	elements = line.trim().split("\t")
 	seq = elements[0].trim()
-	if (seq =~ /^[A-Za-z0-9\-\:].*/) {
+	if (seq =~ /^@.*/) {
+		// do nothing
+	} else {
 		if (chromosomes.contains(seq) == false)	{
 			chromosomes << seq
 		}
@@ -398,13 +397,18 @@ process runGenomicsDBImport  {
 	script:
 	genodb = "genodb_${chr}"
 
+	def options = ""
+	if (calibration_vcfs) {
+		options = "--variant ${calibration_vcfs.join(' --variant ')}"
+	}
+
 	"""
 	gatk --java-options "-Xmx${task.memory.toGiga()}G" GenomicsDBImport  \
 		--variant ${vcf_list.join(" --variant ")} \
-		--variant ${calibration_vcfs.join(" --variant ")} \
 		--reference $REF \
 		--intervals $chr \
-		--genomicsdb-workspace-path $genodb
+		--genomicsdb-workspace-path $genodb \
+                $options
 	"""
 
 }
@@ -501,7 +505,7 @@ if ( params.hard_filter == true ) {
 				-R $REF \
 				-V genotypes.merged.snps.vcf.gz \
 				-O $vcf_filtered \
-				-filterExpression "QD < 2.0 || FS > 60.0 || MQ < 40.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0" \
+				-filterExpression "${SNP_RULES}" \
 				--filterName "hard_snp_filter" \
 				-OVI true
 		"""
@@ -535,7 +539,7 @@ if ( params.hard_filter == true ) {
                                 -R $REF \
                                 -V genotypes.merged.snps.vcf.gz \
                                 -O $vcf_filtered \
-				--filterExpression "QD < 2.0 || FS > 200.0 || ReadPosRankSum < -20.0" \
+				--filterExpression "${INDEL_RULES}" \
                                 --filterName "hard_indel_filter" \
 				-OVI true
                 """
