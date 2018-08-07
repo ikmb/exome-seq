@@ -77,6 +77,7 @@ EXAC = params.exac ?:  file(params.genomes[ params.assembly ].exac )
 CADD = params.cadd ?:  file(params.genomes[ params.assembly ].cadd )
 ANNOVAR_DB = params.annovar_db ?: file(params.genomes[ params.assembly ].annovar_db )
 VEP_CACHE = params.vep_cache
+
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
 
@@ -564,11 +565,13 @@ if ( params.hard_filter == true ) {
                 """
                         gatk SortVcf -I $indel -O indels.sorted.vcf.gz
                         gatk SortVcf -I $snp -O snps.sorted.vcf.gz
-                        gatk MergeVcfs \
-                        -I=indels.sorted.vcf.gz \
-                        -I=snps.sorted.vcf.gz \
-                        -O=merged.vcf.gz \
-                        -R=$REF \
+                        picard MergeVcfs \
+                        I=indels.sorted.vcf.gz \
+                        I=snps.sorted.vcf.gz \
+                        O=merged.vcf.gz \
+                        R=$REF \
+
+			gatk IndexFeatureFile -F merged.vcf.gz
 
                         gatk SelectVariants \
                         -R $REF \
@@ -668,7 +671,7 @@ if ( params.hard_filter == true ) {
 	        	--resource mills,known=false,training=true,truth=true,prior=15.0:$GOLD1 \
 	               	--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
 			-tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0 \
-			--max-gaussians 4
+			--max-gaussians 2
 	  	"""
 
 	}
@@ -776,11 +779,14 @@ if ( params.hard_filter == true ) {
 		"""
 			gatk SortVcf -I $indel -O indels.sorted.vcf.gz
 			gatk SortVcf -I $snp -O snps.sorted.vcf.gz
-			gatk MergeVcfs \
-			-I=indels.sorted.vcf.gz \
-			-I=snps.sorted.vcf.gz \
-			-O=merged.vcf.gz \
-			-R=$REF \
+			
+			picard MergeVcfs \
+			I=indels.sorted.vcf.gz \
+			I=snps.sorted.vcf.gz \
+			O=merged.vcf.gz \
+			R=$REF \
+
+			gatk IndexFeatureFile -F merged.vcf.gz
 
 			gatk SelectVariants \
 			-R $REF \
