@@ -104,7 +104,6 @@ three_prime_clip_r2 = params.three_prime_clip_r2
 
 params.saveTrimmed = false
 
-
 // Available exome kits
 
 if (TARGETS == false || BAITS == false ) {
@@ -595,7 +594,7 @@ if ( params.hard_filter == true ) {
 		set file(vcf),file(vcf_index) from inputRecalSNP
 
 		output:
-	 	set file(recal_file),file(tranches),file(rscript),file(snp_file),file(snp_index) into inputRecalSNPApply
+	 	set file(recal_file),file(tranches),file(snp_file),file(snp_index) into inputRecalSNPApply
 
 		script:
 		snp_file = "genotypes.merged.snps.vcf.gz"
@@ -639,7 +638,7 @@ if ( params.hard_filter == true ) {
 	  	set file(vcf),file(vcf_index) from inputRecalIndel
 
   		output:
-	  	set file(recal_file),file(tranches),file(rscript),file(indel_file),file(indel_index) into inputRecalIndelApply
+	  	set file(recal_file),file(tranches),file(indel_file),file(indel_index) into inputRecalIndelApply
 
   		script:
 		indel_file = "genotypes.merged.indel.vcf.gz"
@@ -682,7 +681,7 @@ if ( params.hard_filter == true ) {
 		// publishDir "${OUTDIR}/Variants/Filtered"
 	
 		input:
-		set file(recal_file),file(tranches),file(rscript),file(gvcf),file(gvcf_index) from inputRecalSNPApply
+		set file(recal_file),file(tranches),file(gvcf),file(gvcf_index) from inputRecalSNPApply
 
 		output:
 		file vcf_snp into outputRecalSNPApply
@@ -710,7 +709,7 @@ if ( params.hard_filter == true ) {
 	  	// publishDir "${OUTDIR}/Variants/Recal"
 
 		input:
-	 	set file(recal_file),file(tranches),file(rscript),file(gvcf),file(gvcf_index) from inputRecalIndelApply
+	 	set file(recal_file),file(tranches),file(gvcf),file(gvcf_index) from inputRecalIndelApply
 
   		output:
 	  	set file(vcf_indel),file(vcf_indel_index) into outputRecalIndelApply
@@ -776,6 +775,11 @@ if ( params.hard_filter == true ) {
 		merged_file = "merged_callset.vqsr.vcf.gz"
 		merged_file_index = merged_file + ".tbi"
 
+		def options = ""
+		if ($calibration_samples_list_args) {
+			options = "--exclude-sample-name ${calibration_samples_list_args}"
+		}
+
 		"""
 			gatk SortVcf -I $indel -O indels.sorted.vcf.gz
 			gatk SortVcf -I $snp -O snps.sorted.vcf.gz
@@ -792,9 +796,9 @@ if ( params.hard_filter == true ) {
 			-R $REF \
 			-V merged.vcf.gz \
 			-O $merged_file \
-			--exclude-sample-name $calibration_samples_list_args \
 			--remove-unused-alternates true \
-			--exclude-non-variants true
+			--exclude-non-variants true \
+			$options
 		"""
 	}
 }
@@ -1011,7 +1015,7 @@ input:
  script:
 
    """
-     vep --offline --cache --dir $VEP_CACHE --fork ${task.cpus} \
+      variant_effect_predictor.pl --offline --cache --dir $VEP_CACHE --fork ${task.cpus} \
  	--assembly GRCh37 -i $vcf_file -o annotation.vep.vcf --allele_number --canonical \
 	--force_overwrite --vcf --no_progress \
 	--pubmed \

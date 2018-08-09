@@ -4,21 +4,16 @@
 
 # Please note
 
-This pipeline offers a end-to-end workflow for exome analysis. Currently, three independent tool chains can be used (mutually exclusive):
-
-GATK3 - the tried and tested "old-school" GATK workflow. Note that no realignment step will be performed in this pipeline as the HaplotypeCaller performs local reassembly of active regions on the fly. This pipeline may *not* be used outside of academic projects as this would require a license by the BROAD.
-
-GATK4 - The new implementation of GATK. Most of the processing steps are similar to the GATK3 workflow. Again, no indel realignment will be performed. This pipeline does not require a license for non-academic use. 
-
-Freebayes - An alterantive variant calling workflow using the open-source Freebayes software. No licencse is required for non-academic use. 
-
-All of these three options use the same read processing workflow up to duplicate marking:
+This pipeline offers a end-to-end workflow for exome analysis using the GATK4 toolchain
 
 - trimming with Trimmomatic
 - read alignment with BWA
-- Duplicate marking using Picard MarkDuplicates
-
-Afterwards, the resulting VCF file will be left-normalized and annotated with both Annovar and VEP. 
+- duplicate marking using Picard MarkDuplicates
+- quality score recalibration
+- gvcf calling
+- joint variant calling
+- variant recalibration (SNPs and Indels) and filtering
+- effect prediction using VEP and Annovar (optional)
 
 ## Installing the pipeline
 
@@ -85,19 +80,15 @@ PU : `HGJJMBBXX.3` (This may not be 100% accurate, but available information is 
 
 The pipeline can be run as follows:
 
+This pipeline requires Java 1.8, Nextflow 0.31 or greater and conda/miniconda to run. On RZCluster, you can do:
+
+`module load IKMB Java Nextflow miniconda2`
+
+The command call for the pipeline itself:
+
 `nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv`
 
 Should the pipeline crash, you can try and resume it (after the problem has been fixed) adding "-resume" to the execution. 
-
-### Supported Tool chains
-
-Three analytical tool chains are currenly supported - freebayes, gatk3 and gatk4. For example:
-
-`nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv --tool gatk4 --kit Nextera`
-
-These tool chains use the same processing steps for producing the alignment files for analysis as well as the same variant annotation workflows. The however differ in how they produce the final VCF file. 
-
-Note that Freebayes is the default and does not need to be specified. 
 
 ### Supported enrichment kits
 
@@ -125,32 +116,6 @@ by specifying "--outdir /some/other/folder" on the command line.
 Within the output folder will be three subfolders:
 
 - Common (files common to all tool chains - i.e. duplicate marked read alignments and alignment statistics)
-- gatk4 / gatk3 or freebayes - output from the specific tool chain; of interest here are the folders "Final" and "Annotation" (final VCF and annotated VCF). 
+- Variants (the joint, filtered variant calls)
 - Summary - graphical summary reports for Fastq files, libraries and samples
-
-# If you wish to use this pipeline
-
-Assuming you are not working at the IKMB with access to our software modules and other resources, these are the basic steps you need to follow to be able to deploy this pipeline in your own compute environment.
-Please note that the following instructions are directed at bioinformaticians with a good understanding of software administration and linux. Unfortunately, we cannot provide more detailed support. 
-
-1. Software requirements
-
-    This pipeline requires a number of software tools (and versions) to function. There are two basic options to meet these requirements.
-
-  * Install the different packages on your compute system and make sure they are loaded in i.e. $PATH. A clean way to achieve this are environment-modules, which are supported by various linux distributions. 
-  * Use the corresponding bootstrap file from our container repo (http://git.ikmb.uni-kiel.de/bfx-core/singularity-images) to build a singularity container in which all the relevant tools will be installed automatically. 
-
-2. Create your own configuration file
-
-    Nextflow uses a configuration file to determine how to run individual processes. As an example, you can refer to config/rzcluster.config - which is the IKMB setup using our own environment-module system and a SLURM queue. You will have to create you own version of this file, setting it up to i.e. work yith the software on your cluster or use singularity containers (please refer to the Nextflow documentation on how that can be done). You can run the pipeline with your custom config file using the `-c`flag (as by the examples above). Detailed information on how to run Nextflow with various resource managers etc can be found in the Nextflow documentation. 
-
-3. Gather the various reference files
-
-    One tricky aspect is to gather the different reference files - genome assembly, target and bait files for your exome kit of choice, reference variant files etc. 
-
-    Briefly, we are basing our analyses (mostly) on the GATK bundle distributed by the BROAD institute (https://software.broadinstitute.org/gatk/download/bundle). The interval files for the exome kit are provided by the respective vendor. 
-
-    All these information need to be added to the config file also with their full path on your compute system (see config/rzcluster.config for examples). 
-
-
-
+- Individual data (finalized read alignments, alignment statistics etc)
