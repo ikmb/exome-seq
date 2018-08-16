@@ -27,7 +27,7 @@ Author: Marc P. Hoeppner, m.hoeppner@ikmb.uni-kiel.de
 **/
 
 // Pipeline version
-VERSION = "0.91"
+VERSION = "0.95"
 
 // Help message
 helpMessage = """
@@ -40,7 +40,7 @@ the Nextera kit and using the GATK4 best-practice workflow.
 Required parameters:
 --samples                      A sample list in CSV format (see website for formatting hints)
 --assembly                     Name of the reference assembly to use
---effect_prediction	       Whether to run effect prediction on the final variant set (default: true)
+--effect_prediction	       Whether to run effect prediction on the final variant set (default: false)
 --hard_filter			Whether to run hard filtering on raw variants instead of machine learning (default: false)
 Output:
 --outdir                       Local directory to which all output is written (default: output)

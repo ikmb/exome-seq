@@ -6,7 +6,7 @@
 
 This pipeline offers a end-to-end workflow for exome analysis using the GATK4 toolchain
 
-- trimming with Trimmomatic
+- trimming with TrimGalore
 - read alignment with BWA
 - duplicate marking using Picard MarkDuplicates
 - quality score recalibration
