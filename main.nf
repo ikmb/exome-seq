@@ -963,39 +963,6 @@ process runMultiQCSample {
 // Variant effect prediction
 // *************************
 
-process runAnnovar {
-
- tag "ALL"
- publishDir "${OUTDIR}/Annotation/Annovar", mode: 'copy'
-
- input:
-   set file(vcf_file),file(vcf_index) from inputAnnovar
-
- output:
-   file(annovar_result) into outputAnnovar
-
- when:
-	params.effect_prediction == true
-
- script:
-  annovar_target = vcf_file + ".annovar"
-  annovar_result = vcf_file + ".annovar.hg19_multianno.vcf"
-
-   """
-      table_annovar.pl -v \
-	--protocol ensGene,knownGene,refGene,dbnsfp33a,intervar_20170202,esp6500siv2_all,gnomad_exome,clinvar_20170905,cadd13gt10 \
-	--operation g,g,g,f,f,f,f,f,f \
-	--outfile $annovar_target \
-	--buildver hg19 \
-	--remove \
-        --thread ${task.cpus} \
-	--otherinfo \
-	--vcfinput \
-	${vcf_file} $ANNOVAR_DB
-   """
-
-}
-
 process runVep {
 
  tag "ALL"
@@ -1017,10 +984,8 @@ input:
  	--assembly GRCh37 -i $vcf_file -o annotation.vep.vcf --allele_number --canonical \
 	--force_overwrite --vcf --no_progress \
 	--pubmed \
-	--plugin ExAC,$EXAC \
-	--plugin CADD,$CADD \
 	--plugin LoFtool --plugin LoF \
-	--fasta /ifs/data/nfs_share/ikmb_repository/references/genomes/homo_sapiens/EnsEMBL/GRCh37/genome.fa
+	--fasta ${params.vep_fasta}
    """
 
 }
