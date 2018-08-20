@@ -144,7 +144,7 @@ use_scratch = params.scratch
 
 // Make sure the Nextflow version is current enough
 try {
-    if( ! nextflow.version.matches(">= $params.nf_required_version") ){
+    if( ! nextflow.version.matches(">= $params.nextflow_required_version") ){
         throw GroovyException('Nextflow version too old')
     }
 } catch (all) {
@@ -204,7 +204,7 @@ process runTrimgalore {
 process runBWA {
 
     tag "${indivID}|${sampleID}|${libraryID}|${rgID}"
-    //publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/BWA/", mode: 'copy'
+    //publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/BWA/", mode: 'copy'
 
     scratch use_scratch
 	
@@ -218,7 +218,7 @@ process runBWA {
     outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.bam"	
 
     """
-	bwa mem -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${REF}\\tCN:${center}" -t 16 ${REF} $left $right | samtools sort -O bam - > $outfile
+	bwa mem -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${REF}\\tCN:${center}" -t ${task.cpus} ${REF} $left $right | samtools sort -O bam - > $outfile
     """	
 }
 
@@ -250,7 +250,7 @@ process mergeBamFiles_bySample {
 process runMarkDuplicates {
 
 	tag "${indivID}|${sampleID}"
-        // publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
+        // publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
 
         // scratch use_scratch
 
@@ -545,7 +545,7 @@ if ( params.hard_filter == true ) {
                 """
         }
 
-        process runCombineVariants {
+        process runCombineHardVariants {
 
                 tag "ALL"
                 // publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
@@ -601,7 +601,6 @@ if ( params.hard_filter == true ) {
 		snp_index = snp_file + ".tbi"
 		recal_file = "genotypes.recal_SNP.recal"
 		tranches = "genotypes.recal_SNP.tranches"
-		rscript = "genotypes.recal_SNP.R"
 
 		"""
 
@@ -645,7 +644,6 @@ if ( params.hard_filter == true ) {
 		indel_index = indel_file + ".tbi"
 	  	recal_file = "genotypes.recal_Indel.recal"
   		tranches = "genotypes.recal_Indel.tranches"
-		rscript = "genotypes.recal_Indel.R"
 
   		"""
 		
@@ -751,7 +749,7 @@ if ( params.hard_filter == true ) {
 		"""
 		gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantFiltration \
         	       -R $REF \
-               	-V $gvcf \
+	               	-V $gvcf \
 			--filter-expression "QD < 2.0" \
 			--filter-name "QDFilter" \
                 	-O $filtered_gvcf
