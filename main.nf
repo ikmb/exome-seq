@@ -75,7 +75,6 @@ OMNI = params.omni_indels ?: file(params.genomes[ params.assembly ].omni )
 HAPMAP = params.hapmap ?: file(params.genomes[ params.assembly ].hapmap )
 EXAC = params.exac ?:  file(params.genomes[ params.assembly ].exac )
 CADD = params.cadd ?:  file(params.genomes[ params.assembly ].cadd )
-ANNOVAR_DB = params.annovar_db ?: file(params.genomes[ params.assembly ].annovar_db )
 VEP_CACHE = params.vep_cache
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
@@ -465,8 +464,9 @@ process combineVariantsFromGenotyping {
 	}
 
 	"""
-		picard GatherVcfs INPUT=${sorted_vcf.join(" INPUT=")} \
-			OUTPUT=$vcf
+		gatk GatherVcfsCloud \
+			-I ${sorted_vcf.join(" -I ")} \
+			--output $vcf \
 
 		gatk IndexFeatureFile -F $vcf
 
@@ -555,7 +555,7 @@ if ( params.hard_filter == true ) {
 		set file(snp),file(snp_index) fromoutputHardFilterSNP
 
                 output:
-                set file(merged_file),file(merged_file_index) into inputAnnovar, inputVep
+                set file(merged_file),file(merged_file_index) into inputVep
 
                 script:
                 merged_file = "merged_callset.hard.vcf.gz"
@@ -599,8 +599,8 @@ if ( params.hard_filter == true ) {
 		script:
 		snp_file = "genotypes.merged.snps.vcf.gz"
 		snp_index = snp_file + ".tbi"
-		recal_file = "genotypes.recal_SNP.recal"
-		tranches = "genotypes.recal_SNP.tranches"
+		recal_file = "genotypes.merged.snps.recal"
+		tranches = "genotypes.merged.snps.tranches"
 
 		"""
 
@@ -616,7 +616,7 @@ if ( params.hard_filter == true ) {
 			-V $snp_file \
 	               	-O $recal_file \
        		        --tranches-file $tranches \
-			-an MQ -an MQRankSum -an ReadPosRankSum -an FS -an QD -an SOR -an ReadPosRankSum -an InbreedingCoeff \
+			-an MQ -an MQRankSum -an FS -an QD -an SOR -an ReadPosRankSum \
 	       	        -mode SNP \
 			-OVI true \
 			--resource hapmap,known=false,training=true,truth=true,prior=15.0:$HAPMAP \
@@ -642,8 +642,8 @@ if ( params.hard_filter == true ) {
   		script:
 		indel_file = "genotypes.merged.indel.vcf.gz"
 		indel_index = indel_file + ".tbi"
-	  	recal_file = "genotypes.recal_Indel.recal"
-  		tranches = "genotypes.recal_Indel.tranches"
+	  	recal_file = "genotypes.merged.indel.recal"
+  		tranches = "genotypes.merged.indel.tranches"
 
   		"""
 		
@@ -662,13 +662,13 @@ if ( params.hard_filter == true ) {
 	        	-V $indel_file \
 	               	-O $recal_file \
         	        --tranches-file $tranches \
-               		-an MQ -an MQRankSum -an SOR -an ReadPosRankSum -an FS -an ReadPosRankSum -an QD -an InbreedingCoeff \
+               		-an MQ -an MQRankSum -an SOR -an FS -an ReadPosRankSum -an QD -an InbreedingCoeff \
 	                -mode INDEL \
 			-OVI true \
 	        	--resource mills,known=false,training=true,truth=true,prior=15.0:$GOLD1 \
 	               	--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
 			-tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0 \
-			--max-gaussians 2
+			--max-gaussians 3
 	  	"""
 
 	}
@@ -767,14 +767,14 @@ if ( params.hard_filter == true ) {
 	     	set file(indel),file(snp) from inputCombineVariants.collect()
 
 		output:
-		set file(merged_file),file(merged_file_index) into inputAnnovar, inputVep
+		set file(merged_file),file(merged_file_index) into inputVep
 
 		script:
 		merged_file = "merged_callset.vqsr.vcf.gz"
 		merged_file_index = merged_file + ".tbi"
 
 		def options = ""
-		if ($calibration_samples_list_args) {
+		if (calibration_samples_list_args) {
 			options = "--exclude-sample-name ${calibration_samples_list_args}"
 		}
 
