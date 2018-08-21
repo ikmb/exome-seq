@@ -65,7 +65,7 @@ inputFile = file(params.samples)
 
 // This will eventually enable switching between multiple assembly versions
 // Currently, only hg19 has all the required reference files available
-params.assembly = "hg19_clinical"
+params.assembly = "hg19"
 
 REF = params.fasta ?: file(params.genomes[ params.assembly ].fasta)
 DBSNP = params.dbsnp ?: file(params.genomes[ params.assembly ].dbsnp )
@@ -73,8 +73,6 @@ G1K = params.g1k ?: file(params.genomes[ params.assembly ].g1k )
 GOLD1 = params.gold_indels ?: file(params.genomes[ params.assembly ].gold )
 OMNI = params.omni_indels ?: file(params.genomes[ params.assembly ].omni )
 HAPMAP = params.hapmap ?: file(params.genomes[ params.assembly ].hapmap )
-EXAC = params.exac ?:  file(params.genomes[ params.assembly ].exac )
-CADD = params.cadd ?:  file(params.genomes[ params.assembly ].cadd )
 VEP_CACHE = params.vep_cache
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
@@ -980,7 +978,7 @@ input:
  script:
 
    """
-      variant_effect_predictor.pl --offline --cache --dir $VEP_CACHE --fork ${task.cpus} \
+      vep --offline --cache --dir $VEP_CACHE --fork ${task.cpus} \
  	--assembly GRCh37 -i $vcf_file -o annotation.vep.vcf --allele_number --canonical \
 	--force_overwrite --vcf --no_progress \
 	--pubmed \
