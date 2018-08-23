@@ -759,7 +759,7 @@ if ( params.hard_filter == true ) {
 	process runCombineVariants {
 
 		tag "ALL"
-	  	// publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
+	  	publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
 
 		input: 
 	     	set file(indel),file(snp) from inputCombineVariants.collect()
@@ -981,6 +981,7 @@ input:
       vep --offline --cache --dir $VEP_CACHE --fork ${task.cpus} \
  	--assembly GRCh37 -i $vcf_file -o annotation.vep.vcf --allele_number --canonical \
 	--force_overwrite --vcf --no_progress \
+	--merged \
 	--pubmed \
 	--plugin LoFtool --plugin LoF \
 	--fasta ${params.vep_fasta}

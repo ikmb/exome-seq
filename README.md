@@ -13,7 +13,7 @@ This pipeline offers a end-to-end workflow for exome analysis using the GATK4 to
 - gvcf calling
 - joint variant calling
 - variant recalibration (SNPs and Indels) and filtering
-- effect prediction using VEP and Annovar (optional)
+- effect prediction using VEP (optional)
 
 ## Installing the pipeline
 
@@ -29,16 +29,18 @@ The pipeline is set up to work on RZCluster using the IKMB module system. Please
 
 ## Valid assemblies
 
-The pipeline currently (officially) supports two genome assemblies - the "full" hg19 assembly from the GATK resource bundle and a stripped-down version that removes
-any ALT contigs (hg19_clinical). To choose an assembly, use:
+The pipeline currently (officially) supports the following genome assemblies from the GATK bundle:
 
-`--assembly hg19`
+`--assembly hg19` 
+`--assembly hg38`
+`--assembly b37`
 
-`--assembly hg19_clinical`
+Please note that only the exome kit files for hg19 are currently available; to use the other assemblies, you must specify your custom bait files from the command line using:
 
-Optionally, the pipeline can be used with the `GRCh37` reference assembly used by the 1000 genomes project (largely untested, but should work):
+`--targets path/to/targets.interval_list`
+`--baits path/to/baits.interval_list`
 
-`-assembly GRCh37`
+These files must be in the Picard "interval list" format and include matching sequence dictionaries to the genome sequence you wish to use them with. 
 
 ## Input format
 
