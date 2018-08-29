@@ -42,6 +42,8 @@ Required parameters:
 --assembly                     Name of the reference assembly to use
 --effect_prediction	       Whether to run effect prediction on the final variant set (default: false)
 --hard_filter			Whether to run hard filtering on raw variants instead of machine learning (default: false)
+Optional parameters:
+--run_name 		       A descriptive name for this pipeline run
 Output:
 --outdir                       Local directory to which all output is written (default: output)
 Exome kit:
@@ -62,6 +64,9 @@ if (params.help){
 
 // Sample input file
 inputFile = file(params.samples)
+
+// Giving this pipeline run a name
+params.run_name = workflow.sessionId
 
 // This will eventually enable switching between multiple assembly versions
 // Currently, only hg19 has all the required reference files available
@@ -136,6 +141,10 @@ file(calibration_exomes).eachLine { line ->
 // Whether to send a notification upon workflow completion
 params.email = false
 
+if(params.email == false) {
+	exit 1, "You must provide an Email address to which pipeline updates are send!"
+}
+
 // Whether to use a local scratch disc
 use_scratch = params.scratch
 
@@ -160,6 +169,7 @@ log.info "IKMB Diagnostic Exome pipeline v${VERSION}"
 log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
 log.info "Command Line:			$workflow.commandLine"
+log.info "Run name: 			${params.run_name}"
 log.info "========================================="
 
 // Read sample file 
@@ -911,7 +921,7 @@ process runMultiQCFastq {
     script:
 
     """
-   cp $baseDir/config/multiqc_config.yaml multiqc_config.yaml
+    cp $baseDir/config/multiqc_config.yaml multiqc_config.yaml
     multiqc -n fastq_multiqc *.zip *.html
     """
 }
@@ -946,16 +956,25 @@ process runMultiQCSample {
     file('*') from runOxoGMetricsOutput.flatten().toList()
         
     output:
-    file("sample_multiqc*") into runMultiQCSampleOutput
+    file("sample_multiqc.html") into runMultiQCSampleOutput
     	
     script:
+
+    def subject = 'Diagnostic exome analysis quality report'
+    def recipient = params.email
 
     """
     cp $baseDir/config/multiqc_config.yaml multiqc_config.yaml
     multiqc -n sample_multiqc *
+
+    mail = [ to: recipient,
+                subject: subject,
+                body: "Automatic QC report for exome analysis ${params.run_name}",
+                attach: "sample_multiqc.html" ]
+
+        sendMail(mail)
     """
 }
-
 
 // *************************
 // Variant effect prediction
