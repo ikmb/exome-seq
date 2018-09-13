@@ -27,6 +27,13 @@ To update the code, run git update inside of the local clone:
 
 The pipeline is set up to work on RZCluster using the IKMB module system. Please make sure that you have set up this environment before launching a pipeline ru$
 
+### Prerequisites
+
+The following steps/resources are needed to run this pipelines:
+* A working and configured Conda/Bioconda installation (please also see: https://bioconda.github.io/ - specifically point 2.) Set up channels)
+* The GATK resource bundle (or equivalent resources). For a way to set up you own resources, please have a look at config/rzcluster.config)
+* Bait/Target files matching your genome assembly of choice (files for assembly hg19 are included with this code base and can be used via the `--kit` flag)
+
 ## Valid assemblies
 
 The pipeline currently (officially) supports the following genome assemblies from the GATK bundle:
