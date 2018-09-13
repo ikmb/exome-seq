@@ -34,6 +34,10 @@ The following steps/resources are needed to run this pipelines:
 * The GATK resource bundle (or equivalent resources). For a way to set up you own resources, please have a look at config/rzcluster.config)
 * Bait/Target files matching your genome assembly of choice (files for assembly hg19 are included with this code base and can be used via the `--kit` flag)
 
+### Configuration
+
+This pipeline includes pre-configured environments for RZCluster and the IKMB diagnostic cluster. To pre-configure a new environment, please see the included config files for details (config/rzcluster.config and config/diagnostic.config).
+
 ## Valid assemblies
 
 The pipeline currently (officially) supports the following genome assemblies from the GATK bundle:
@@ -95,7 +99,7 @@ This pipeline requires Java 1.8, Nextflow 0.31 or greater and conda/miniconda to
 
 The command call for the pipeline itself:
 
-`nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv`
+`nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv --kit Nextera --assembly hg19 --email 'your.name@provider.com'`
 
 Should the pipeline crash, you can try and resume it (after the problem has been fixed) adding "-resume" to the execution. 
 
