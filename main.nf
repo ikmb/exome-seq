@@ -44,12 +44,12 @@ Required parameters:
 --hard_filter			Whether to run hard filtering on raw variants instead of machine learning (default: false)
 Optional parameters:
 --run_name 		       A descriptive name for this pipeline run
---fasta				A reference genome in FASTA format (set automiatically if configured)
---dbsnp				dbSNP data in VCF format (set automatically if configured)
---g1k				A SNP reference (usually 1000genomes, set automatically if configured)
---gold_indels			An INDEL reference (usually MILLS/1000genomes, set automatically if configured)
---omni_indels			An INDEL reference (usually OMNI, set automatically if configured)
---hapmap			A SNP reference (usually HAPMAP, set automatically if configured)
+--fasta				A reference genome in FASTA format (set automatically if using --assembly)
+--dbsnp				dbSNP data in VCF format (set automatically if using --assembly)
+--g1k				A SNP reference (usually 1000genomes, set automatically if using --assembly)
+--gold_indels			An INDEL reference (usually MILLS/1000genomes, set automatically if using --assembly)
+--omni_indels			An INDEL reference (usually OMNI, set automatically if using --assembly)
+--hapmap			A SNP reference (usually HAPMAP, set automatically if using --assembly)
 --targets			A interval_list target file (set automatically if using the --kit option)
 --baits				A interval_list bait file (set automatically if using the --kit option)
 
