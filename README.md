@@ -99,7 +99,7 @@ This pipeline requires Java 1.8, Nextflow 0.31 or greater and conda/miniconda to
 
 The command call for the pipeline itself:
 
-`nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv --kit Nextera --assembly hg19 --email 'your.name@provider.com'`
+`nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv --kit Nextera --assembly hg19 --email 'your.name@provider.com' --run_name Franke_IBD_Samples`
 
 Should the pipeline crash, you can try and resume it (after the problem has been fixed) adding "-resume" to the execution. 
 
@@ -128,7 +128,6 @@ by specifying "--outdir /some/other/folder" on the command line.
 
 Within the output folder will be three subfolders:
 
-- Common (files common to all tool chains - i.e. duplicate marked read alignments and alignment statistics)
 - Variants (the joint, filtered variant calls)
 - Summary - graphical summary reports for Fastq files, libraries and samples
 - Individual data (finalized read alignments, alignment statistics etc)

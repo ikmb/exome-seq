@@ -44,6 +44,15 @@ Required parameters:
 --hard_filter			Whether to run hard filtering on raw variants instead of machine learning (default: false)
 Optional parameters:
 --run_name 		       A descriptive name for this pipeline run
+--fasta				A reference genome in FASTA format (set automiatically if configured)
+--dbsnp				dbSNP data in VCF format (set automatically if configured)
+--g1k				A SNP reference (usually 1000genomes, set automatically if configured)
+--gold_indels			An INDEL reference (usually MILLS/1000genomes, set automatically if configured)
+--omni_indels			An INDEL reference (usually OMNI, set automatically if configured)
+--hapmap			A SNP reference (usually HAPMAP, set automatically if configured)
+--targets			A interval_list target file (set automatically if using the --kit option)
+--baits				A interval_list bait file (set automatically if using the --kit option)
+
 Output:
 --outdir                       Local directory to which all output is written (default: output)
 Exome kit:
@@ -816,7 +825,7 @@ if ( params.hard_filter == true ) {
 
 process runCollectMultipleMetrics {
 	tag "${indivID}|${sampleID}"
-	publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
  
 	scratch use_scratch
 	    
@@ -853,7 +862,7 @@ process runCollectMultipleMetrics {
 process runHybridCaptureMetrics {
 
     tag "${indivID}|${sampleID}"
-    publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
     input:
     set indivID, sampleID, file(bam), file(bai) from runPrintReadsOutput_for_HC_Metrics
@@ -878,7 +887,7 @@ process runHybridCaptureMetrics {
 process runOxoGMetrics {
 
     tag "${indivID}|${sampleID}"
-    publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
     input:
     set indivID, sampleID, file(bam), file(bai) from runPrintReadsOutput_for_OxoG_Metrics
