@@ -967,12 +967,6 @@ process runMultiQCSample {
     cp $baseDir/config/multiqc_config.yaml multiqc_config.yaml
     multiqc -n sample_multiqc *
 
-    mail = [ to: recipient,
-                subject: subject,
-                body: "Automatic QC report for exome analysis ${params.run_name}",
-                attach: "sample_multiqc.html" ]
-
-        sendMail(mail)
     """
 }
 
