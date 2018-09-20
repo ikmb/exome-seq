@@ -89,6 +89,9 @@ INDEL_RULES = params.indel_filter_rules
 params.effect_prediction = true
 params.hard_filter = false
 
+// Do a copy-number analysis?
+params.cnv = false
+
 // Location of applications used
 OUTDIR = file(params.outdir)
 
@@ -333,7 +336,7 @@ process runApplyBQSR {
 	set indivID, sampleID, realign_bam, recal_table from runBaseRecalibratorOutput 
 
 	output:
-	set indivID, sampleID, file(outfile_bam), file(outfile_bai) into runPrintReadsOutput_for_Multiple_Metrics,inputHCSample
+	set indivID, sampleID, file(outfile_bam), file(outfile_bai) into runPrintReadsOutput_for_Multiple_Metrics,inputHCSample,inputCollectReadCounts
 	set indivID, sampleID, realign_bam, recal_table into runPrintReadsOutput_for_PostRecal
 	set indivID, outfile_md5 into BamMD5
             
@@ -351,6 +354,79 @@ process runApplyBQSR {
                 -OBM true
     	"""
 }    
+
+// Do a CNV analysis over intervals
+
+process runCollectReadCounts {
+
+	tag "${indivID}|${sampleID}"
+	publishDir "${OUTDIR}/${indivID}/${sampleID}/CNV/ReadCounts", mode: 'copy'	
+
+	input:
+	set indivID,sampleID,file(bam),file(bai) from inputCollectReadCounts
+
+	output:
+	file(counts) into ReadCounts,CountsForCNVCaller
+
+	when:
+	params.cnv
+
+	script:
+	counts = indivID + "_" + sampleID + "_readcounts.hdf5"
+
+	"""
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" CollectReadCounts \
+			-I $bam \
+			-O $counts \
+			--interval-merging-rule OVERLAPPING_ONLY \
+			-L $TARGETS
+	"""
+}
+
+process runDetermineGermlineContigPloidy {
+
+	input:
+	file(counts) from ReadCounts.collect()
+
+	output:
+	file(ploidy_dir) into outputContigPloidy
+
+	script:
+	ploidy_dir = "ploidy_data"
+
+	"""
+		gatk "-Xmx${task.memory.toGiga()}G" DetermineGermlineContigPloidy \
+			--input ${counts.join(' --input ')} \
+			--contig-ploidy-priors ${baseDir}/assests/priors/homo_sapiens.tsv \
+			--output $ploidy_dir \
+			--output-prefix normal_cohort					
+	"""
+}
+
+process runGermlineCNVCaller {
+
+	input:
+	file(counts) from CountsForCNVCaller
+	file(ploidy_dir) from outputContigPloidy
+
+	output: 
+	file(cnv_dir) into CNVCalls
+
+	script:
+	cnv_dir = "cnv_calls"
+
+	"""
+		gatk "-Xmx${task.memory.toGiga()}G" GermlineCNVCaller \
+			--run-mode COHORT \
+			-L $TARGETS \
+			--interval-merging-rule OVERLAPPING_ONLY \
+			--contig-ploidy-calls $ploidy_dir \
+			--input ${counts.join(' --input ')} \
+			--output $cnv_dir \
+			--output-prefix normal_cohort_run
+	"""
+}
+
 
 // Call variants on a per-sample basis
 
