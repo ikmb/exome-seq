@@ -113,6 +113,14 @@ The pipeline is built to support more than one Exome kit. These can be selected 
 
 `--kit xGen_custom`(the IDT xGEN panel, version 1.0, with additional custom targets)
 
+### Execution profiles
+
+This pipeline is pre-configured for several environments, which can be set using the `-profile` flag:
+
+`-profile standard` for RZCluster
+`-profile diagnostic` for the diagnostic cluster
+`-profile standalone` for any environment, but expects all software to be available already
+
 ### Email notification
 
 The pipeline will send out an Email notification upon completion if a recipient is speciefied via the flag `--email`:
