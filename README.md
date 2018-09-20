@@ -23,9 +23,20 @@ To install this pipeline, simply clone the repository to a location on RZCluster
 
 To update the code, run git update inside of the local clone:
 
-`git update`
+`git pull`
 
 The pipeline is set up to work on RZCluster using the IKMB module system. Please make sure that you have set up this environment before launching a pipeline ru$
+
+### Prerequisites
+
+The following steps/resources are needed to run this pipelines:
+* A working and configured Conda/Bioconda installation (please also see: https://bioconda.github.io/ - specifically point 2.) Set up channels)
+* The GATK resource bundle (or equivalent resources). For a way to set up you own resources, please have a look at config/rzcluster.config)
+* Bait/Target files matching your genome assembly of choice (files for assembly hg19 are included with this code base and can be used via the `--kit` flag)
+
+### Configuration
+
+This pipeline includes pre-configured environments for RZCluster and the IKMB diagnostic cluster. To pre-configure a new environment, please see the included config files for details (config/rzcluster.config and config/diagnostic.config).
 
 ## Valid assemblies
 
@@ -88,7 +99,7 @@ This pipeline requires Java 1.8, Nextflow 0.31 or greater and conda/miniconda to
 
 The command call for the pipeline itself:
 
-`nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv`
+`nextflow -c /path/to/git/repo/nextflow.config run /path/to/git/repo/main.nf --samples /path/to/sample_list.csv --kit Nextera --assembly hg19 --email 'your.name@provider.com' --run_name Franke_IBD_Samples`
 
 Should the pipeline crash, you can try and resume it (after the problem has been fixed) adding "-resume" to the execution. 
 
@@ -102,7 +113,13 @@ The pipeline is built to support more than one Exome kit. These can be selected 
 
 `--kit xGen_custom`(the IDT xGEN panel, version 1.0, with additional custom targets)
 
-This option defaults to "Nextera", so make sure this is in fact the kit you have used!
+### Execution profiles
+
+This pipeline is pre-configured for several environments, which can be set using the `-profile` flag:
+
+`-profile standard` for RZCluster
+`-profile diagnostic` for the diagnostic cluster
+`-profile standalone` for any environment, but expects all software to be available already
 
 ### Email notification
 
@@ -117,7 +134,6 @@ by specifying "--outdir /some/other/folder" on the command line.
 
 Within the output folder will be three subfolders:
 
-- Common (files common to all tool chains - i.e. duplicate marked read alignments and alignment statistics)
 - Variants (the joint, filtered variant calls)
 - Summary - graphical summary reports for Fastq files, libraries and samples
 - Individual data (finalized read alignments, alignment statistics etc)

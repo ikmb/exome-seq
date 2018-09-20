@@ -44,6 +44,15 @@ Required parameters:
 --hard_filter			Whether to run hard filtering on raw variants instead of machine learning (default: false)
 Optional parameters:
 --run_name 		       A descriptive name for this pipeline run
+--fasta				A reference genome in FASTA format (set automatically if using --assembly)
+--dbsnp				dbSNP data in VCF format (set automatically if using --assembly)
+--g1k				A SNP reference (usually 1000genomes, set automatically if using --assembly)
+--gold_indels			An INDEL reference (usually MILLS/1000genomes, set automatically if using --assembly)
+--omni_indels			An INDEL reference (usually OMNI, set automatically if using --assembly)
+--hapmap			A SNP reference (usually HAPMAP, set automatically if using --assembly)
+--targets			A interval_list target file (set automatically if using the --kit option)
+--baits				A interval_list bait file (set automatically if using the --kit option)
+
 Output:
 --outdir                       Local directory to which all output is written (default: output)
 Exome kit:
@@ -132,8 +141,8 @@ file(TARGETS).eachLine { line ->
 // We add 17 reference exome gVCFs to make sure that variant filtration works
 // These are in hg19 so need to be updated to other assemblies if multiple assemblies are to be supported
 
-calibration_exomes = file(params.genomes[params.assembly].calibration_exomes_gatk)
-calibration_samples_list_args = file(params.genomes[params.assembly].calibration_exomes_samples_args)
+calibration_exomes = params.calibration_exomes ?: file(params.genomes[params.assembly].calibration_exomes_gatk)
+calibration_samples_list_args = params.calibration_sample_list ?: file(params.genomes[params.assembly].calibration_exomes_samples_args)
 
 calibration_vcfs = [ ]
 file(calibration_exomes).eachLine { line ->
@@ -214,7 +223,7 @@ process runTrimgalore {
 process runBWA {
 
     tag "${indivID}|${sampleID}|${libraryID}|${rgID}"
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/BWA/", mode: 'copy'
+    // publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/BWA/", mode: 'copy'
 
     //scratch use_scratch
 	
@@ -892,7 +901,7 @@ if ( params.hard_filter == true ) {
 
 process runCollectMultipleMetrics {
 	tag "${indivID}|${sampleID}"
-	publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
  
 	scratch use_scratch
 	    
@@ -929,7 +938,7 @@ process runCollectMultipleMetrics {
 process runHybridCaptureMetrics {
 
     tag "${indivID}|${sampleID}"
-    publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
     input:
     set indivID, sampleID, file(bam), file(bai) from runPrintReadsOutput_for_HC_Metrics
@@ -954,7 +963,7 @@ process runHybridCaptureMetrics {
 process runOxoGMetrics {
 
     tag "${indivID}|${sampleID}"
-    publishDir "${OUTDIR}/Common/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
     input:
     set indivID, sampleID, file(bam), file(bai) from runPrintReadsOutput_for_OxoG_Metrics
