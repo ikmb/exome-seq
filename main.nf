@@ -52,7 +52,7 @@ Optional parameters:
 --hapmap			A SNP reference (usually HAPMAP, set automatically if using --assembly)
 --targets			A interval_list target file (set automatically if using the --kit option)
 --baits				A interval_list bait file (set automatically if using the --kit option)
-
+--cnvv				Perform optional copy number variant analysis (beta!)
 Output:
 --outdir                       Local directory to which all output is written (default: output)
 Exome kit:
@@ -182,6 +182,7 @@ log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
 log.info "Command Line:			$workflow.commandLine"
 log.info "Run name: 			${params.run_name}"
+log.info "CNV analysis: 		${params.cnv}"
 log.info "========================================="
 
 // Read sample file 
@@ -364,7 +365,9 @@ process runApplyBQSR {
     	"""
 }    
 
+// --------------------------------
 // Do a CNV analysis over intervals
+// --------------------------------
 
 process runCollectReadCounts {
 
@@ -372,27 +375,31 @@ process runCollectReadCounts {
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/CNV/ReadCounts", mode: 'copy'	
 
 	input:
-	set indivID,sampleID,file(bam),file(bai) from inputCollectReadCounts
+	set val(indivID), val(sampleID), file(bam), file(bai) from inputCollectReadCounts
 
 	output:
-	file(counts) into ReadCounts,CountsForCNVCaller
+	file(readcounts) into (ReadCounts, CountsForCNVCaller)
 
 	when:
-	params.cnv
+	params.cnv == true
 
 	script:
-	counts = indivID + "_" + sampleID + "_readcounts.hdf5"
+	readcounts = indivID + "_" + sampleID + "_readcounts.hdf5"
 
 	"""
 		gatk --java-options "-Xmx${task.memory.toGiga()}G" CollectReadCounts \
 			-I $bam \
-			-O $counts \
+			-O $readcounts \
 			--interval-merging-rule OVERLAPPING_ONLY \
 			-L $TARGETS
 	"""
 }
 
 process runDetermineGermlineContigPloidy {
+	
+        tag "ALL"
+	publishDir "${OUTDIR}/CNV/"
+
 
 	input:
 	file(counts) from ReadCounts.collect()
@@ -404,11 +411,11 @@ process runDetermineGermlineContigPloidy {
 	ploidy_dir = "ploidy_data"
 
 	"""
-		gatk "-Xmx${task.memory.toGiga()}G" DetermineGermlineContigPloidy \
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" DetermineGermlineContigPloidy \
 			--input ${counts.join(' --input ')} \
 			--contig-ploidy-priors ${baseDir}/assests/priors/homo_sapiens.tsv \
 			--output $ploidy_dir \
-			--output-prefix normal_cohort					
+			--output-prefix normal_cohort	
 	"""
 }
 
@@ -425,7 +432,7 @@ process runGermlineCNVCaller {
 	cnv_dir = "cnv_calls"
 
 	"""
-		gatk "-Xmx${task.memory.toGiga()}G" GermlineCNVCaller \
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" GermlineCNVCaller \
 			--run-mode COHORT \
 			-L $TARGETS \
 			--interval-merging-rule OVERLAPPING_ONLY \
