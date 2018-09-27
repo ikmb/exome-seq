@@ -113,6 +113,11 @@ The pipeline is built to support more than one Exome kit. These can be selected 
 
 `--kit xGen_custom`(the IDT xGEN panel, version 1.0, with additional custom targets)
 
+### VEP effect prediction
+
+Effect prediction on the final multi-sample VCF file is disabled by default. To run effect prediction, use:
+`--effect_prediction true`
+
 ### Execution profiles
 
 This pipeline is pre-configured for several environments, which can be set using the `-profile` flag:

@@ -44,6 +44,7 @@ Required parameters:
 --hard_filter			Whether to run hard filtering on raw variants instead of machine learning (default: false)
 Optional parameters:
 --run_name 		       A descriptive name for this pipeline run
+--bam				Whether to output the alignments in BAM format (default: cram)
 --fasta				A reference genome in FASTA format (set automatically if using --assembly)
 --dbsnp				dbSNP data in VCF format (set automatically if using --assembly)
 --g1k				A SNP reference (usually 1000genomes, set automatically if using --assembly)
@@ -96,6 +97,10 @@ INDEL_RULES = params.indel_filter_rules
 
 params.effect_prediction = true
 params.hard_filter = false
+
+// Whether to produce BAM output instead of CRAM
+params.bam = false
+align_suffix = ( params.bam == true ) : "bam" : "cram"
 
 // Location of applications used
 OUTDIR = file(params.outdir)
@@ -346,9 +351,10 @@ process runApplyBQSR {
 	set indivID, outfile_md5 into BamMD5
             
 	script:
-	outfile_bam = sampleID + ".clean.cram"
-	outfile_bai = sampleID + ".clean.cram.bai"
-	outfile_md5 = sampleID + ".clean.cram.md5"
+
+	outfile_bam = sampleID + ".clean.${align_suffix}"
+	outfile_bai = sampleID + ".clean.${align_suffix}.bai"
+	outfile_md5 = sampleID + ".clean.${align_suffix}.md5"
            
     	"""
         	gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyBQSR \
