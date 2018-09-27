@@ -113,6 +113,12 @@ The pipeline is built to support more than one Exome kit. These can be selected 
 
 `--kit xGen_custom`(the IDT xGEN panel, version 1.0, with additional custom targets)
 
+### Supported output formats
+
+The pipeline will, for reasons of economy, output final read alignments in CRAM format. If for some reason BAM is absolutely necessary, use the bam flag to force BAM output:
+
+`--bam true`
+
 ### VEP effect prediction
 
 Effect prediction on the final multi-sample VCF file is disabled by default. To run effect prediction, use:
