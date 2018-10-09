@@ -100,7 +100,7 @@ params.hard_filter = false
 
 // Whether to produce BAM output instead of CRAM
 params.bam = false
-align_suffix = ( params.bam == true ) : "bam" : "cram"
+align_suffix = (params.bam == false) ? "cram" : "bam"
 
 // Location of applications used
 OUTDIR = file(params.outdir)
