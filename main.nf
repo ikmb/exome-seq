@@ -710,7 +710,8 @@ if ( params.hard_filter == true ) {
 process runSelectVariants {
 
 	tag "ALL|${params.assembly}"
-	
+	publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
+
 	input:
 	set file(vcf),file(vcf_index) from inputSelectVariants
 
