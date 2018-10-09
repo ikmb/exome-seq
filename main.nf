@@ -27,7 +27,7 @@ Author: Marc P. Hoeppner, m.hoeppner@ikmb.uni-kiel.de
 **/
 
 // Pipeline version
-VERSION = "0.95"
+VERSION = "1.0-alpha1"
 
 // Help message
 helpMessage = """
@@ -291,6 +291,7 @@ process runBaseRecalibrator {
 		gatk --java-options "-Xmx${task.memory.toGiga()}G" BaseRecalibrator \
 		--reference ${REF} \
 		-L $TARGETS \
+		-L ${params.mitochondrion} \
 		-ip 150 \
 		--input ${dedup_bam} \
 		--known-sites ${MILLS} \
@@ -325,6 +326,7 @@ process runApplyBQSR {
                 --reference ${REF} \
                 --input ${realign_bam} \
 		-L $TARGETS \
+		-L ${params.mitochondrion} \
 		-ip 150 \
                 -bqsr ${recal_table} \
                 --output ${outfile_bam} \
@@ -357,7 +359,7 @@ process runHCSample {
 		-R $REF \
 		-I ${bam} \
 		-L $TARGETS \
-		-L chrM \
+		-L ${params.mitochondrion} \
 		--genotyping-mode DISCOVERY \
 		--emit-ref-confidence GVCF \
 		-OVI true \
@@ -394,6 +396,7 @@ process runGenomicsDBImport  {
 		--variant ${vcf_list.join(" --variant ")} \
 		--reference $REF \
 		--intervals $TARGETS \
+		-L ${params.mitochondrion} \
 		--OVI true \
 		--output $merged_vcf \
                 $options
@@ -424,6 +427,7 @@ process runGenotypeGVCFs {
 		--reference $REF \
 		--dbsnp $DBSNP \
 		-L $TARGETS \
+		-L ${params.mitochondrion} \
 		-new-qual \
 		--only-output-calls-starting-in-intervals \
 		-V $merged_vcf \
@@ -712,7 +716,7 @@ process runSelectVariants {
 	set file(vcf_clean),file(vcf_clean_index) into inputVep
 
 	script:
-	vcf_clean = "variants.merged.filtered.controls_removed.vcf.gz"
+	vcf_clean = params.run_name + ".variants.merged.filtered.controls_removed.vcf.gz"
 	vcf_clean_index = vcf_clean + ".tbi"
 
 	"""
@@ -898,16 +902,17 @@ input:
    file(vcf_file) from inputVep
 
  output:
-   file('annotation.vep.vcf') into outputVep
+   file(annotated_vcf) into outputVep
 
  when:
  	params.effect_prediction == true
 
  script:
+   annotated_vcf = params.run_name + ".annotation.vep.vcf"
 
    """
       vep --offline --cache --dir $VEP_CACHE --fork ${task.cpus} \
- 	--assembly GRCh37 -i $vcf_file -o annotation.vep.vcf --allele_number --canonical \
+ 	--assembly GRCh37 -i $vcf_file -o $annotated_vcf --allele_number --canonical \
 	--force_overwrite --vcf --no_progress \
 	--merged \
 	--pubmed \
