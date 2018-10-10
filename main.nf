@@ -88,6 +88,7 @@ MILLS = params.mills_indels ?: file(params.genomes[ params.assembly ].mills )
 OMNI = params.omni ?: file(params.genomes[ params.assembly ].omni )
 HAPMAP = params.hapmap ?: file(params.genomes[ params.assembly ].hapmap )
 VEP_CACHE = params.vep_cache
+MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitochondrion
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
@@ -145,7 +146,7 @@ try {
     log.error "====================================================\n" +
               "  Nextflow version $params.nf_required_version required! You are running v$workflow.nextflow.version.\n" +
               "  Pipeline execution will continue, but things may break.\n" +
-              "  Please run `nextflow self-update` to update Nextflow.\n" +
+              "  Please use a more recent version of Nextflow!\n" +
               "============================================================"
 }
 
@@ -296,7 +297,7 @@ process runBaseRecalibrator {
 		gatk --java-options "-Xmx${task.memory.toGiga()}G" BaseRecalibrator \
 		--reference ${REF} \
 		-L $TARGETS \
-		-L ${params.mitochondrion} \
+		-L $MITOCHONDRION \
 		-ip 150 \
 		--input ${dedup_bam} \
 		--known-sites ${MILLS} \
@@ -332,7 +333,7 @@ process runApplyBQSR {
                 --reference ${REF} \
                 --input ${realign_bam} \
 		-L $TARGETS \
-		-L ${params.mitochondrion} \
+		-L $MITOCHONDRION \
 		-ip 150 \
                 -bqsr ${recal_table} \
                 --output ${outfile_bam} \
@@ -365,7 +366,7 @@ process runHCSample {
 		-R $REF \
 		-I ${bam} \
 		-L $TARGETS \
-		-L ${params.mitochondrion} \
+		-L $MITOCHONDRION \
 		--genotyping-mode DISCOVERY \
 		--emit-ref-confidence GVCF \
 		-OVI true \
@@ -402,7 +403,7 @@ process runGenomicsDBImport  {
 		--variant ${vcf_list.join(" --variant ")} \
 		--reference $REF \
 		--intervals $TARGETS \
-		-L ${params.mitochondrion} \
+		-L $MITOCHONDRION \
 		--OVI true \
 		--output $merged_vcf \
                 $options
@@ -433,7 +434,7 @@ process runGenotypeGVCFs {
 		--reference $REF \
 		--dbsnp $DBSNP \
 		-L $TARGETS \
-		-L ${params.mitochondrion} \
+		-L $MITOCHONDRION \
 		-new-qual \
 		--only-output-calls-starting-in-intervals \
 		-V $merged_vcf \
@@ -833,7 +834,7 @@ process runOxoGMetrics {
 //
 // ------------------------------------------------------------------------------------------------------------
 
-process runMultiQCFastq {
+process runMultiqcFastq {
 
     tag "Generating fastq level summary and QC plots"
     publishDir "${OUTDIR}/Summary/Fastq", mode: 'copy'
@@ -852,7 +853,7 @@ process runMultiQCFastq {
     """
 }
 
-process runMultiQCLibrary {
+process runMultiqcLibrary {
 
     tag "Generating library level summary and QC plots"
     publishDir "${OUTDIR}/Summary/Library", mode: 'copy'
@@ -871,7 +872,7 @@ process runMultiQCLibrary {
     """
 }
 
-process runMultiQCSample {
+process runMultiqcSample {
 
     tag "Generating sample level summary and QC plots"
     publishDir "${OUTDIR}/Summary/Sample", mode: 'copy'
