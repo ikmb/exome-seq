@@ -825,7 +825,7 @@ process runOxoGMetrics {
                 INPUT=${bam} \
                 OUTPUT=${outfile} \
                 DB_SNP=${DBSNP} \
-                INTERVALS=${BAITS} \
+                INTERVALS=${TARGETS} \
                 REFERENCE_SEQUENCE=${REF} \
                 TMP_DIR=tmp
         """
