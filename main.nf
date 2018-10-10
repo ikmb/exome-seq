@@ -332,12 +332,13 @@ process runApplyBQSR {
         	gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyBQSR \
                 --reference ${REF} \
                 --input ${realign_bam} \
+		-OBI true \
 		-L $TARGETS \
 		-L $MITOCHONDRION \
 		-ip 150 \
                 -bqsr ${recal_table} \
                 --output ${outfile_bam} \
-                -OBM true
+                -OBM true \
     	"""
 }    
 
@@ -733,6 +734,8 @@ process runSelectVariants {
 		-R $REF \
 		-O $vcf_clean \
 		-sn $calibration_samples_list_args \
+		--remove-unused-alternates true \
+		--exclude-non-variants
 	
 	"""
 }
