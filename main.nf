@@ -75,7 +75,8 @@ if (params.help){
 inputFile = file(params.samples)
 
 // Giving this pipeline run a name
-params.run_name = workflow.sessionId
+params.run_name = false
+run_name = ( params.run_name == false) ? workflow.sessionId : params.run_name
 
 // This will eventually enable switching between multiple assembly versions
 // Currently, only hg19 has all the required reference files available
@@ -725,7 +726,7 @@ process runSelectVariants {
 	set file(vcf_clean),file(vcf_clean_index) into inputVep
 
 	script:
-	vcf_clean = params.run_name + ".variants.merged.filtered.controls_removed.vcf.gz"
+	vcf_clean = run_name + ".variants.merged.filtered.controls_removed.vcf.gz"
 	vcf_clean_index = vcf_clean + ".tbi"
 
 	"""
@@ -919,7 +920,7 @@ input:
  	params.effect_prediction == true
 
  script:
-   annotated_vcf = params.run_name + ".annotation.vep.vcf"
+   annotated_vcf = run_name + ".annotation.vep.vcf"
 
    """
       vep --offline --cache --dir $VEP_CACHE --fork ${task.cpus} \

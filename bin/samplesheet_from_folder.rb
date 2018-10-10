@@ -58,8 +58,10 @@ groups.each do |group, files|
 			}
 		end
 
-        	library = group.split("_")[0]
-        	sample = group.split("-")[0]
+		# H26247-L3_S1_L001_R1_001_fastqc.html
+        	library = group.split("_S")[0]
+        	sample = library
+		individual = group.split("-")[0]
 
         	e = `zcat #{left} | head -n1 `
 		header = e
@@ -71,7 +73,7 @@ groups.each do |group, files|
 
         	pgu = flowcell_id + "." + lane + "." + index
 
-        	puts "Indiv_#{sample};Sample_#{sample};#{library};#{readgroup};#{pgu};Illumina;NextSeq500;#{center};#{date};#{left};#{right}"
+        	puts "Indiv_#{individual};Sample_#{sample};#{library};#{readgroup};#{pgu};Illumina;NextSeq500;#{center};#{date};#{left};#{right}"
 	end
 end
 
