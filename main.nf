@@ -76,7 +76,7 @@ inputFile = file(params.samples)
 
 // Giving this pipeline run a name
 params.run_name = false
-run_name = ( params.run_name == false) ? workflow.sessionId : params.run_name
+run_name = ( params.run_name == false) ? "${workflow.sessionId}" : "${params.run_name}"
 
 // This will eventually enable switching between multiple assembly versions
 // Currently, only hg19 has all the required reference files available
