@@ -754,12 +754,12 @@ process runSplitBySample {
 	set file(vcf_clean),file(vcf_clean_index) from inputSplitSample
 
 	output: 
-	set file("*.vcf.gz") into VcfBySample
+	file("*.vcf.gz") into VcfBySample
 
 	script: 
 
 	"""
-		for sample in `bcftools query -l $vcf`; do gatk Select Variants -R $REF -V $vcf -sn $sample -O ${sample}.vcf.gz ; done;
+		for sample in `bcftools query -l ${vcf_clean}`; do gatk SelectVariants -R $REF -V ${vcf_clean} -sn \$sample -O \$sample'.vcf.gz' ; done;
 	"""
 
 }
@@ -954,6 +954,25 @@ input:
 	--plugin LoFtool --plugin LoF \
 	--fasta ${params.vep_fasta}
    """
+
+}
+
+process runSplitVEPBySample {
+
+        tag "ALL|${params.assembly}"
+        publishDir "${OUTDIR}/Annotation/VEP/BySample", mode: 'copy'
+
+        input:
+        file(vcf) from outputVep
+
+        output:
+        file("*.vcf") into VepVcfBySample
+
+        script:
+
+        """
+                for sample in `bcftools query -l ${vcf}`; do gatk SelectVariants -R $REF -V ${vcf} -sn \$sample -O \$sample'.vcf' ; done;
+        """
 
 }
 
