@@ -319,7 +319,7 @@ process runApplyBQSR {
 	set indivID, sampleID, realign_bam, recal_table from runBaseRecalibratorOutput 
 
 	output:
-	set indivID, sampleID, file(outfile_bam), file(outfile_bai) into runPrintReadsOutput_for_Multiple_Metrics,inputHCSample,inputCollectReadCounts
+	set indivID, sampleID, file(outfile_bam), file("*.bai") into runPrintReadsOutput_for_Multiple_Metrics,inputHCSample,inputCollectReadCounts
 	set indivID, sampleID, realign_bam, recal_table into runPrintReadsOutput_for_PostRecal
 	set indivID, outfile_md5 into BamMD5
             
@@ -726,6 +726,10 @@ process runSelectVariants {
 	set file(vcf_clean),file(vcf_clean_index) into inputVep
 
 	script:
+	options = ""
+	if (calibration_samples_list_args) {
+		options = "-xl-sn ${calibration_samples_list_args}"
+	}
 	vcf_clean = run_name + ".variants.merged.filtered.controls_removed.vcf.gz"
 	vcf_clean_index = vcf_clean + ".tbi"
 
@@ -734,9 +738,9 @@ process runSelectVariants {
 		-V $vcf \
 		-R $REF \
 		-O $vcf_clean \
-		-sn $calibration_samples_list_args \
 		--remove-unused-alternates true \
-		--exclude-non-variants
+		--exclude-non-variants true \
+		$options
 	
 	"""
 }
