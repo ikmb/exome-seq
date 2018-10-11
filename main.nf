@@ -723,14 +723,14 @@ process runSelectVariants {
 	set file(vcf),file(vcf_index) from inputSelectVariants
 
 	output:
-	set file(vcf_clean),file(vcf_clean_index) into inputVep
+	set file(vcf_clean),file(vcf_clean_index) into inputVep, inputSplitSample
 
 	script:
 	options = ""
 	if (calibration_samples_list_args) {
 		options = "-xl-sn ${calibration_samples_list_args}"
 	}
-	vcf_clean = run_name + ".variants.merged.filtered.controls_removed.vcf.gz"
+	vcf_clean = "${run_name}.variants.merged.filtered.controls_removed.vcf.gz"
 	vcf_clean_index = vcf_clean + ".tbi"
 
 	"""
@@ -743,6 +743,25 @@ process runSelectVariants {
 		$options
 	
 	"""
+}
+
+process runSplitBySample {
+
+        tag "ALL|${params.assembly}"
+        publishDir "${OUTDIR}/Variants/Final/BySample", mode: 'copy'
+
+	input:
+	set file(vcf_clean),file(vcf_clean_index) from inputSplitSample
+
+	output: 
+	set file("*.vcf.gz") into VcfBySample
+
+	script: 
+
+	"""
+		for sample in `bcftools query -l $vcf`; do gatk Select Variants -R $REF -V $vcf -sn $sample -O ${sample}.vcf.gz ; done;
+	"""
+
 }
 
 // *********************
