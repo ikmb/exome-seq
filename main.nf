@@ -28,6 +28,7 @@ Author: Marc P. Hoeppner, m.hoeppner@ikmb.uni-kiel.de
 
 // Pipeline version
 VERSION = "1.0-alpha1"
+params.version = VERSION
 
 // Help message
 helpMessage = """
