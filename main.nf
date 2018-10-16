@@ -383,7 +383,7 @@ process runHCSample {
 process runGenomicsDBImport  {
 
 	tag "ALL"
-        // publishDir "${OUTDIR}/Variants/JointGenotypes/"
+        // publishDir "${OUTDIR}/Variants/JointGenotypes/", mode: 'copy'
 
 	input:
         file(vcf_list) from outputHCSample.collect()
@@ -419,7 +419,7 @@ process runGenomicsDBImport  {
 process runGenotypeGVCFs {
   
 	tag "ALL"
-	publishDir "${OUTDIR}/Variants/JointGenotypes"
+	publishDir "${OUTDIR}/Variants/JointGenotypes", mode: 'copy'
   
 	input:
 	set file(merged_vcf), file(merged_vcf_index) from inputGenotypeGVCFs
@@ -760,7 +760,7 @@ process runSplitBySample {
 	script: 
 
 	"""
-		for sample in `bcftools query -l ${vcf_clean}`; do gatk SelectVariants -R $REF -V ${vcf_clean} -sn \$sample -O \$sample'.vcf.gz' ; done;
+		for sample in `bcftools query -l ${vcf_clean}`; do gatk SelectVariants -R $REF -V ${vcf_clean} --exclude-non-variants --remove-unused-alternates -sn \$sample -O \$sample'.vcf.gz' ; done;
 	"""
 
 }
