@@ -258,10 +258,6 @@ process runMarkDuplicates {
         set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics, runPrintReadsOutput_for_OxoG_Metrics, runPrintReadsOutput_for_HC_Metrics, BamForDepthOfCoverage
 	file(outfile_md5) into MarkDuplicatesMD5
 	file(outfile_metrics) into DuplicatesOutput_QC
-	file(outfile_bam) into inputStrelka
-	file(outfile_bai) into inputStrelkaBai
-	file(outfile_bam) into inputFreebayes
-	file(outfile_bai) into inputFreebayesBai
 
         script:
         outfile_bam = sampleID + ".dedup.bam"
@@ -293,82 +289,6 @@ process runMarkDuplicates {
 // 4) Apply recalibration
 //
 // ------------------------------------------------------------------------------------------------------------
-
-process runStrelka {
-
-        tag "ALL"
-	publishDir "${OUTDIR}/Strelka/Variants", mode: 'copy'
-
-	input:
-	file(bams) from inputStrelka.collect()
-	file(indices) from inputStrelkaBai.collect()
-
-	output:
-	set file("variants.vcf.gz"), file("variants.vcf.gz.tbi") into outputStrelka
-
-	when:
-	params.tool == "strelka"
-
-	script:
-
-	"""
-		configureStrelkaGermlineWorkflow.py \
-		--bam=${bams.join(' --bam=')} \
-		--referenceFasta $REF \
-		--exome \
-		--callRegions $TARGET_BED \
-		--runDir Strelka
-
-		python Strelka/runWorkflow.py -m local -j ${task.cpus}
-
-		mv Strelka/results/variants/variants.vcf.gz* . 
-	"""
-}
-
-process runSplitStrelkaVcf {
-	
-	tag "ALL"
-	publishDir "${OUTDIR}/Strelka/Variants/BySample", mode: 'copy'
-
-	input:
-	set file(vcf),file(index) from outputStrelka
-	
-	output:
-	set file("*.vcf.gz"),file("*.vcf.gz.tbi") into outputSplitStrelkaVcf
-
-	script:
-
-	"""
-		for sample in `bcftools query -l $vcf`; do bcftools view -f "PASS -s \$sample $vcf | bcftools filter -i 'GT!="./." -i 'GT!="."' -i 'GT!="0/0"' | python $baseDir/bin/filter_strelka_vcf.py | bgzip -c > \$sample.vcf.gz && tabix \$sample.vcf.gz ; done;
-	"""
-
-}
-
-process runFreebayes {
-	 tag "${indivID}|${sampleID}"
-        publishDir "${OUTDIR}/Freebayes/Variants"
-
-        input:
-        file(bams) from inputFreebayes.collect()
-	file(indices) from inputFreebayesBai.collect()
-
-
-        output:
-        file(vcf) into FreebayesOutput
-
-        when:
-        params.tool == "freebayes"
-
-	script:
-	vcf = "genotypes.freebayes.vcf"
-
-	"""
-		freebayes-parallel <( ruby $baseDir/bin/parse_bed.rb $TARGET_BED)> ${task.cpus} \
-		-f $REF \
-		-@ $DBSNP \
-		-b ${bams.join(' -b ')} > $vcf
-	"""
-}
 
 process runBaseRecalibrator {
 
@@ -541,7 +461,7 @@ process runGenotypeGVCFs {
 	"""
 }
 
-if ( params.hard_filter == true ) {
+if ( params.hard_filter == true) {
 
 	inputRecalSNP = Channel.from(false)
 	inputRecalIndel = Channel.from(false)
