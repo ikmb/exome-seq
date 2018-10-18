@@ -304,7 +304,7 @@ process runStrelka {
 	file(indices) from inputStrelkaBai.collect()
 
 	output:
-	set file("*.vcf.gz"), file("*.vcf.gz.tbi") into outputStrelka
+	set file("variants.vcf.gz"), file("variants.vcf.gz.tbi") into outputStrelka
 
 	when:
 	params.tool == "strelka"
@@ -328,7 +328,7 @@ process runStrelka {
 process runSplitStrelkaVcf {
 	
 	tag "ALL"
-	publishDir "${OUTDIR}/Strelka/Variants/BySample"
+	publishDir "${OUTDIR}/Strelka/Variants/BySample", mode: 'copy'
 
 	input:
 	set file(vcf),file(index) from outputStrelka
@@ -339,7 +339,7 @@ process runSplitStrelkaVcf {
 	script:
 
 	"""
-		for sample in `bcftools query -l $vcf`; do bcftools view -s \$sample $vcf | | bcftools filter -i'GT!="."' -i 'GT!="0/0"' | python $baseDir/filter_strelka_vcf.py | bgzip -c > \$sample.vcf.gz ; done;
+		for sample in `bcftools query -l $vcf`; do bcftools view -f "PASS -s \$sample $vcf | bcftools filter -i 'GT!="./." -i 'GT!="."' -i 'GT!="0/0"' | python $baseDir/bin/filter_strelka_vcf.py | bgzip -c > \$sample.vcf.gz && tabix \$sample.vcf.gz ; done;
 	"""
 
 }
@@ -363,8 +363,6 @@ process runFreebayes {
 	vcf = "genotypes.freebayes.vcf"
 
 	"""
-		zcat $TARGET_BED | awk '{split(\$0,a,"     "); print a[1]":"a[2]"-"a[3]}' >> targets.bed
-		
 		freebayes-parallel <( ruby $baseDir/bin/parse_bed.rb $TARGET_BED)> ${task.cpus} \
 		-f $REF \
 		-@ $DBSNP \
