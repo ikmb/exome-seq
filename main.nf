@@ -45,6 +45,7 @@ Required parameters:
 --hard_filter			Whether to run hard filtering on raw variants instead of machine learning (default: false)
 Optional parameters:
 --run_name 		       A descriptive name for this pipeline run
+--tool 				Tool chain to use (default: gatk. other options: strelka)
 --bam				Whether to output the alignments in BAM format (default: cram)
 --fasta				A reference genome in FASTA format (set automatically if using --assembly)
 --dbsnp				dbSNP data in VCF format (set automatically if using --assembly)
@@ -94,6 +95,7 @@ MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitoch
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
+TARGET_BED = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets_bed
 
 SNP_RULES = params.snp_filter_rules
 INDEL_RULES = params.indel_filter_rules
@@ -146,7 +148,7 @@ try {
     }
 } catch (all) {
     log.error "====================================================\n" +
-              "  Nextflow version $params.nf_required_version required! You are running v$workflow.nextflow.version.\n" +
+              "  Nextflow version $params.nextflow_required_version required! You are running v$workflow.nextflow.version.\n" +
               "  Pipeline execution will continue, but things may break.\n" +
               "  Please use a more recent version of Nextflow!\n" +
               "============================================================"
@@ -186,7 +188,7 @@ process runFastp {
 	html = file(fastqR1).getBaseName() + ".fastp.html"
 
 	"""
-		fastp --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right -w ${task.cpus} -j $json -h $html
+		fastp --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right -w ${task.cpus} -j $json -h $html --length_required 35 --cut_by_quality3
 	"""
 }
 
@@ -224,22 +226,28 @@ process mergeBamFiles_bySample {
 	set indivID,sampleID,file(merged_bam) into mergedBamFile_by_Sample
 
 	script:
-	merged_bam = sampleID + "merged.bam"
+	merged_bam = sampleID + ".merged.bam"
 
 	"""
 		picard MergeSamFiles \
 			INPUT=${aligned_bam_list.join(' INPUT=')} \
-			OUTPUT=${merged_bam} \
+			OUTPUT=merged.bam \
 			CREATE_INDEX=false \
 			CREATE_MD5_FILE=false \
 			SORT_ORDER=coordinate
+
+		picard SetNmMdAndUqTags \
+			REFERENCE_SEQUENCE=$REF \
+			INPUT=merged.bam \
+			IS_BISULFITE_SEQUENCE=false \
+			OUTPUT=${merged_bam}
 	"""
 }
 
 process runMarkDuplicates {
 
 	tag "${indivID}|${sampleID}"
-        // publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
+        publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
 
         // scratch use_scratch
 
@@ -250,6 +258,10 @@ process runMarkDuplicates {
         set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics, runPrintReadsOutput_for_OxoG_Metrics, runPrintReadsOutput_for_HC_Metrics, BamForDepthOfCoverage
 	file(outfile_md5) into MarkDuplicatesMD5
 	file(outfile_metrics) into DuplicatesOutput_QC
+	file(outfile_bam) into inputStrelka
+	file(outfile_bai) into inputStrelkaBai
+	file(outfile_bam) into inputFreebayes
+	file(outfile_bai) into inputFreebayesBai
 
         script:
         outfile_bam = sampleID + ".dedup.bam"
@@ -264,7 +276,7 @@ process runMarkDuplicates {
 	                -O ${outfile_bam} \
         	        -M ${outfile_metrics} \
                         --CREATE_INDEX true \
-			-AS true \
+			--ASSUME_SORT_ORDER=coordinate \
 			--MAX_RECORDS_IN_RAM 300000 \
 			--CREATE_MD5_FILE true \
                         --TMP_DIR tmp
@@ -282,6 +294,84 @@ process runMarkDuplicates {
 //
 // ------------------------------------------------------------------------------------------------------------
 
+process runStrelka {
+
+        tag "ALL"
+	publishDir "${OUTDIR}/Strelka/Variants", mode: 'copy'
+
+	input:
+	file(bams) from inputStrelka.collect()
+	file(indices) from inputStrelkaBai.collect()
+
+	output:
+	set file("*.vcf.gz"), file("*.vcf.gz.tbi") into outputStrelka
+
+	when:
+	params.tool == "strelka"
+
+	script:
+
+	"""
+		configureStrelkaGermlineWorkflow.py \
+		--bam=${bams.join(' --bam=')} \
+		--referenceFasta $REF \
+		--exome \
+		--callRegions $TARGET_BED \
+		--runDir Strelka
+
+		python Strelka/runWorkflow.py -m local -j ${task.cpus}
+
+		mv Strelka/results/variants/variants.vcf.gz* . 
+	"""
+}
+
+process runSplitStrelkaVcf {
+	
+	tag "ALL"
+	publishDir "${OUTDIR}/Strelka/Variants/BySample"
+
+	input:
+	set file(vcf),file(index) from outputStrelka
+	
+	output:
+	set file("*.vcf.gz"),file("*.vcf.gz.tbi") into outputSplitStrelkaVcf
+
+	script:
+
+	"""
+		for sample in `bcftools query -l $vcf`; do bcftools view -s \$sample $vcf | | bcftools filter -i'GT!="."' -i 'GT!="0/0"' | python $baseDir/filter_strelka_vcf.py | bgzip -c > \$sample.vcf.gz ; done;
+	"""
+
+}
+
+process runFreebayes {
+	 tag "${indivID}|${sampleID}"
+        publishDir "${OUTDIR}/Freebayes/Variants"
+
+        input:
+        file(bams) from inputFreebayes.collect()
+	file(indices) from inputFreebayesBai.collect()
+
+
+        output:
+        file(vcf) into FreebayesOutput
+
+        when:
+        params.tool == "freebayes"
+
+	script:
+	vcf = "genotypes.freebayes.vcf"
+
+	"""
+		zcat $TARGET_BED | awk '{split(\$0,a,"     "); print a[1]":"a[2]"-"a[3]}' >> targets.bed
+		
+		freebayes-parallel <( ruby $baseDir/bin/parse_bed.rb $TARGET_BED)> ${task.cpus} \
+		-f $REF \
+		-@ $DBSNP \
+		-b ${bams.join(' -b ')} > $vcf
+	"""
+}
+
 process runBaseRecalibrator {
 
 	tag "${indivID}|${sampleID}"
@@ -292,7 +382,10 @@ process runBaseRecalibrator {
     
 	output:
 	set indivID, sampleID, dedup_bam, file(recal_table) into runBaseRecalibratorOutput
-    
+
+	when:
+	params.tool == "gatk4"
+
 	script:
 	recal_table = sampleID + "_recal_table.txt" 
 
@@ -371,6 +464,7 @@ process runHCSample {
 		-I ${bam} \
 		-L $TARGETS \
 		-L $MITOCHONDRION \
+		-ip 150 \
 		--emit-ref-confidence GVCF \
 		-OVI true \
     		--output $vcf \
@@ -383,7 +477,7 @@ process runHCSample {
 process runGenomicsDBImport  {
 
 	tag "ALL"
-        // publishDir "${OUTDIR}/Variants/JointGenotypes/", mode: 'copy'
+        publishDir "${OUTDIR}/GATK/Variants/JointGenotypes/", mode: 'copy'
 
 	input:
         file(vcf_list) from outputHCSample.collect()
@@ -407,6 +501,7 @@ process runGenomicsDBImport  {
 		--reference $REF \
 		--intervals $TARGETS \
 		-L $MITOCHONDRION \
+		-ip 150 \
 		--OVI true \
 		--output $merged_vcf \
                 $options
@@ -419,7 +514,7 @@ process runGenomicsDBImport  {
 process runGenotypeGVCFs {
   
 	tag "ALL"
-	publishDir "${OUTDIR}/Variants/JointGenotypes", mode: 'copy'
+	publishDir "${OUTDIR}/GATK/Variants/JointGenotypes", mode: 'copy'
   
 	input:
 	set file(merged_vcf), file(merged_vcf_index) from inputGenotypeGVCFs
@@ -438,6 +533,7 @@ process runGenotypeGVCFs {
 		--dbsnp $DBSNP \
 		-L $TARGETS \
 		-L $MITOCHONDRION \
+		-ip 150 \
 		-new-qual \
 		--only-output-calls-starting-in-intervals \
 		-V $merged_vcf \
@@ -455,7 +551,7 @@ if ( params.hard_filter == true ) {
 	process runHardFilterSNP {
 		
 		tag "ALL"
-		//publishDir "${OUTDIR}/Variants", mode: 'copy'
+		//publishDir "${OUTDIR}/GATK/Variants", mode: 'copy'
 
 		input:
 		set file(vcf),file(vcf_index) from inputHardFilterSNP
@@ -489,7 +585,7 @@ if ( params.hard_filter == true ) {
 	process runHardFilterIndel {
 
                 tag "ALL"
-                //publishDir "${OUTDIR}/Variants", mode: 'copy'
+                //publishDir "${OUTDIR}/GATK/Variants", mode: 'copy'
 
                 input:
                 set file(vcf),file(vcf_index) from inputHardFilterIndel
@@ -522,7 +618,7 @@ if ( params.hard_filter == true ) {
         process runCombineHardVariants {
 
                 tag "ALL"
-                // publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
+                // publishDir "${OUTDIR}/GATK/Variants/Final", mode: 'copy'
 
                 input:
                 set file(indel),file(indel_index) from outputHardFilterIndel
@@ -563,7 +659,7 @@ if ( params.hard_filter == true ) {
 	process runRecalibrationModeSNP {
 
         	tag "ALL"
-	        //publishDir "${OUTDIR}/Variants/Recal"
+	        publishDir "${OUTDIR}/GATK/Variants/Recal"
 		input:
 		set file(vcf),file(vcf_index) from inputRecalSNP
 
@@ -596,7 +692,7 @@ if ( params.hard_filter == true ) {
 	process runRecalibrationModeIndel {
 	
 		tag "ALL"
-		// publishDir "${OUTDIR}/Variants/Recal"
+		publishDir "${OUTDIR}/GATK/Variants/Recal"
 
   		input:
 	  	set file(vcf),file(vcf_index) from inputRecalIndel
@@ -628,7 +724,7 @@ if ( params.hard_filter == true ) {
  	process runRecalIndelApply {
 
                 tag "ALL"
-                // publishDir "${OUTDIR}/Variants/Recal"
+                publishDir "${OUTDIR}/GATK/Variants/Recal"
 
                 input:
                 set file(recal_file),file(tranches),file(gvcf),file(gvcf_index) from inputRecalIndelApply
@@ -658,7 +754,7 @@ if ( params.hard_filter == true ) {
 	process runRecalSNPApply {
 	
 		tag "ALL"
-		// publishDir "${OUTDIR}/Variants/Filtered"
+		publishDir "${OUTDIR}/GATK/Variants/Filtered"
 	
 		input:
 		set file(vcf),file(index) from outputRecalIndelApply
@@ -689,7 +785,7 @@ if ( params.hard_filter == true ) {
 	process runVariantFiltrationIndel {
 
 		tag "ALL"
-		// publishDir "${OUTDIR}/Variants/Filtered"
+		publishDir "${OUTDIR}/GATK/Variants/Filtered"
 
 	  	input:
 		set file(vcf),file(vcf_index) from outputRecalIndelApply
@@ -718,7 +814,7 @@ if ( params.hard_filter == true ) {
 process runSelectVariants {
 
 	tag "ALL|${params.assembly}"
-	publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
+	publishDir "${OUTDIR}/GATK/Variants/Final", mode: 'copy'
 
 	input:
 	set file(vcf),file(vcf_index) from inputSelectVariants
@@ -749,7 +845,7 @@ process runSelectVariants {
 process runSplitBySample {
 
         tag "ALL|${params.assembly}"
-        publishDir "${OUTDIR}/Variants/Final/BySample", mode: 'copy'
+        publishDir "${OUTDIR}/GATK/Variants/Final/BySample", mode: 'copy'
 
 	input:
 	set file(vcf_clean),file(vcf_clean_index) from inputSplitSample
