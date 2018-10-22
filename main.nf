@@ -211,8 +211,8 @@ process runMarkDuplicates {
         set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics, runPrintReadsOutput_for_OxoG_Metrics, runPrintReadsOutput_for_HC_Metrics, BamForDepthOfCoverage
 	file(outfile_md5) into MarkDuplicatesMD5
 	file(outfile_metrics) into DuplicatesOutput_QC
-	file(outfile_bam) into inputStrelka
-	file(outfile_bai) into inputStrelkaBai
+	file(outfile_bam) into (inputStrelka,inputManta)
+	file(outfile_bai) into (inputStrelkaBai,inputMantaBai)
 
         script:
         outfile_bam = sampleID + ".dedup.bam"
@@ -222,13 +222,13 @@ process runMarkDuplicates {
         outfile_metrics = sampleID + "_duplicate_metrics.txt"
 
 	"""
-        	gatk --java-options "-Xmx${task.memory.toGiga()}G" MarkDuplicates \
+        	gatk --java-options "-Xms4G -Xmx${task.memory.toGiga()-1}G" MarkDuplicates \
                 	-I ${merged_bam} \
 	                -O ${outfile_bam} \
         	        -M ${outfile_metrics} \
                         --CREATE_INDEX true \
 			--ASSUME_SORT_ORDER=coordinate \
-			--MAX_RECORDS_IN_RAM 300000 \
+			--MAX_RECORDS_IN_RAM 100000 \
 			--CREATE_MD5_FILE true \
                         --TMP_DIR tmp
 	"""
@@ -244,6 +244,38 @@ process runMarkDuplicates {
 // 4) Apply recalibration
 //
 // ------------------------------------------------------------------------------------------------------------
+
+process runManta {
+
+
+	tag "ALL"
+        publishDir "${OUTDIR}/Manta/Variants", mode: 'copy'
+
+	input:
+	file(bams) from inputManta.collect()
+	file(indices) from inputMantaBai.collect()
+
+	output:
+	file("*.vcf.gz") into outputManta
+	file("candidateSmallIndels.vcf.gz") into mantaCandidates
+
+	script:
+	"""
+
+	configManta.py \
+	-bam=${bams.join(' --bam=')} \
+        --referenceFasta $REF \
+        --exome \
+        --callRegions $TARGET_BED \
+        --runDir Manta
+
+	python Manta/runWorkflow.py -m local -j ${task.cpus}
+
+	cp Manta/results/variants/*.vcf.gz* .
+
+	"""
+}
+
 
 process runStrelka {
 
@@ -275,7 +307,6 @@ process runStrelka {
 		bcftools annotate -a $DBSNP -c ID Strelka/results/variants/variants.vcf.gz | bgzip -c > $vcf
 		tabix $vcf
 		
-		// mv Strelka/results/variants/variants.vcf.gz* . 
 	"""
 }
 
@@ -294,7 +325,7 @@ process runSplitStrelkaVcf {
 	script:
 
 	"""
-		for sample in `bcftools query -l $vcf`; do bcftools view -f "PASS -s \$sample $vcf | bcftools filter -i 'GT!="./." -i 'GT!="."' -i 'GT!="0/0"' | python $baseDir/bin/filter_strelka_vcf.py | bgzip -c > \$sample.vcf.gz && tabix \$sample.vcf.gz ; done;
+		for sample in `bcftools query -l $vcf`; do bcftools view -f "PASS" -s \$sample $vcf | bcftools filter -i 'GT!="./."' -i 'GT!="."' -i 'GT!="0/0"' | python $baseDir/bin/filter_strelka_vcf.py | bgzip -c > \$sample.vcf.gz && tabix \$sample.vcf.gz ; done;
 	"""
 
 }
