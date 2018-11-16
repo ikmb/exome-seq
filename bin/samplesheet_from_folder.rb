@@ -12,6 +12,7 @@ opts.banner = "Reads Fastq files from a folder and writes a sample sheet to STDO
 opts.separator ""
 opts.on("-f","--folder", "=FOLDER","Folder to scan") {|argument| options.folder = argument }
 opts.on("-c","--centre", "=CENTRE","Name of sequencing centre") {|argument| options.centre = argument }
+opts.on("-p","--platform", "=PLATFORM","Name of sequencing instrument") {|argument| options.platform = argument }
 opts.on("-s","--sanity", "Perform sanity check of md5 sums") { options.sanity = true }
 opts.on("-h","--help","Display the usage information") {
  puts opts
@@ -32,6 +33,8 @@ groups = fastq_files.group_by{|f| f.split("/")[-1].split(/_L0/)[0] }
 warn "Building input sample sheet from FASTQ folder"
 warn "Performing sanity check on md5sums" if options.sanity
 
+options.platform ? sequencer = options.platform : sequencer = "NextSeq500
+"
 puts "IndivID;SampleID;libraryID;rgID;rgPU;platform;platform_model;Center;Date;R1;R2"
 
 #G00076-L2_S19_L003_R1_001.fastq.gz
@@ -73,7 +76,7 @@ groups.each do |group, files|
 
         	pgu = flowcell_id + "." + lane + "." + index
 
-        	puts "Indiv_#{individual};Sample_#{sample};#{library};#{readgroup};#{pgu};Illumina;NextSeq500;#{center};#{date};#{left};#{right}"
+        	puts "Indiv_#{individual};Sample_#{sample};#{library};#{readgroup};#{pgu};Illumina;#{options.platform};#{center};#{date};#{left};#{right}"
 	end
 end
 
