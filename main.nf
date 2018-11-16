@@ -259,6 +259,9 @@ process runManta {
 	file("*.vcf.gz") into outputManta
 	file("candidateSmallIndels.vcf.gz") into mantaCandidates
 
+	when:
+	params.run_manta == true
+
 	script:
 	"""
 
