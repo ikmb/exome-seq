@@ -94,7 +94,7 @@ MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitoch
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
-TARGET_BED = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets_bed
+TARGET_BED = params.target_bed ?: params.genomes[params.assembly].kits[ params.kit ].targets_bed
 
 SNP_RULES = params.snp_filter_rules
 INDEL_RULES = params.indel_filter_rules
@@ -121,9 +121,10 @@ if (TARGETS == false || BAITS == false ) {
 params.calibration_exomes = false
 params.calibration_sample_list = false
 
-calibration_vcf = false
+calibration_vcfs = false
+
 if (params.calibration_exomes && params.calibration_sample_list) {
-	calibration_vcf = []
+	calibration_vcfs = []
 	file(calibration_exomes).eachLine { line ->
         	location = line.trim()
 	        calibration_vcfs << location
@@ -248,7 +249,7 @@ process runMarkDuplicates {
 	tag "${indivID}|${sampleID}"
         publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
 
-        // scratch use_scratch
+        scratch use_scratch
 
         input:
         set indivID, sampleID, file(merged_bam) from mergedBamFile_by_Sample
@@ -299,9 +300,6 @@ process runBaseRecalibrator {
     
 	output:
 	set indivID, sampleID, dedup_bam, file(recal_table) into runBaseRecalibratorOutput
-
-	when:
-	params.tool == "gatk4"
 
 	script:
 	recal_table = sampleID + "_recal_table.txt" 
@@ -408,7 +406,7 @@ process runGenomicsDBImport  {
 	merged_vcf_index = merged_vcf + ".tbi"
 
 	def options = ""
-	if (calibration_vcfs) {
+	if (calibration_vcfs != false) {
 		options = "--variant ${calibration_vcfs.join(' --variant ')}"
 	}
 
@@ -467,7 +465,7 @@ process runGenotypeGVCFs {
 process runHardFilterSNP {
 		
 	tag "ALL"
-	//publishDir "${OUTDIR}/GATK/Variants", mode: 'copy'
+	publishDir "${OUTDIR}/GATK/Variants/HardFilter/", mode: 'copy'
 
 	input:
 	set file(vcf),file(vcf_index) from inputHardFilterSNP
@@ -483,16 +481,16 @@ process runHardFilterSNP {
 		gatk SelectVariants \
 			-R $REF \
 			-V $vcf \
-			--select-type-to-include SNP
-			-O genotypes.merged.snps.vcf.gz
+			--select-type-to-include SNP \
+			--output genotypes.merged.snps.vcf.gz \
 			-OVI true
 				
 		gatk VariantFiltration \
 			-R $REF \
 			-V genotypes.merged.snps.vcf.gz \
-			-O $vcf_filtered \
-			-filterExpression "${SNP_RULES}" \
-			--filterName "hard_snp_filter" \
+			--output $vcf_filtered \
+			--filter-expression "${SNP_RULES}" \
+			--filter-name "hard_snp_filter" \
 			-OVI true
 	"""
 
@@ -501,7 +499,7 @@ process runHardFilterSNP {
 process runHardFilterIndel {
 
 	tag "ALL"
-        //publishDir "${OUTDIR}/GATK/Variants", mode: 'copy'
+        publishDir "${OUTDIR}/GATK/Variants/HardFilter", mode: 'copy'
         
         input:
         set file(vcf),file(vcf_index) from inputHardFilterIndel
@@ -510,21 +508,21 @@ process runHardFilterIndel {
         set file(vcf_filtered),file(vcf_filtered_index) into outputHardFilterIndel
 
         script:
-        vcf_filtered = "genotypes.merged.snps.filtered.vcf.gz"
+        vcf_filtered = "genotypes.merged.indels.filtered.vcf.gz"
         vcf_filtered_index = vcf_filtered + ".tbi"
 
         """
  	       gatk SelectVariants \
                -R $REF \
                -V $vcf \
-               --select-type-to-include SNP
-               -O genotypes.merged.snps.vcf.gz
+               --select-type-to-include INDEL \
+               --output genotypes.merged.indels.vcf.gz \
                -OVI true
 
               gatk VariantFiltration \
               -R $REF \
-              -V genotypes.merged.snps.vcf.gz \
-              -O $vcf_filtered \
+              -V genotypes.merged.indels.vcf.gz \
+              --output $vcf_filtered \
 	      --filter-expression "${INDEL_RULES}" \
               --filter-name "hard_indel_filter" \
 	      -OVI true
@@ -534,22 +532,23 @@ process runHardFilterIndel {
 process runCombineHardVariants {
 
 	tag "ALL"
-        // publishDir "${OUTDIR}/GATK/Variants/HardFilter/Final", mode: 'copy'
+        publishDir "${OUTDIR}/GATK/Variants/HardFilter/Final", mode: 'copy'
 
         input:
         set file(indel),file(indel_index) from outputHardFilterIndel
-	set file(snp),file(snp_index) fromoutputHardFilterSNP
+	set file(snp),file(snp_index) from outputHardFilterSNP
 
         output:
         set file(merged_file),file(merged_file_index) into inputSplitHardVariants
 
         script:
-        merged_file = "merged_callset.hard.vcf.gz"
+        merged_file = "${run_name}.merged_callset.hard.vcf.gz"
         merged_file_index = merged_file + ".tbi"
 
         """
         	gatk SortVcf -I $indel -O indels.sorted.vcf.gz
                 gatk SortVcf -I $snp -O snps.sorted.vcf.gz
+
                 picard MergeVcfs \
                 I=indels.sorted.vcf.gz \
                 I=snps.sorted.vcf.gz \
@@ -577,7 +576,7 @@ process runSplitHardVariantsBySample {
         set file(vcf_clean),file(vcf_clean_index) from inputSplitHardVariants
 
         output:
-        file("*.vcf.gz") into VcfBySample
+        file("*.vcf.gz") into HardVcfBySample
 
         script:
 
@@ -746,7 +745,7 @@ process runVariantFiltrationIndel {
                	-V $vcf \
 		--filter-expression "QD < 2.0" \
 		--filter-name "QDFilter" \
-               	-O $filtered_gvcf \
+               	--output $filtered_gvcf \
 		-OVI true
   	"""
 }

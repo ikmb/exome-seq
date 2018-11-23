@@ -200,7 +200,7 @@ process mergeBamFiles_bySample {
 process runMarkDuplicates {
 
 	tag "${indivID}|${sampleID}"
-        publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
+        publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
 
         // scratch use_scratch
 
@@ -278,7 +278,6 @@ process runManta {
 
 	"""
 }
-
 
 process runStrelka {
 
