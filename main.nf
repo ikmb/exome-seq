@@ -15,16 +15,19 @@ Implemented in Q1 2018
 
 This pipeline is based on the updated GATK best-practices (where applicable).
  - trimming (Trimgalore)
- - Alignment (BWA) and dedup
- - variant calling (Strelka)
- - variant effect prediction (VEP)
+ - Alignment (BWA)
+ - Duplicate marking (GATK)
+ - recalibration 
+ - variant calling
+ - variant recalibration and filtering
+ - variant effect prediction
 
 Author: Marc P. Hoeppner, m.hoeppner@ikmb.uni-kiel.de
 
 **/
 
 // Pipeline version
-VERSION = "1.0-alpha1"
+VERSION = "1.1-alpha1"
 params.version = VERSION
 
 // Help message
@@ -38,15 +41,22 @@ the Nextera kit and using the GATK4 best-practice workflow.
 Required parameters:
 --samples                      A sample list in CSV format (see website for formatting hints)
 --assembly                     Name of the reference assembly to use
---effect_prediction	       Whether to run effect prediction on the final variant set (default: false)
+--kit			       Name of the exome kit (available options: xGen, xGen_custom, Nextera)
 Optional parameters:
+--effect_prediction            Whether to run effect prediction on the final variant set (default: false)
+--vqsr 			       Whether to also run variant score recalibration (only works >= 30 samples) (default: false)
 --run_name 		       A descriptive name for this pipeline run
---fasta				A reference genome in FASTA format (set automatically if using --assembly)
---dbsnp				dbSNP data in VCF format (set automatically if using --assembly)
+--bam			       Whether to output the alignments in BAM format (default: cram)
+--fasta			       A reference genome in FASTA format (set automatically if using --assembly)
+--dbsnp			       dbSNP data in VCF format (set automatically if using --assembly)
+--g1k			       A SNP reference (usually 1000genomes, set automatically if using --assembly)
+--mills_indels		       An INDEL reference (usually MILLS/1000genomes, set automatically if using --assembly)
+--omni			       An SNP reference (usually OMNI, set automatically if using --assembly)
+--hapmap		       A SNP reference (usually HAPMAP, set automatically if using --assembly)
+--targets		       A interval_list target file (set automatically if using the --kit option)
+--baits			       A interval_list bait file (set automatically if using the --kit option)
 Output:
 --outdir                       Local directory to which all output is written (default: output)
-Exome kit:
---kit                          Exome kit used (default: Nextera)
 """
 
 params.help = false
@@ -74,22 +84,45 @@ params.assembly = "hg19"
 
 REF = params.fasta ?: file(params.genomes[ params.assembly ].fasta)
 DBSNP = params.dbsnp ?: file(params.genomes[ params.assembly ].dbsnp )
+G1K = params.g1k ?: file(params.genomes[ params.assembly ].g1k )
+MILLS = params.mills_indels ?: file(params.genomes[ params.assembly ].mills )
+OMNI = params.omni ?: file(params.genomes[ params.assembly ].omni )
+HAPMAP = params.hapmap ?: file(params.genomes[ params.assembly ].hapmap )
 VEP_CACHE = params.vep_cache
+MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitochondrion
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
-TARGET_BED = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets_bed
+
+SNP_RULES = params.snp_filter_rules
+INDEL_RULES = params.indel_filter_rules
+
+// Annotations to use for variant recalibration
+snp_recalibration_values = params.snp_recalibration_values
+indel_recalbration_values = params.indel_recalbration_values
 
 params.effect_prediction = true
 params.hard_filter = false
+
+// Whether to produce BAM output instead of CRAM
+params.cram = false
+align_suffix = (params.cram == false) ? "bam" : "cram"
 
 // Location of applications used
 OUTDIR = file(params.outdir)
 
 // Available exome kits
 
+if (TARGETS == false || BAITS == false ) {
+   exit 1, "Information on enrichment kit incomplete or missing (please see the documentation for details!"
+}
+
 // Whether to send a notification upon workflow completion
 params.email = false
+
+if(params.email == false) {
+	exit 1, "You must provide an Email address to which pipeline updates are send!"
+}
 
 // Whether to use a local scratch disc
 use_scratch = params.scratch
@@ -200,9 +233,9 @@ process mergeBamFiles_bySample {
 process runMarkDuplicates {
 
 	tag "${indivID}|${sampleID}"
-        publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
+        publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
 
-        // scratch use_scratch
+        scratch use_scratch
 
         input:
         set indivID, sampleID, file(merged_bam) from mergedBamFile_by_Sample
@@ -211,8 +244,6 @@ process runMarkDuplicates {
         set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics, runPrintReadsOutput_for_OxoG_Metrics, runPrintReadsOutput_for_HC_Metrics, BamForDepthOfCoverage
 	file(outfile_md5) into MarkDuplicatesMD5
 	file(outfile_metrics) into DuplicatesOutput_QC
-	file(outfile_bam) into (inputStrelka,inputManta)
-	file(outfile_bai) into (inputStrelkaBai,inputMantaBai)
 
         script:
         outfile_bam = sampleID + ".dedup.bam"
@@ -222,15 +253,16 @@ process runMarkDuplicates {
         outfile_metrics = sampleID + "_duplicate_metrics.txt"
 
 	"""
-        	gatk --java-options "-Xms4G -Xmx${task.memory.toGiga()-1}G" MarkDuplicates \
+        	gatk --java-options "-Xmx${task.memory.toGiga()}G" MarkDuplicates \
                 	-I ${merged_bam} \
 	                -O ${outfile_bam} \
         	        -M ${outfile_metrics} \
                         --CREATE_INDEX true \
 			--ASSUME_SORT_ORDER=coordinate \
-			--MAX_RECORDS_IN_RAM 100000 \
+			--MAX_RECORDS_IN_RAM 300000 \
 			--CREATE_MD5_FILE true \
-                        --TMP_DIR tmp
+                        --TMP_DIR tmp \
+			-R ${REF}
 	"""
 
 }
@@ -245,89 +277,500 @@ process runMarkDuplicates {
 //
 // ------------------------------------------------------------------------------------------------------------
 
-process runManta {
+process runBaseRecalibrator {
 
-
-	tag "ALL"
-        publishDir "${OUTDIR}/Manta/Variants", mode: 'copy'
-
+	tag "${indivID}|${sampleID}"
+	// publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
+	    
 	input:
-	file(bams) from inputManta.collect()
-	file(indices) from inputMantaBai.collect()
-
+	set indivID, sampleID, dedup_bam, dedup_bai from MarkDuplicatesOutput
+    
 	output:
-	file("*.vcf.gz") into outputManta
-	file("candidateSmallIndels.vcf.gz") into mantaCandidates
-
-	when:
-	params.run_manta == true
+	set indivID, sampleID, dedup_bam, file(recal_table) into runBaseRecalibratorOutput
 
 	script:
+	recal_table = sampleID + "_recal_table.txt" 
+
 	"""
-
-	configManta.py \
-	-bam=${bams.join(' --bam=')} \
-        --referenceFasta $REF \
-        --exome \
-        --callRegions $TARGET_BED \
-        --runDir Manta
-
-	python Manta/runWorkflow.py -m local -j ${task.cpus}
-
-	cp Manta/results/variants/*.vcf.gz* .
-
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" BaseRecalibrator \
+		--reference ${REF} \
+		-L $TARGETS \
+		-L $MITOCHONDRION \
+		-ip 150 \
+		--input ${dedup_bam} \
+		--known-sites ${MILLS} \
+		--known-sites ${DBSNP} \
+       	        --known-sites ${G1K} \
+		--output ${recal_table}
 	"""
 }
 
-process runStrelka {
+process runApplyBQSR {
 
-        tag "ALL"
-	publishDir "${OUTDIR}/Strelka/Variants", mode: 'copy'
+	tag "${indivID}|${sampleID}"
+	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
 
+	scratch use_scratch
+	    
 	input:
-	file(bams) from inputStrelka.collect()
-	file(indices) from inputStrelkaBai.collect()
+	set indivID, sampleID, realign_bam, recal_table from runBaseRecalibratorOutput 
 
 	output:
-	set file(vcf), file(vcf_index) into outputStrelka
-
+	set indivID, sampleID, file(outfile_bam), file("*.bai") into runPrintReadsOutput_for_Multiple_Metrics,inputHCSample,inputCollectReadCounts
+	set indivID, sampleID, realign_bam, recal_table into runPrintReadsOutput_for_PostRecal
+	set indivID, outfile_md5 into BamMD5
+            
 	script:
 
-	vcf = "${params.run_name}.variants.vcf.gz"
+	outfile_bam = sampleID + ".clean.${align_suffix}"
+	outfile_bai = sampleID + ".clean.${align_suffix}.bai"
+	outfile_md5 = sampleID + ".clean.${align_suffix}.md5"
+           
+    	"""
+        	gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyBQSR \
+                --reference ${REF} \
+                --input ${realign_bam} \
+		-OBI true \
+		-L $TARGETS \
+		-L $MITOCHONDRION \
+		-ip 150 \
+                -bqsr ${recal_table} \
+                --output ${outfile_bam} \
+                -OBM true \
+    	"""
+}    
+
+// Call variants on a per-sample basis
+
+process runHCSample {
+
+	tag "${indivID}|${sampleID}"
+	publishDir "${OUTDIR}/${indivID}/${sampleID}/Variants/HaplotypeCaller" , mode: 'copy'
+
+	input: 
+	set indivID,sampleID,file(bam),file(bai) from inputHCSample
+
+	output:
+	file(vcf) into outputHCSample
+        file(vcf_index) into outputHCSampleIndex
+
+	script:
+ 
+	vcf = sampleID + ".raw_variants.g.vcf.gz"
 	vcf_index = vcf + ".tbi"
 
 	"""
-		configureStrelkaGermlineWorkflow.py \
-		--bam=${bams.join(' --bam=')} \
-		--referenceFasta $REF \
-		--exome \
-		--callRegions $TARGET_BED \
-		--runDir Strelka
+	gatk --java-options "-Xmx${task.memory.toGiga()}G" HaplotypeCaller \
+		-R $REF \
+		-I ${bam} \
+		-L $TARGETS \
+		-L $MITOCHONDRION \
+		-ip 150 \
+		--emit-ref-confidence GVCF \
+		-OVI true \
+    		--output $vcf \
+		--native-pair-hmm-threads ${task.cpus} &> log.txt \
+  	"""
+}
 
-		python Strelka/runWorkflow.py -m local -j ${task.cpus}
+// Import individual vcf files into a GenomicsDB database on a per chromosome basis
+// From here on all samples are in the same file
+process runGenomicsDBImport  {
 
-		bcftools annotate -a $DBSNP -c ID Strelka/results/variants/variants.vcf.gz | bgzip -c > $vcf
-		tabix $vcf
-		
+	tag "ALL"
+        publishDir "${OUTDIR}/GATK/Variants/JointGenotypes/", mode: 'copy'
+
+	input:
+        file(vcf_list) from outputHCSample.collect()
+	file(index_list) from outputHCSampleIndex.collect()
+
+	output:
+        set file(merged_vcf),file(merged_vcf_index) into inputGenotypeGVCFs
+
+	script:
+	merged_vcf = "merged.g.vcf.gz"
+	merged_vcf_index = merged_vcf + ".tbi"
+
+	"""
+	gatk --java-options "-Xmx${task.memory.toGiga()}G" CombineGVCFs  \
+		--variant ${vcf_list.join(" --variant ")} \
+		--reference $REF \
+		--intervals $TARGETS \
+		-L $MITOCHONDRION \
+		-ip 150 \
+		--OVI true \
+		--output $merged_vcf \
+	"""
+
+}
+
+// Perform genotyping on a per chromosome basis
+
+process runGenotypeGVCFs {
+  
+	tag "ALL"
+	publishDir "${OUTDIR}/GATK/Variants/JointGenotypes", mode: 'copy'
+  
+	input:
+	set file(merged_vcf), file(merged_vcf_index) from inputGenotypeGVCFs
+  
+	output:
+	set file(gvcf), file(gvcf_index) into (inputHardFilterSNP, inputRecalSNP, inputHardFilterIndel, inputRecalIndel )
+  
+	script:
+  
+	gvcf = "genotypes.vcf.gz"
+	gvcf_index = gvcf + ".tbi"
+  
+	"""
+ 	gatk --java-options "-Xmx${task.memory.toGiga()}G" GenotypeGVCFs \
+		--reference $REF \
+		--dbsnp $DBSNP \
+		-L $TARGETS \
+		-L $MITOCHONDRION \
+		-ip 150 \
+		-new-qual \
+		--only-output-calls-starting-in-intervals \
+		-V $merged_vcf \
+              	--output $gvcf \
+                -G StandardAnnotation \
+		-OVI true
 	"""
 }
 
+////////////////////////
+// Hard filtering
+////////////////////////
 
-process runSplitStrelkaVcf {
-	
+process runHardFilterSNP {
+		
 	tag "ALL"
-	publishDir "${OUTDIR}/Strelka/Variants/BySample", mode: 'copy'
+	publishDir "${OUTDIR}/GATK/Variants/HardFilter/", mode: 'copy'
 
 	input:
-	set file(vcf),file(index) from outputStrelka
-	
+	set file(vcf),file(vcf_index) from inputHardFilterSNP
+
 	output:
-	set file("*.vcf.gz"),file("*.vcf.gz.tbi") into inputVep
+	set file(vcf_filtered),file(vcf_filtered_index) into outputHardFilterSNP
 
 	script:
+	vcf_filtered = "genotypes.merged.snps.filtered.vcf.gz"
+	vcf_filtered_index = vcf_filtered + ".tbi"
 
 	"""
-		for sample in `bcftools query -l $vcf`; do bcftools view -f "PASS" -s \$sample $vcf | bcftools filter -i 'GT!="./."' -i 'GT!="."' -i 'GT!="0/0"' | python $baseDir/bin/filter_strelka_vcf.py | bgzip -c > \$sample.vcf.gz && tabix \$sample.vcf.gz ; done;
+		gatk SelectVariants \
+			-R $REF \
+			-V $vcf \
+			--select-type-to-include SNP \
+			--output genotypes.merged.snps.vcf.gz \
+			-OVI true
+				
+		gatk VariantFiltration \
+			-R $REF \
+			-V genotypes.merged.snps.vcf.gz \
+			--output $vcf_filtered \
+			--filter-expression "${SNP_RULES}" \
+			--filter-name "hard_snp_filter" \
+			-OVI true
+	"""
+
+}
+
+process runHardFilterIndel {
+
+	tag "ALL"
+        publishDir "${OUTDIR}/GATK/Variants/HardFilter", mode: 'copy'
+        
+        input:
+        set file(vcf),file(vcf_index) from inputHardFilterIndel
+
+        output:
+        set file(vcf_filtered),file(vcf_filtered_index) into outputHardFilterIndel
+
+        script:
+        vcf_filtered = "genotypes.merged.indels.filtered.vcf.gz"
+        vcf_filtered_index = vcf_filtered + ".tbi"
+
+        """
+ 	       gatk SelectVariants \
+               -R $REF \
+               -V $vcf \
+               --select-type-to-include INDEL \
+               --output genotypes.merged.indels.vcf.gz \
+               -OVI true
+
+              gatk VariantFiltration \
+              -R $REF \
+              -V genotypes.merged.indels.vcf.gz \
+              --output $vcf_filtered \
+	      --filter-expression "${INDEL_RULES}" \
+              --filter-name "hard_indel_filter" \
+	      -OVI true
+        """
+}
+
+process runCombineHardVariants {
+
+	tag "ALL"
+        publishDir "${OUTDIR}/GATK/Variants/HardFilter/Final", mode: 'copy'
+
+        input:
+        set file(indel),file(indel_index) from outputHardFilterIndel
+	set file(snp),file(snp_index) from outputHardFilterSNP
+
+        output:
+        set file(merged_file),file(merged_file_index) into inputSplitHardVariants
+
+        script:
+        merged_file = "${run_name}.merged_callset.hard.vcf.gz"
+        merged_file_index = merged_file + ".tbi"
+
+        """
+        	gatk SortVcf -I $indel -O indels.sorted.vcf.gz
+                gatk SortVcf -I $snp -O snps.sorted.vcf.gz
+
+                picard MergeVcfs \
+                I=indels.sorted.vcf.gz \
+                I=snps.sorted.vcf.gz \
+                O=merged.vcf.gz \
+                R=$REF \
+
+		gatk IndexFeatureFile -F merged.vcf.gz
+
+                gatk SelectVariants \
+                -R $REF \
+                -V merged.vcf.gz \
+                -O $merged_file \
+                --remove-unused-alternates true \
+                --exclude-non-variants true
+        """
+}
+
+process runSplitHardVariantsBySample {
+
+
+	tag "ALL|${params.assembly}"
+        publishDir "${OUTDIR}/GATK/Variants/HardFilter/Final/BySample", mode: 'copy'
+
+        input:
+        set file(vcf_clean),file(vcf_clean_index) from inputSplitHardVariants
+
+        output:
+        file("*.vcf.gz") into HardVcfBySample
+
+        script:
+
+        """
+                for sample in `bcftools query -l ${vcf_clean}`; do gatk SelectVariants -R $REF -V ${vcf_clean} --exclude-non-variants --remove-unused-alternates -sn \$sample -O \$sample'.vcf.gz' ; done;
+        """
+
+}
+
+
+/////////////////////////
+// Variant recalibration 
+/////////////////////////
+
+process runRecalibrationModeSNP {
+
+	tag "ALL"
+	publishDir "${OUTDIR}/GATK/Variants/Recal"
+	
+	input:
+	set file(vcf),file(vcf_index) from inputRecalSNP
+
+	output:
+	set file(recal_file),file(tranches) into inputRecalSNPApply
+
+	when:
+	params.vqsr == true
+
+	script:
+	recal_file = "genotypes.merged.snps.recal"
+	tranches = "genotypes.merged.snps.tranches"
+
+	"""
+
+		gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
+		-R $REF \
+		-V $vcf \
+	       	-O $recal_file \
+       	        --tranches-file $tranches \
+		-an ${snp_recalibration_values.join(' -an ')} \
+	        -mode SNP \
+		-OVI true \
+		--resource hapmap,known=false,training=true,truth=true,prior=15.0:$HAPMAP \
+		--resource omni,known=false,training=true,truth=true,prior=12.0:$OMNI \
+		--resource 1000G,known=false,training=true,truth=false,prior=10.0:$G1K \
+		--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
+		-tranche ${params.snp_recalibration_tranche_values.join(' -tranche ')} \
+		--max-gaussians 4
+	"""
+}
+
+process runRecalibrationModeIndel {
+	
+	tag "ALL"
+	publishDir "${OUTDIR}/GATK/Variants/Recal"
+
+  	input:
+	set file(vcf),file(vcf_index) from inputRecalIndel
+
+  	output:
+	set file(recal_file),file(tranches),file(vcf),file(vcf_index) into inputRecalIndelApply
+
+	when:
+	params.vqsr == true
+
+	script:
+  	recal_file = "genotypes.merged.indel.recal"
+	tranches = "genotypes.merged.indel.tranches"
+
+	"""
+	gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantRecalibrator \
+        	        -R $REF \
+	        	-V $vcf \
+	               	-O $recal_file \
+        	        --tranches-file $tranches \
+	                -an ${indel_recalibration_values.join(' -an ')} \
+	                -mode INDEL \
+			-OVI true \
+	        	--resource mills,known=false,training=true,truth=true,prior=15.0:$MILLS \
+	               	--resource dbsnp,known=true,training=false,truth=false,prior=2.0:$DBSNP \
+			-tranche ${params.indel_recalibration_tranche_values.join(' -tranche ')} \
+			--max-gaussians 3
+  	"""
+}
+
+process runRecalIndelApply {
+
+	tag "ALL"
+        publishDir "${OUTDIR}/GATK/Variants/Recal"
+
+        input:
+        set file(recal_file),file(tranches),file(gvcf),file(gvcf_index) from inputRecalIndelApply
+
+        output:
+        set file(vcf_indel),file(vcf_indel_index) into outputRecalIndelApply
+
+        script:
+
+        vcf_indel = "genotypes.recal_Indel.vcf.gz"
+        vcf_indel_index = vcf_indel + ".tbi"
+
+        """
+        	gatk IndexFeatureFile -F $recal_file
+                        gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyVQSR \
+                        -R $REF \
+                        -V $gvcf \
+                        --recal-file $recal_file \
+                        --tranches-file $tranches \
+                        -mode INDEL \
+                        --ts-filter-level ${params.indel_filter_level} \
+                        -OVI true \
+                         -O $vcf_indel
+        """
+}
+
+process runRecalSNPApply {
+	
+	tag "ALL"
+	publishDir "${OUTDIR}/GATK/Variants/Filtered"
+	
+	input:
+	set file(vcf),file(index) from outputRecalIndelApply
+	set file(recal_file),file(tranches) from inputRecalSNPApply
+
+	output:
+	set file(vcf_snp),file(vcf_snp_index) into outputRecalSNPApply
+
+	script:
+ 
+	vcf_snp = "genotypes.recal_Indel.recal_SNP.vcf.gz"
+	vcf_snp_index = vcf_snp + ".tbi"
+
+	"""
+	gatk IndexFeatureFile -F $recal_file
+	gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyVQSR \
+		-R $REF \
+		-V $vcf \
+	        --recal-file $recal_file \
+       	       	--tranches-file $tranches \
+		-mode SNP \
+		--ts-filter-level ${params.snp_filter_level} \
+		-O $vcf_snp \
+		-OVI true	
+	"""
+}
+
+process runVariantFiltrationIndel {
+
+	tag "ALL"
+	publishDir "${OUTDIR}/GATK/Variants/Filtered"
+
+  	input:
+	set file(vcf),file(vcf_index) from outputRecalIndelApply
+
+  	output:
+  	set file(filtered_gvcf),file(filtered_gvcf_index) into inputSelectVariants
+
+  	script:
+
+  	filtered_gvcf = "genotypes.filtered.final.vcf.gz"
+	filtered_gvcf_index = filtered_gvcf + ".tbi"
+
+	"""
+	gatk --java-options "-Xmx${task.memory.toGiga()}G" VariantFiltration \
+       	       -R $REF \
+               	-V $vcf \
+		--filter-expression "QD < 2.0" \
+		--filter-name "QDFilter" \
+               	--output $filtered_gvcf \
+		-OVI true
+  	"""
+}
+
+process runSelectVariants {
+
+	tag "ALL|${params.assembly}"
+	publishDir "${OUTDIR}/GATK/Variants/Final", mode: 'copy'
+
+	input:
+	set file(vcf),file(vcf_index) from inputSelectVariants
+
+	output:
+	set file(vcf_clean),file(vcf_clean_index) into inputVep, inputSplitSample
+
+	script:
+	vcf_clean = "${run_name}.variants.merged.filtered.controls_removed.vcf.gz"
+	vcf_clean_index = vcf_clean + ".tbi"
+
+	"""
+		gatk SelectVariants \
+		-V $vcf \
+		-R $REF \
+		-O $vcf_clean \
+		--remove-unused-alternates true \
+		--exclude-non-variants true \
+	"""
+
+}
+
+process runSplitBySample {
+
+        tag "ALL|${params.assembly}"
+        publishDir "${OUTDIR}/GATK/Variants/Final/BySample", mode: 'copy'
+
+	input:
+	set file(vcf_clean),file(vcf_clean_index) from inputSplitSample
+
+	output: 
+	file("*.vcf.gz") into VcfBySample
+
+	script: 
+
+	"""
+		for sample in `bcftools query -l ${vcf_clean}`; do gatk SelectVariants -R $REF -V ${vcf_clean} --exclude-non-variants --remove-unused-alternates -sn \$sample -O \$sample'.vcf.gz' ; done;
 	"""
 
 }
@@ -382,14 +825,17 @@ process runHybridCaptureMetrics {
 
     output:
     file(outfile) into HybridCaptureMetricsOutput mode flatten
+    file(outfile_per_target) into HsMetricsPerTarget
 
     script:
     outfile = sampleID + ".hybrid_selection_metrics.txt"
+    outfile_per_target = sampleID + ".hybrid_selection_per_target_metrics.txt"
 
     """
         picard -Xmx${task.memory.toGiga()}G CollectHsMetrics \
                 INPUT=${bam} \
                 OUTPUT=${outfile} \
+		PER_TARGET_COVERAGE=${outfile_per_target} \
                 TARGET_INTERVALS=${TARGETS} \
                 BAIT_INTERVALS=${BAITS} \
                 REFERENCE_SEQUENCE=${REF} \

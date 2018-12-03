@@ -13,5 +13,5 @@ dependencies:
   - bwa=0.7.17
   - multiqc=1.6
   - gatk4=4.0.9.0
-  - samtools=1.6
+  - samtools=1.9
   - ensembl-vep=93.2
