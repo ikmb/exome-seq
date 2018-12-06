@@ -46,7 +46,7 @@ Optional parameters:
 --effect_prediction            Whether to run effect prediction on the final variant set (default: false)
 --vqsr 			       Whether to also run variant score recalibration (only works >= 30 samples) (default: false)
 --run_name 		       A descriptive name for this pipeline run
---bam			       Whether to output the alignments in BAM format (default: cram)
+--cram			       Whether to output the alignments in CRAM format (default: bam)
 --fasta			       A reference genome in FASTA format (set automatically if using --assembly)
 --dbsnp			       dbSNP data in VCF format (set automatically if using --assembly)
 --g1k			       A SNP reference (usually 1000genomes, set automatically if using --assembly)
