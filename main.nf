@@ -259,7 +259,7 @@ process runMarkDuplicates {
         	        -M ${outfile_metrics} \
                         --CREATE_INDEX true \
 			--ASSUME_SORT_ORDER=coordinate \
-			--MAX_RECORDS_IN_RAM 300000 \
+			--MAX_RECORDS_IN_RAM 100000 \
 			--CREATE_MD5_FILE true \
                         --TMP_DIR tmp \
 			-R ${REF}
@@ -751,6 +751,7 @@ process runSelectVariants {
 		-R $REF \
 		-O $vcf_clean \
 		--remove-unused-alternates true \
+		-OVI true \
 		--exclude-non-variants true \
 	"""
 
@@ -765,12 +766,12 @@ process runSplitBySample {
 	set file(vcf_clean),file(vcf_clean_index) from inputSplitSample
 
 	output: 
-	file("*.vcf.gz") into VcfBySample
+	file("*.vcf.gz*") into VcfBySample
 
 	script: 
 
 	"""
-		for sample in `bcftools query -l ${vcf_clean}`; do gatk SelectVariants -R $REF -V ${vcf_clean} --exclude-non-variants --remove-unused-alternates -sn \$sample -O \$sample'.vcf.gz' ; done;
+		for sample in `bcftools query -l ${vcf_clean}`; do gatk SelectVariants -R $REF -V ${vcf_clean} --exclude-non-variants --remove-unused-alternates -sn \$sample -O \$sample'.vcf.gz' -OVI true ; done;
 	"""
 
 }
