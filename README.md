@@ -6,14 +6,15 @@
 
 This pipeline offers a end-to-end workflow for exome analysis using the GATK4 toolchain
 
-- trimming with TrimGalore
+- trimming with Fastp
 - read alignment with BWA
 - duplicate marking using Picard MarkDuplicates
 - quality score recalibration
 - gvcf calling
 - joint variant calling
-- variant recalibration (SNPs and Indels) and filtering
-- effect prediction using VEP (optional)
+-- variant hard-filtering [default]
+-- variant recalibration (SNPs and Indels) and filtering [optional, off by default and only recommended for >= 30 exomes]
+- effect prediction using VEP [optional, off by default]
 
 ## Installing the pipeline
 
@@ -32,7 +33,7 @@ The pipeline is set up to work on RZCluster using the IKMB module system. Please
 The following steps/resources are needed to run this pipelines:
 * A working and configured Conda/Bioconda installation (please also see: https://bioconda.github.io/ - specifically point 2.) Set up channels)
 * The GATK resource bundle (or equivalent resources). For a way to set up you own resources, please have a look at config/rzcluster.config)
-* Bait/Target files matching your genome assembly of choice (files for assembly hg19 are included with this code base and can be used via the `--kit` flag)
+* Bait/Target files matching your genome assembly of choice (files for assemblies hg19, b37 and hg38 (no alt contigs) are included with this code base and can be used via the `--kit` flag)
 
 ### Configuration
 
@@ -43,10 +44,10 @@ This pipeline includes pre-configured environments for RZCluster and the IKMB di
 The pipeline currently (officially) supports the following genome assemblies from the GATK bundle:
 
 `--assembly hg19` 
-`--assembly hg38`
+`--assembly GRCh38`
 `--assembly b37`
 
-Please note that only the exome kit files for hg19 are currently available; to use the other assemblies, you must specify your custom bait files from the command line using:
+To use targets/bait not included in this release, you must specify your custom bait files from the command line using:
 
 `--targets path/to/targets.interval_list`
 `--baits path/to/baits.interval_list`
@@ -75,7 +76,7 @@ You can use the script bin/samplesheet_from_folder.rb to generate a automatic sa
 
 `ruby /path/to/git/bin/samplesheet_from_folder.rb -f /path/to/fastq_folder`
 
-where /path/to/fastq_folder points to a directory from which to read the fastq files. This requires a Ruby version >= 2.0 (available as software module on RZCluster.
+where /path/to/fastq_folder points to a directory from which to read the fastq files. This requires a Ruby version >= 2.0 (available as software module on RZCluster).
 
 WARNING: The script uses the base library ID to group read files; this will usually also take care of merging libraries that were sequenced across multiple lanes. However, it is advisable to make sure that each pair of FastQ files has the appropriate library and sample ID to accurately represent the experimental setup. 
 
@@ -115,9 +116,9 @@ The pipeline is built to support more than one Exome kit. These can be selected 
 
 ### Supported output formats
 
-The pipeline will, for reasons of economy, output final read alignments in CRAM format. If for some reason BAM is absolutely necessary, use the bam flag to force BAM output:
+By default, this pipeline will produce alignments in BAM format. Should you wish to save on storage space (40-50%), the pipeline is able to generate CRAM files instead:
 
-`--bam true`
+`--cram true`
 
 ### VEP effect prediction
 

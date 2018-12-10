@@ -1,17 +1,21 @@
 # You can use this file to create a conda environment for this pipeline:
 #   conda env create -f environment.yml
-name: ikmb-diagnostic-exome-1.0-alpha1
+name: ikmb-diagnostic-exome-1.0
 channels:
   - bioconda
   - conda-forge
   - defaults
 dependencies:
-  - conda-forge::openjdk=8.0.144 # Needed for FastQC - conda build hangs without this
-  - fastqc=0.11.7
-  - trim-galore=0.5.0
+  - conda-forge::openjdk=8.0.153
+  - fastqc=0.11.8
+  - fastp=0.19.4
   - picard=2.18.11
   - bwa=0.7.17
   - multiqc=1.6
   - gatk4=4.0.9.0
   - samtools=1.9
   - ensembl-vep=93.2
+  - bcftools=1.9
+  - manta=1.4.0
+  - strelka=2.9.2 
+  - htslib=1.9 

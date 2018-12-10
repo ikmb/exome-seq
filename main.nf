@@ -27,7 +27,7 @@ Author: Marc P. Hoeppner, m.hoeppner@ikmb.uni-kiel.de
 **/
 
 // Pipeline version
-VERSION = "1.1-alpha1"
+VERSION = "1.0"
 params.version = VERSION
 
 // Help message
@@ -183,7 +183,7 @@ process runBWA {
     tag "${indivID}|${sampleID}|${libraryID}|${rgID}"
     // publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/BWA/", mode: 'copy'
 
-    //scratch use_scratch
+    scratch use_scratch
 	
     input:
     set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, run_date, center,file(left),file(right) from inputBwa
@@ -259,7 +259,7 @@ process runMarkDuplicates {
         	        -M ${outfile_metrics} \
                         --CREATE_INDEX true \
 			--ASSUME_SORT_ORDER=coordinate \
-			--MAX_RECORDS_IN_RAM 100000 \
+			--MAX_RECORDS_IN_RAM 300000 \
 			--CREATE_MD5_FILE true \
                         --TMP_DIR tmp \
 			-R ${REF}
@@ -379,6 +379,8 @@ process runGenomicsDBImport  {
 
 	tag "ALL"
         publishDir "${OUTDIR}/GATK/Variants/JointGenotypes/", mode: 'copy'
+
+	scratch use_scratch 
 
 	input:
         file(vcf_list) from outputHCSample.collect()

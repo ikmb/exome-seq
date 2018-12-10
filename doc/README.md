@@ -2,7 +2,9 @@
 
 # IKMB Diagnostic Exome Pipeline -  Outputs
 
-This pipeline performs the GATK best practice pipeline for variant calling (GATK4). 
+This pipeline performs the GATK best practice pipeline for variant calling (GATK4). Please not the various optional arguments to tweak the behavior of this pipeline. 
+By default, this pipeline produces read alignments in BAM format and performs hard-filtering on the final variant list only. In order to also run variant score recalibration,
+please use the --vsqr true option from the command line and note that this will only work with 30 or more exomes at once. 
 
 ## Reference data
 
@@ -19,19 +21,19 @@ is one report summary in HTML format - use any up-to-date browser to visualize t
 
 The outputs should be fairly self-explanatory; note that the HTML outputs contain tool-tips in various places to help with the interpretation. 
 
-## Finished CRAM files
+## Read alignments (BAM or CRAM)
 
 The primary output of this pipeline are the aligned, duplicate-marked reads. These can be found in the folder:
 
 output/IndividualID/SamplesID/Processing/MarkDuplicates
 
-Read alignments are stored in lossless CRAM format. 
+Read alignments are stored in either BAM or lossless CRAM format. 
 
 ## Primary variant calls
 
 The primary VCF file will be located under:
 
-output/Variants/Final/some_file.vcf
+output/Variants/Final/HardFiltered/some_file.vcf
 
 ## Annotated variant calls
 
