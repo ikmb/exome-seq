@@ -253,7 +253,7 @@ process runMarkDuplicates {
         outfile_metrics = sampleID + "_duplicate_metrics.txt"
 
 	"""
-        	gatk --java-options "-Xmx${task.memory.toGiga()}G" MarkDuplicates \
+        	gatk --java-options "-Xmx${task.memory.toGiga()-1}G" MarkDuplicates \
                 	-I ${merged_bam} \
 	                -O ${outfile_bam} \
         	        -M ${outfile_metrics} \
