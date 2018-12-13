@@ -183,7 +183,7 @@ process runBWA {
     tag "${indivID}|${sampleID}|${libraryID}|${rgID}"
     // publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/BWA/", mode: 'copy'
 
-    scratch use_scratch
+    // scratch use_scratch
 	
     input:
     set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, run_date, center,file(left),file(right) from inputBwa
