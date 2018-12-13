@@ -253,16 +253,14 @@ process runMarkDuplicates {
         outfile_metrics = sampleID + "_duplicate_metrics.txt"
 
 	"""
-        	gatk --java-options "-Xmx${task.memory.toGiga()-1}G" MarkDuplicates \
-                	-I ${merged_bam} \
-	                -O ${outfile_bam} \
-        	        -M ${outfile_metrics} \
-                        --CREATE_INDEX true \
-			--ASSUME_SORT_ORDER=coordinate \
-			--MAX_RECORDS_IN_RAM 300000 \
-			--CREATE_MD5_FILE true \
-                        --TMP_DIR tmp \
-			-R ${REF}
+		picard -Xmx${task.memory.toGiga()-5}G -Djava.io.tmpdir=tmp/ MarkDuplicates \
+                	INPUT=${merged_bam} \
+	                OUTPUT=${outfile_bam} \
+        	        METRICS_FILE=${outfile_metrics} \
+                        CREATE_INDEX=true \
+			ASSUME_SORTED=true \
+			MAX_RECORDS_IN_RAM=300000
+                        TMP_DIR=tmp && md5sum ${outfile_bam} > ${outfile_md5}
 	"""
 
 }
