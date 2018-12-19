@@ -182,18 +182,20 @@ process mergeBamFiles_bySample {
 	merged_bam = sampleID + ".merged.bam"
 
 	"""
-		picard MergeSamFiles \
-			INPUT=${aligned_bam_list.join(' INPUT=')} \
-			OUTPUT=merged.bam \
-			CREATE_INDEX=false \
-			CREATE_MD5_FILE=false \
-			SORT_ORDER=coordinate
 
-		picard SetNmMdAndUqTags \
-			REFERENCE_SEQUENCE=$REF \
-			INPUT=merged.bam \
-			IS_BISULFITE_SEQUENCE=false \
-			OUTPUT=${merged_bam}
+                gatk MergeSamFiles \
+                    -I ${aligned_bam_list.join(' -I ')} \
+                    -O merged.bam \
+                    --USE_THREADING true \
+                    --SORT_ORDER coordinate
+
+                gatk SetNmMdAndUqTags \
+                        -I merged.bam \
+                        -O $merged_bam \
+                        -R $REF \
+                        --IS_BISULFITE_SEQUENCE false
+
+                samtools index $merged_bam
 	"""
 }
 

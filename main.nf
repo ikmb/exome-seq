@@ -55,6 +55,7 @@ Optional parameters:
 --hapmap		       A SNP reference (usually HAPMAP, set automatically if using --assembly)
 --targets		       A interval_list target file (set automatically if using the --kit option)
 --baits			       A interval_list bait file (set automatically if using the --kit option)
+--interval_padding	       For GATK, include this number of nt upstream and downstream around the exome targets (default: 50)
 Output:
 --outdir                       Local directory to which all output is written (default: output)
 """
@@ -174,7 +175,7 @@ process runFastp {
 	html = file(fastqR1).getBaseName() + ".fastp.html"
 
 	"""
-		fastp --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right -w ${task.cpus} -j $json -h $html --length_required 35 --cut_by_quality3
+		fastp --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right -w ${task.cpus} -j $json -h $html --length_required 35
 	"""
 }
 
@@ -209,24 +210,28 @@ process mergeBamFiles_bySample {
         set indivID, sampleID, file(aligned_bam_list) from runBWAOutput_grouped_by_sample
 
 	output:
-	set indivID,sampleID,file(merged_bam) into mergedBamFile_by_Sample
+	set indivID,sampleID,file(merged_bam),file(merged_bam_index) into mergedBamFile_by_Sample
 
 	script:
 	merged_bam = sampleID + ".merged.bam"
+	merged_bam_index = merged_bam + ".bai"
 
 	"""
-		picard MergeSamFiles \
-			INPUT=${aligned_bam_list.join(' INPUT=')} \
-			OUTPUT=merged.bam \
-			CREATE_INDEX=false \
-			CREATE_MD5_FILE=false \
-			SORT_ORDER=coordinate
 
-		picard SetNmMdAndUqTags \
-			REFERENCE_SEQUENCE=$REF \
-			INPUT=merged.bam \
-			IS_BISULFITE_SEQUENCE=false \
-			OUTPUT=${merged_bam}
+	    	gatk MergeSamFiles \
+                    -I ${aligned_bam_list.join(' -I ')} \
+                    -O merged.bam \
+		    --USE_THREADING true \
+                    --SORT_ORDER coordinate
+
+		gatk SetNmMdAndUqTags \
+			-I merged.bam \
+			-O $merged_bam \
+			-R $REF \
+			--IS_BISULFITE_SEQUENCE false
+
+		samtools index $merged_bam
+
 	"""
 }
 
@@ -238,7 +243,7 @@ process runMarkDuplicates {
         scratch use_scratch
 
         input:
-        set indivID, sampleID, file(merged_bam) from mergedBamFile_by_Sample
+        set indivID, sampleID, file(merged_bam),file(merged_bam_index) from mergedBamFile_by_Sample
 
         output:
         set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics, runPrintReadsOutput_for_OxoG_Metrics, runPrintReadsOutput_for_HC_Metrics, BamForDepthOfCoverage
@@ -259,7 +264,7 @@ process runMarkDuplicates {
         	        -M ${outfile_metrics} \
                         --CREATE_INDEX true \
 			--ASSUME_SORT_ORDER=coordinate \
-			--MAX_RECORDS_IN_RAM 300000 \
+			--MAX_RECORDS_IN_RAM 100000 \
 			--CREATE_MD5_FILE true \
                         --TMP_DIR tmp \
 			-R ${REF}
@@ -296,11 +301,11 @@ process runBaseRecalibrator {
 		--reference ${REF} \
 		-L $TARGETS \
 		-L $MITOCHONDRION \
-		-ip 150 \
+		-ip ${params.interval_padding} \
+		--use-original-qualities \
 		--input ${dedup_bam} \
 		--known-sites ${MILLS} \
 		--known-sites ${DBSNP} \
-       	        --known-sites ${G1K} \
 		--output ${recal_table}
 	"""
 }
@@ -329,11 +334,13 @@ process runApplyBQSR {
     	"""
         	gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyBQSR \
                 --reference ${REF} \
+		--static-quantized-quals 10 --static-quantized-quals 20 --static-quantized-quals 30 \
                 --input ${realign_bam} \
+		--use-original-qualities \
 		-OBI true \
 		-L $TARGETS \
 		-L $MITOCHONDRION \
-		-ip 150 \
+		-ip ${params.interval_padding} \
                 -bqsr ${recal_table} \
                 --output ${outfile_bam} \
                 -OBM true \
@@ -365,7 +372,7 @@ process runHCSample {
 		-I ${bam} \
 		-L $TARGETS \
 		-L $MITOCHONDRION \
-		-ip 150 \
+		-ip ${params.interval_padding} \
 		--emit-ref-confidence GVCF \
 		-OVI true \
     		--output $vcf \
@@ -398,8 +405,8 @@ process runGenomicsDBImport  {
 		--variant ${vcf_list.join(" --variant ")} \
 		--reference $REF \
 		--intervals $TARGETS \
-		-L $MITOCHONDRION \
-		-ip 150 \
+		--intervals $MITOCHONDRION \
+		-ip ${params.interval_padding} \
 		--OVI true \
 		--output $merged_vcf \
 	"""
@@ -430,7 +437,7 @@ process runGenotypeGVCFs {
 		--dbsnp $DBSNP \
 		-L $TARGETS \
 		-L $MITOCHONDRION \
-		-ip 150 \
+		-ip ${params.interval_padding} \
 		-new-qual \
 		--only-output-calls-starting-in-intervals \
 		-V $merged_vcf \
@@ -514,42 +521,53 @@ process runHardFilterIndel {
 process runCombineHardVariants {
 
 	tag "ALL"
-        publishDir "${OUTDIR}/GATK/Variants/HardFilter/Final", mode: 'copy'
+        publishDir "${OUTDIR}/GATK/Variants/HardFilter/Preprocess", mode: 'copy'
 
         input:
         set file(indel),file(indel_index) from outputHardFilterIndel
 	set file(snp),file(snp_index) from outputHardFilterSNP
 
         output:
-        set file(merged_file),file(merged_file_index) into inputSplitHardVariants
+        set file(merged_file),file(merged_file_index) into inputfilterPassVariants
 
         script:
         merged_file = "${run_name}.merged_callset.hard.vcf.gz"
         merged_file_index = merged_file + ".tbi"
 
         """
-        	gatk SortVcf -I $indel -O indels.sorted.vcf.gz
-                gatk SortVcf -I $snp -O snps.sorted.vcf.gz
+		gatk --java-options "-Xmx${task.memory.toGiga()}G"  MergeVcfs \
+		-I $indel \
+		-I $snp \
+		-O $merged_file \
+		
+		gatk IndexFeatureFile -F $merged_file
 
-                picard MergeVcfs \
-                I=indels.sorted.vcf.gz \
-                I=snps.sorted.vcf.gz \
-                O=merged.vcf.gz \
-                R=$REF \
-
-		gatk IndexFeatureFile -F merged.vcf.gz
-
-                gatk SelectVariants \
-                -R $REF \
-                -V merged.vcf.gz \
-                -O $merged_file \
-                --remove-unused-alternates true \
-                --exclude-non-variants true
         """
 }
 
-process runSplitHardVariantsBySample {
+process runFilterPassVariants {
 
+	tag "ALL"
+        publishDir "${OUTDIR}/GATK/Variants/HardFilter/Preprocess", mode: 'copy'
+
+	input:
+	set file(vcf),file(index) from inputfilterPassVariants
+
+	output:
+	set file(vcf_pass),file(vcf_pass_index) into inputSplitHardVariants
+
+	script:
+	vcf_pass = "${run_name}.merged_callset.hard.pass.vcf.gz"
+	vcf_pass_index = vcf_pass + ".tbi"
+
+	"""
+		bcftools view -f "PASS" $vcf | bgzip > $vcf_pass
+		tabix $vcf_pass
+	"""
+
+}
+
+process runSplitHardVariantsBySample {
 
 	tag "ALL|${params.assembly}"
         publishDir "${OUTDIR}/GATK/Variants/HardFilter/Final/BySample", mode: 'copy'
