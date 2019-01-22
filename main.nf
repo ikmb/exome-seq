@@ -51,7 +51,7 @@ Optional parameters:
 --dbsnp			       dbSNP data in VCF format (set automatically if using --assembly)
 --g1k			       A SNP reference (usually 1000genomes, set automatically if using --assembly)
 --mills_indels		       An INDEL reference (usually MILLS/1000genomes, set automatically if using --assembly)
---omni			       An SNP reference (usually OMNI, set automatically if using --assembly)
+--omni			       A SNP reference (usually OMNI, set automatically if using --assembly)
 --hapmap		       A SNP reference (usually HAPMAP, set automatically if using --assembly)
 --targets		       A interval_list target file (set automatically if using the --kit option)
 --baits			       A interval_list bait file (set automatically if using the --kit option)
@@ -454,7 +454,7 @@ process runGenotypeGVCFs {
 process runHardFilterSNP {
 		
 	tag "ALL"
-	publishDir "${OUTDIR}/GATK/Variants/HardFilter/", mode: 'copy'
+	publishDir "${OUTDIR}/GATK/Variants/HardFilter/Preprocess", mode: 'copy'
 
 	input:
 	set file(vcf),file(vcf_index) from inputHardFilterSNP
@@ -488,7 +488,7 @@ process runHardFilterSNP {
 process runHardFilterIndel {
 
 	tag "ALL"
-        publishDir "${OUTDIR}/GATK/Variants/HardFilter", mode: 'copy'
+        publishDir "${OUTDIR}/GATK/Variants/HardFilter/Preprocess", mode: 'copy'
         
         input:
         set file(vcf),file(vcf_index) from inputHardFilterIndel
@@ -548,7 +548,7 @@ process runCombineHardVariants {
 process runFilterPassVariants {
 
 	tag "ALL"
-        publishDir "${OUTDIR}/GATK/Variants/HardFilter/Preprocess", mode: 'copy'
+        publishDir "${OUTDIR}/GATK/Variants/HardFilter/Final", mode: 'copy'
 
 	input:
 	set file(vcf),file(index) from inputfilterPassVariants
