@@ -16,6 +16,4 @@ dependencies:
   - samtools=1.9
   - ensembl-vep=93.2
   - bcftools=1.9
-  - manta=1.4.0
-  - strelka=2.9.2 
   - htslib=1.9 

@@ -102,7 +102,7 @@ INDEL_RULES = params.indel_filter_rules
 snp_recalibration_values = params.snp_recalibration_values
 indel_recalbration_values = params.indel_recalbration_values
 
-params.effect_prediction = true
+params.effect_prediction = false
 params.hard_filter = false
 
 // Whether to produce BAM output instead of CRAM
@@ -141,7 +141,7 @@ try {
               "============================================================"
 }
 
-logParams(params, "pipeline_parameters.txt")
+logParams(params, "${workflow.sessionId}.pipeline_parameters.txt")
 
 // Header log info
 log.info "========================================="
@@ -586,7 +586,6 @@ process runSplitHardVariantsBySample {
 
 }
 
-
 /////////////////////////
 // Variant recalibration 
 /////////////////////////
@@ -1016,11 +1015,35 @@ workflow.onComplete {
   log.info "Duration:		$workflow.duration"
   log.info "========================================="
 
+  def email_fields = [:]
+  email_fields['version'] = workflow.manifest.version
+  email_fields['runName'] = run_name
+  email_fields['success'] = workflow.success
+  email_fields['dateComplete'] = workflow.complete
+  email_fields['duration'] = workflow.duration
+  email_fields['exitStatus'] = workflow.exitStatus
+  email_fields['errorMessage'] = (workflow.errorMessage ?: 'None')
+  email_fields['errorReport'] = (workflow.errorReport ?: 'None')
+  email_fields['commandLine'] = workflow.commandLine
+  email_fields['projectDir'] = workflow.projectDir
+  email_fields['date_started'] = workflow.start
+  email_fields['date_finished'] = workflow.complete
+  email_fields['script_file'] = workflow.scriptFile
+  email_fields['Pipeline script hash ID'] = workflow.scriptId
+  email_fields['kit'] = TARGETS
+  email_fields['assembly'] = REF
+
+  email_info = ""
+  for (s in email_fields) {
+	email_info += "\n${s.key}: ${s.value}"
+  }
+
   if (params.email) {
 
             def subject = 'Diagnostic exome analysis finished.'
             def recipient = params.email
 
+		
             ['mail', '-s', subject, recipient].execute() << """
 
             Pipeline execution summary
@@ -1031,6 +1054,11 @@ workflow.onComplete {
             workDir     : ${workflow.workDir}
             exit status : ${workflow.exitStatus}
             Error report: ${workflow.errorReport ?: '-'}
+	     
+	    Details:
+
+	     ${email_info}
+	    
             """
   }
 
