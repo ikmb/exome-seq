@@ -63,7 +63,7 @@ groups.each do |group, files|
 
 		# H26247-L3_S1_L001_R1_001_fastqc.html
         	library = group.split("_S")[0]
-        	sample = group.split("-L")[0]
+        	sample = group.split("_S")[0]
 		individual = group.split("-")[0]
 
         	e = `zcat #{left} | head -n1 `

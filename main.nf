@@ -27,13 +27,13 @@ Author: Marc P. Hoeppner, m.hoeppner@ikmb.uni-kiel.de
 **/
 
 // Pipeline version
-VERSION = "1.0"
-params.version = VERSION
+
+params.version = workflow.manifest.version
 
 // Help message
 helpMessage = """
 ===============================================================================
-IKMB Diagnostic Exome pipeline | version ${VERSION}
+IKMB Diagnostic Exome pipeline | version ${params.version}
 ===============================================================================
 Usage: nextflow -c /path/to/git/nextflow.config run /path/to/git/main.nf --assembly hg19_clinical --kit Nextera --samples Samples.csv
 This example will perform an exome analysis against the hg19 (with decoys) assembly, assuming that exome reads were generated with
@@ -43,7 +43,6 @@ Required parameters:
 --assembly                     Name of the reference assembly to use
 --kit			       Name of the exome kit (available options: xGen, xGen_custom, Nextera)
 Optional parameters:
---effect_prediction            Whether to run effect prediction on the final variant set (default: false)
 --vqsr 			       Whether to also run variant score recalibration (only works >= 30 samples) (default: false)
 --run_name 		       A descriptive name for this pipeline run
 --cram			       Whether to output the alignments in CRAM format (default: bam)
@@ -68,6 +67,8 @@ if (params.help){
     exit 0
 }
 
+def summary = [:]
+
 // #############
 // INPUT OPTIONS
 // #############
@@ -89,7 +90,6 @@ G1K = params.g1k ?: file(params.genomes[ params.assembly ].g1k )
 MILLS = params.mills_indels ?: file(params.genomes[ params.assembly ].mills )
 OMNI = params.omni ?: file(params.genomes[ params.assembly ].omni )
 HAPMAP = params.hapmap ?: file(params.genomes[ params.assembly ].hapmap )
-VEP_CACHE = params.vep_cache
 MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitochondrion
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
@@ -102,7 +102,6 @@ INDEL_RULES = params.indel_filter_rules
 snp_recalibration_values = params.snp_recalibration_values
 indel_recalbration_values = params.indel_recalbration_values
 
-params.effect_prediction = false
 params.hard_filter = false
 
 // Whether to produce BAM output instead of CRAM
@@ -128,6 +127,23 @@ if(params.email == false) {
 // Whether to use a local scratch disc
 use_scratch = params.scratch
 
+summary['runName'] = run_name
+summary['Samples'] = inputFile
+summary['Current home'] = "$HOME"
+summary['Current user'] = "$USER"
+summary['Current path'] = "$PWD"
+summary['Assembly'] = REF
+summary['Kit'] = TARGETS
+summary['References'] = [:]
+summary['References']['DBSNP'] = DBSNP
+summary['References']['G1K'] = G1K
+summary['References']['MILLS'] = MILLS
+summary['References']['OMNI'] = OMNI
+summary['References']['HAPMAP'] = HAPMAP
+summary['Filtering'] = [:]
+summary['Filtering']['SNP_RULES'] = SNP_RULES
+summary['Filtering']['INDEL_RULES'] = INDEL_RULES
+
 // Make sure the Nextflow version is current enough
 try {
     if( ! nextflow.version.matches(">= $params.nextflow_required_version") ){
@@ -145,7 +161,7 @@ logParams(params, "${workflow.sessionId}.pipeline_parameters.txt")
 
 // Header log info
 log.info "========================================="
-log.info "IKMB Diagnostic Exome pipeline v${VERSION}"
+log.info "IKMB Diagnostic Exome pipeline v${params.version}"
 log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
 log.info "Command Line:			$workflow.commandLine"
@@ -327,9 +343,13 @@ process runApplyBQSR {
             
 	script:
 
-	outfile_bam = sampleID + ".clean.${align_suffix}"
-	outfile_bai = sampleID + ".clean.${align_suffix}.bai"
-	outfile_md5 = sampleID + ".clean.${align_suffix}.md5"
+	def leading = ""
+	if (params.run_name) {
+		leading = "${run_name}."
+	}
+	outfile_bam = leading + sampleID + ".clean.${align_suffix}"
+	outfile_bai = leading + sampleID + ".clean.${align_suffix}.bai"
+	outfile_md5 = leading + sampleID + ".clean.${align_suffix}.md5"
            
     	"""
         	gatk --java-options "-Xmx${task.memory.toGiga()}G" ApplyBQSR \
@@ -385,7 +405,7 @@ process runHCSample {
 process runGenomicsDBImport  {
 
 	tag "ALL"
-        publishDir "${OUTDIR}/GATK/Variants/JointGenotypes/", mode: 'copy'
+        publishDir "${OUTDIR}/Variants/JointGenotypes/", mode: 'copy'
 
 	scratch use_scratch 
 
@@ -418,7 +438,7 @@ process runGenomicsDBImport  {
 process runGenotypeGVCFs {
   
 	tag "ALL"
-	publishDir "${OUTDIR}/GATK/Variants/JointGenotypes", mode: 'copy'
+	publishDir "${OUTDIR}/Variants/JointGenotypes", mode: 'copy'
   
 	input:
 	set file(merged_vcf), file(merged_vcf_index) from inputGenotypeGVCFs
@@ -454,7 +474,7 @@ process runGenotypeGVCFs {
 process runHardFilterSNP {
 		
 	tag "ALL"
-	publishDir "${OUTDIR}/GATK/Variants/HardFilter/Preprocess", mode: 'copy'
+	publishDir "${OUTDIR}/Variants/HardFilter/Preprocess", mode: 'copy'
 
 	input:
 	set file(vcf),file(vcf_index) from inputHardFilterSNP
@@ -488,7 +508,7 @@ process runHardFilterSNP {
 process runHardFilterIndel {
 
 	tag "ALL"
-        publishDir "${OUTDIR}/GATK/Variants/HardFilter/Preprocess", mode: 'copy'
+        publishDir "${OUTDIR}/Variants/HardFilter/Preprocess", mode: 'copy'
         
         input:
         set file(vcf),file(vcf_index) from inputHardFilterIndel
@@ -521,7 +541,7 @@ process runHardFilterIndel {
 process runCombineHardVariants {
 
 	tag "ALL"
-        publishDir "${OUTDIR}/GATK/Variants/HardFilter/Preprocess", mode: 'copy'
+        publishDir "${OUTDIR}/Variants/HardFilter/Final", mode: 'copy'
 
         input:
         set file(indel),file(indel_index) from outputHardFilterIndel
@@ -545,35 +565,13 @@ process runCombineHardVariants {
         """
 }
 
-process runFilterPassVariants {
-
-	tag "ALL"
-        publishDir "${OUTDIR}/GATK/Variants/HardFilter/Final", mode: 'copy'
-
-	input:
-	set file(vcf),file(index) from inputfilterPassVariants
-
-	output:
-	set file(vcf_pass),file(vcf_pass_index) into inputSplitHardVariants
-
-	script:
-	vcf_pass = "${run_name}.merged_callset.hard.pass.vcf.gz"
-	vcf_pass_index = vcf_pass + ".tbi"
-
-	"""
-		bcftools view -f "PASS" $vcf | bgzip > $vcf_pass
-		tabix $vcf_pass
-	"""
-
-}
-
 process runSplitHardVariantsBySample {
 
 	tag "ALL|${params.assembly}"
-        publishDir "${OUTDIR}/GATK/Variants/HardFilter/Final/BySample", mode: 'copy'
+        publishDir "${OUTDIR}/Variants/HardFilter/Final/BySample", mode: 'copy'
 
         input:
-        set file(vcf_clean),file(vcf_clean_index) from inputSplitHardVariants
+        set file(vcf_clean),file(vcf_clean_index) from inputfilterPassVariants
 
         output:
         file("*.vcf.gz") into HardVcfBySample
@@ -593,7 +591,7 @@ process runSplitHardVariantsBySample {
 process runRecalibrationModeSNP {
 
 	tag "ALL"
-	publishDir "${OUTDIR}/GATK/Variants/Recal"
+	publishDir "${OUTDIR}/Variants/Recal"
 	
 	input:
 	set file(vcf),file(vcf_index) from inputRecalSNP
@@ -630,7 +628,7 @@ process runRecalibrationModeSNP {
 process runRecalibrationModeIndel {
 	
 	tag "ALL"
-	publishDir "${OUTDIR}/GATK/Variants/Recal"
+	publishDir "${OUTDIR}/Variants/Recal"
 
   	input:
 	set file(vcf),file(vcf_index) from inputRecalIndel
@@ -664,7 +662,7 @@ process runRecalibrationModeIndel {
 process runRecalIndelApply {
 
 	tag "ALL"
-        publishDir "${OUTDIR}/GATK/Variants/Recal"
+        publishDir "${OUTDIR}/Variants/Recal"
 
         input:
         set file(recal_file),file(tranches),file(gvcf),file(gvcf_index) from inputRecalIndelApply
@@ -694,7 +692,7 @@ process runRecalIndelApply {
 process runRecalSNPApply {
 	
 	tag "ALL"
-	publishDir "${OUTDIR}/GATK/Variants/Filtered"
+	publishDir "${OUTDIR}/Variants/Filtered"
 	
 	input:
 	set file(vcf),file(index) from outputRecalIndelApply
@@ -725,7 +723,7 @@ process runRecalSNPApply {
 process runVariantFiltrationIndel {
 
 	tag "ALL"
-	publishDir "${OUTDIR}/GATK/Variants/Filtered"
+	publishDir "${OUTDIR}/Variants/Filtered"
 
   	input:
 	set file(vcf),file(vcf_index) from outputRecalIndelApply
@@ -752,7 +750,7 @@ process runVariantFiltrationIndel {
 process runSelectVariants {
 
 	tag "ALL|${params.assembly}"
-	publishDir "${OUTDIR}/GATK/Variants/Final", mode: 'copy'
+	publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
 
 	input:
 	set file(vcf),file(vcf_index) from inputSelectVariants
@@ -779,7 +777,7 @@ process runSelectVariants {
 process runSplitBySample {
 
         tag "ALL|${params.assembly}"
-        publishDir "${OUTDIR}/GATK/Variants/Final/BySample", mode: 'copy'
+        publishDir "${OUTDIR}/Variants/Final/BySample", mode: 'copy'
 
 	input:
 	set file(vcf_clean),file(vcf_clean_index) from inputSplitSample
@@ -958,58 +956,6 @@ process runMultiqcSample {
     """
 }
 
-// *************************
-// Variant effect prediction
-// *************************
-
-process runVep {
-
- tag "ALL"
- publishDir "${OUTDIR}/Annotation/VEP", mode: 'copy'
- 
-input:
-   file(vcf_file) from inputVep
-
- output:
-   file(annotated_vcf) into outputVep
-
- when:
- 	params.effect_prediction == true
-
- script:
-   annotated_vcf = run_name + ".annotation.vep.vcf"
-
-   """
-      vep --offline --cache --dir $VEP_CACHE --fork ${task.cpus} \
- 	--assembly GRCh37 -i $vcf_file -o $annotated_vcf --allele_number --canonical \
-	--force_overwrite --vcf --no_progress \
-	--merged \
-	--pubmed \
-	--plugin LoFtool --plugin LoF \
-	--fasta ${params.vep_fasta}
-   """
-
-}
-
-process runSplitVEPBySample {
-
-        tag "ALL|${params.assembly}"
-        publishDir "${OUTDIR}/Annotation/VEP/BySample", mode: 'copy'
-
-        input:
-        file(vcf) from outputVep
-
-        output:
-        file("*.vcf") into VepVcfBySample
-
-        script:
-
-        """
-                for sample in `bcftools query -l ${vcf}`; do gatk SelectVariants -R $REF -V ${vcf} -sn \$sample -O \$sample'.vcf' ; done;
-        """
-
-}
-
 workflow.onComplete {
   log.info "========================================="
   log.info "Duration:		$workflow.duration"
@@ -1017,8 +963,11 @@ workflow.onComplete {
 
   def email_fields = [:]
   email_fields['version'] = workflow.manifest.version
+  email_fields['session'] = workflow.sessionId
   email_fields['runName'] = run_name
+  email_fields['Samples'] = params.samples
   email_fields['success'] = workflow.success
+  email_fields['dateStarted'] = workflow.start
   email_fields['dateComplete'] = workflow.complete
   email_fields['duration'] = workflow.duration
   email_fields['exitStatus'] = workflow.exitStatus
@@ -1026,40 +975,58 @@ workflow.onComplete {
   email_fields['errorReport'] = (workflow.errorReport ?: 'None')
   email_fields['commandLine'] = workflow.commandLine
   email_fields['projectDir'] = workflow.projectDir
-  email_fields['date_started'] = workflow.start
-  email_fields['date_finished'] = workflow.complete
   email_fields['script_file'] = workflow.scriptFile
+  email_fields['launchDir'] = workflow.launchDir
+  email_fields['user'] = workflow.userName
   email_fields['Pipeline script hash ID'] = workflow.scriptId
   email_fields['kit'] = TARGETS
   email_fields['assembly'] = REF
+  email_fields['manifest'] = workflow.manifest
+  email_fields['summary'] = summary
 
   email_info = ""
   for (s in email_fields) {
 	email_info += "\n${s.key}: ${s.value}"
   }
 
+  def output_d = new File( "${params.outdir}/pipeline_info/" )
+  if( !output_d.exists() ) {
+      output_d.mkdirs()
+  }
+
+  def output_tf = new File( output_d, "pipeline_report.txt" )
+  output_tf.withWriter { w -> w << email_info }	
+
+ // make txt template
+  def engine = new groovy.text.GStringTemplateEngine()
+
+  def tf = new File("$baseDir/assets/email_template.txt")
+  def txt_template = engine.createTemplate(tf).make(email_fields)
+  def email_txt = txt_template.toString()
+
+  // make email template
+  def hf = new File("$baseDir/assets/email_template.html")
+  def html_template = engine.createTemplate(hf).make(email_fields)
+  def email_html = html_template.toString()
+  
+  def subject = "Diagnostic exome analysis finished ($run_name)."
+
   if (params.email) {
 
-            def subject = 'Diagnostic exome analysis finished.'
-            def recipient = params.email
+	def smail_fields = [ email: params.email, subject: subject, email_txt: email_txt, email_html: email_html, baseDir: "$baseDir" ]
+	def sf = new File("$baseDir/assets/sendmail_template.txt")
+    	def sendmail_template = engine.createTemplate(sf).make(smail_fields)
+    	def sendmail_html = sendmail_template.toString()
 
-		
-            ['mail', '-s', subject, recipient].execute() << """
+	try {
+          if( params.plaintext_email ){ throw GroovyException('Send plaintext e-mail, not HTML') }
+          // Try to send HTML e-mail using sendmail
+          [ 'sendmail', '-t' ].execute() << sendmail_html
+        } catch (all) {
+          // Catch failures and try with plaintext
+          [ 'mail', '-s', subject, params.email ].execute() << email_txt
+        }
 
-            Pipeline execution summary
-            ---------------------------
-            Completed at: ${workflow.complete}
-            Duration    : ${workflow.duration}
-            Success     : ${workflow.success}
-            workDir     : ${workflow.workDir}
-            exit status : ${workflow.exitStatus}
-            Error report: ${workflow.errorReport ?: '-'}
-	     
-	    Details:
-
-	     ${email_info}
-	    
-            """
   }
 
 }

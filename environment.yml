@@ -1,19 +1,18 @@
 # You can use this file to create a conda environment for this pipeline:
 #   conda env create -f environment.yml
-name: ikmb-diagnostic-exome-1.0
+name: ikmb-diagnostic-exome-1.1dev
 channels:
   - bioconda
   - conda-forge
   - defaults
 dependencies:
-  - conda-forge::openjdk=8.0.153
+  - conda-forge::openjdk=8.0.152
   - fastqc=0.11.8
   - fastp=0.19.4
   - picard=2.18.11
   - bwa=0.7.17
   - multiqc=1.6
-  - gatk4=4.0.9.0
+  - gatk4=4.0.12.0
   - samtools=1.9
-  - ensembl-vep=93.2
   - bcftools=1.9
   - htslib=1.9 
