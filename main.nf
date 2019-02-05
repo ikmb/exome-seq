@@ -956,6 +956,27 @@ process runMultiqcSample {
     """
 }
 
+process get_software_versions {
+
+    publishDir "${OUTDIR}/Summary/versions", mode: 'copy'
+    output:
+    file 'software_versions_mqc.yaml' into software_versions_yaml
+    file '*.txt' into software_versions_txt
+
+    script:
+    """
+    echo $workflow.manifest.version &> v_ikmb_exoseq.txt
+    echo $workflow.nextflow.version &> v_nextflow.txt
+    fastqc --version &> v_fastqc.txt
+    fastp -v &> v_fastp.txt
+    gatk --version &> v_gatk.txt
+    picard MarkDuplicates -h &> /dev/stdout | grep "Version" > v_picard.txt  || true
+    samtools --version &> v_samtools.txt
+    multiqc --version &> v_multiqc.txt
+    cat *.txt >> software_versions_mqc.yaml
+    """
+}
+
 workflow.onComplete {
   log.info "========================================="
   log.info "Duration:		$workflow.duration"
