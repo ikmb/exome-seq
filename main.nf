@@ -942,7 +942,7 @@ process runMultiqcSample {
     file('*') from runOxoGMetricsOutput.flatten().toList()
         
     output:
-    file("sample_multiqc.html") into runMultiQCSampleOutput
+    file("sample_multiqc.html") into multiqc_report
     	
     script:
 
@@ -1034,8 +1034,21 @@ workflow.onComplete {
 
   if (params.email) {
 
-	def smail_fields = [ email: params.email, subject: subject, email_txt: email_txt, email_html: email_html, baseDir: "$baseDir" ]
-	def sf = new File("$baseDir/assets/sendmail_template.txt")
+  	def mqc_report = null
+  	try {
+        	if (workflow.success && !params.skip_multiqc) {
+            		mqc_report = multiqc_report.getVal()
+            		if (mqc_report.getClass() == ArrayList){
+                		log.warn "[IKMB ExoSeq] Found multiple reports from process 'multiqc', will use only one"
+                		mqc_report = mqc_report[0]
+                	}
+        	}
+    	} catch (all) {
+        	log.warn "[IKMB ExoSeq] Could not attach MultiQC report to summary email"
+  	}
+
+	def smail_fields = [ email: params.email, subject: subject, email_txt: email_txt, email_html: email_html, baseDir: "$baseDir", mqcFile: mqc_report, mqcMaxSize: params.maxMultiqcEmailFileSize.toBytes() ]
+	def sf = new File("$baseDir/assets/sendmail_template.txt")	
     	def sendmail_template = engine.createTemplate(sf).make(smail_fields)
     	def sendmail_html = sendmail_template.toString()
 
