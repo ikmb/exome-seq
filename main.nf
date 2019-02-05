@@ -42,7 +42,9 @@ Required parameters:
 --samples                      A sample list in CSV format (see website for formatting hints)
 --assembly                     Name of the reference assembly to use
 --kit			       Name of the exome kit (available options: xGen, xGen_custom, Nextera)
+--email 		       Email address to send reports to (enclosed in '')
 Optional parameters:
+--skip_multiqc		       Don't attached MultiQC report to the email. 
 --vqsr 			       Whether to also run variant score recalibration (only works >= 30 samples) (default: false)
 --run_name 		       A descriptive name for this pipeline run
 --cram			       Whether to output the alignments in CRAM format (default: bam)
