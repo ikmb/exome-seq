@@ -82,6 +82,10 @@ inputFile = file(params.samples)
 params.run_name = false
 run_name = ( params.run_name == false) ? "${workflow.sessionId}" : "${params.run_name}"
 
+if (params.run_name == false) {
+	log.info "No run name was specified, using ${run_name} instead"
+}
+
 // This will eventually enable switching between multiple assembly versions
 // Currently, only hg19 has all the required reference files available
 params.assembly = "hg19"
@@ -145,6 +149,7 @@ summary['References']['HAPMAP'] = HAPMAP
 summary['Filtering'] = [:]
 summary['Filtering']['SNP_RULES'] = SNP_RULES
 summary['Filtering']['INDEL_RULES'] = INDEL_RULES
+summary['IntervallPadding'] = params.interval_padding
 
 // Make sure the Nextflow version is current enough
 try {

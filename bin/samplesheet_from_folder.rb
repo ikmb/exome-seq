@@ -28,7 +28,7 @@ options.centre ? center = options.centre : center = "IKMB"
 
 fastq_files = Dir["#{options.folder}/*_R*.fastq.gz"]
 
-groups = fastq_files.group_by{|f| f.split("/")[-1].split(/_L0/)[0] }
+groups = fastq_files.group_by{|f| f.split("/")[-1].split(/_S/)[0] }
 
 warn "Building input sample sheet from FASTQ folder"
 warn "Performing sanity check on md5sums" if options.sanity
