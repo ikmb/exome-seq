@@ -120,11 +120,6 @@ By default, this pipeline will produce alignments in BAM format. Should you wish
 
 `--cram true`
 
-### VEP effect prediction
-
-Effect prediction on the final multi-sample VCF file is disabled by default. To run effect prediction, use:
-`--effect_prediction true`
-
 ### Execution profiles
 
 This pipeline is pre-configured for several environments, which can be set using the `-profile` flag:
