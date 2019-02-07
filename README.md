@@ -14,7 +14,6 @@ This pipeline offers a end-to-end workflow for exome analysis using the GATK4 to
 - joint variant calling
 -- variant hard-filtering [default]
 -- variant recalibration (SNPs and Indels) and filtering [optional, off by default and only recommended for >= 30 exomes]
-- effect prediction using VEP [optional, off by default]
 
 ## Installing the pipeline
 
@@ -43,9 +42,9 @@ This pipeline includes pre-configured environments for RZCluster and the IKMB di
 
 The pipeline currently (officially) supports the following genome assemblies from the GATK bundle:
 
-`--assembly hg19` 
-`--assembly GRCh38`
-`--assembly b37`
+`--assembly hg19`  (hg19 from UCSC)
+`--assembly GRCh38` (GRCh38 without ALTs but with decoys)
+`--assembly GRCh37` (1000 genomes reference, b37 from UCSC)
 
 To use targets/bait not included in this release, you must specify your custom bait files from the command line using:
 

@@ -150,6 +150,7 @@ summary['Filtering'] = [:]
 summary['Filtering']['SNP_RULES'] = SNP_RULES
 summary['Filtering']['INDEL_RULES'] = INDEL_RULES
 summary['IntervallPadding'] = params.interval_padding
+summary['SessionID'] = workflow.sessionId
 
 // Make sure the Nextflow version is current enough
 try {
