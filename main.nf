@@ -127,6 +127,10 @@ if(params.email == false) {
 // Whether to use a local scratch disc
 use_scratch = params.scratch
 
+if (params.no_dedup) {
+	println "Select to skip duplicate marking. This is NOT recommended!"
+}
+	
 summary['runName'] = run_name
 summary['Samples'] = inputFile
 summary['Current home'] = "$HOME"
@@ -226,7 +230,7 @@ process mergeBamFiles_bySample {
         set indivID, sampleID, file(aligned_bam_list) from runBWAOutput_grouped_by_sample
 
 	output:
-	set indivID,sampleID,file(merged_bam),file(merged_bam_index) into mergedBamFile_by_Sample
+	set indivID,sampleID,file(merged_bam),file(merged_bam_index) into mergedBamFile_by_Sample, MergedBamSkipDedup
 
 	script:
 	merged_bam = sampleID + ".merged.bam"
@@ -288,6 +292,14 @@ process runMarkDuplicates {
 
 }
 
+// If we don't want to use the deduped BAM file, allow skipping it. 
+// We still run dedup for the quality stats
+if (params.no_dedup == false) {
+	BamToBSQR = MarkDuplicatesOutput
+} else {
+	BamToBSQR = MergedBamSkipDedup
+}
+
 // ------------------------------------------------------------------------------------------------------------
 //
 // Perform base quality score recalibration (BQSR) including
@@ -304,7 +316,7 @@ process runBaseRecalibrator {
 	// publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
 	    
 	input:
-	set indivID, sampleID, dedup_bam, dedup_bai from MarkDuplicatesOutput
+	set indivID, sampleID, dedup_bam, dedup_bai from BamToBSQR
     
 	output:
 	set indivID, sampleID, dedup_bam, file(recal_table) into runBaseRecalibratorOutput
