@@ -50,6 +50,7 @@ The pipeline currently (officially) supports the following genome assemblies fro
 To use targets/bait not included in this release, you must specify your custom bait files from the command line using:
 
 `--targets path/to/targets.interval_list`
+
 `--baits path/to/baits.interval_list`
 
 These files must be in the Picard "interval list" format and include matching sequence dictionaries to the genome sequence you wish to use them with. 

@@ -114,7 +114,7 @@ OUTDIR = file(params.outdir)
 // Available exome kits
 
 if (TARGETS == false || BAITS == false ) {
-   exit 1, "Information on enrichment kit incomplete or missing (please see the documentation for details!"
+   exit 1, "Information on enrichment kit incomplete or missing (please see the documentation for details!)"
 }
 
 // Whether to send a notification upon workflow completion
@@ -128,7 +128,7 @@ if(params.email == false) {
 use_scratch = params.scratch
 
 if (params.no_dedup) {
-	println "Select to skip duplicate marking. This is NOT recommended!"
+	println "Selected to skip duplicate marking. This is NOT recommended!"
 }
 	
 summary['runName'] = run_name
@@ -150,12 +150,12 @@ summary['Filtering']['INDEL_RULES'] = INDEL_RULES
 
 // Make sure the Nextflow version is current enough
 try {
-    if( ! nextflow.version.matches(">= $params.nextflow_required_version") ){
+    if( ! nextflow.version.matches(">= $workflow.manifest.nextflowVersion") ){
         throw GroovyException('Nextflow version too old')
     }
 } catch (all) {
     log.error "====================================================\n" +
-              "  Nextflow version $params.nextflow_required_version required! You are running v$workflow.nextflow.version.\n" +
+              "  Nextflow version $workflow.manifest.nextflowVersion required! You are running v$workflow.nextflow.version.\n" +
               "  Pipeline execution will continue, but things may break.\n" +
               "  Please use a more recent version of Nextflow!\n" +
               "============================================================"
