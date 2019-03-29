@@ -51,4 +51,3 @@ Once downloaded, you will have to decompress the genome assembly and ensure that
 
 `gatk_bundle_path = "/path/to/resource_bundle/" `
 
-
