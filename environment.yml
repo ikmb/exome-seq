@@ -1,6 +1,6 @@
 # You can use this file to create a conda environment for this pipeline:
 #   conda env create -f environment.yml
-name: ikmb-diagnostic-exome-1.1dev
+name: exome-seq-1.0
 channels:
   - bioconda
   - conda-forge

@@ -96,6 +96,7 @@ G1K = params.g1k ?: file(params.genomes[ params.assembly ].g1k )
 MILLS = params.mills_indels ?: file(params.genomes[ params.assembly ].mills )
 OMNI = params.omni ?: file(params.genomes[ params.assembly ].omni )
 HAPMAP = params.hapmap ?: file(params.genomes[ params.assembly ].hapmap )
+// This is usually missing from target/bait definitions, so we add it 
 MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitochondrion
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
@@ -169,7 +170,7 @@ logParams(params, "${workflow.sessionId}.pipeline_parameters.txt")
 
 // Header log info
 log.info "========================================="
-log.info "IKMB Diagnostic Exome pipeline v${params.version}"
+log.info "Exome-seq pipeline v${params.version}"
 log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
 log.info "Command Line:			$workflow.commandLine"
