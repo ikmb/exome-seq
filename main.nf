@@ -42,7 +42,9 @@ Required parameters:
 --samples                      A sample list in CSV format (see website for formatting hints)
 --assembly                     Name of the reference assembly to use
 --kit			       Name of the exome kit (available options: xGen, xGen_custom, Nextera)
+--email 		       Email address to send reports to (enclosed in '')
 Optional parameters:
+--skip_multiqc		       Don't attached MultiQC report to the email. 
 --vqsr 			       Whether to also run variant score recalibration (only works >= 30 samples) (default: false)
 --run_name 		       A descriptive name for this pipeline run
 --cram			       Whether to output the alignments in CRAM format (default: bam)
@@ -80,6 +82,10 @@ inputFile = file(params.samples)
 params.run_name = false
 run_name = ( params.run_name == false) ? "${workflow.sessionId}" : "${params.run_name}"
 
+if (params.run_name == false) {
+	log.info "No run name was specified, using ${run_name} instead"
+}
+
 // This will eventually enable switching between multiple assembly versions
 // Currently, only hg19 has all the required reference files available
 params.assembly = "hg19"
@@ -90,6 +96,7 @@ G1K = params.g1k ?: file(params.genomes[ params.assembly ].g1k )
 MILLS = params.mills_indels ?: file(params.genomes[ params.assembly ].mills )
 OMNI = params.omni ?: file(params.genomes[ params.assembly ].omni )
 HAPMAP = params.hapmap ?: file(params.genomes[ params.assembly ].hapmap )
+// This is usually missing from target/bait definitions, so we add it 
 MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitochondrion
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
@@ -147,6 +154,8 @@ summary['References']['HAPMAP'] = HAPMAP
 summary['Filtering'] = [:]
 summary['Filtering']['SNP_RULES'] = SNP_RULES
 summary['Filtering']['INDEL_RULES'] = INDEL_RULES
+summary['IntervallPadding'] = params.interval_padding
+summary['SessionID'] = workflow.sessionId
 
 // Make sure the Nextflow version is current enough
 try {
@@ -165,7 +174,7 @@ logParams(params, "${workflow.sessionId}.pipeline_parameters.txt")
 
 // Header log info
 log.info "========================================="
-log.info "IKMB Diagnostic Exome pipeline v${params.version}"
+log.info "Exome-seq pipeline v${params.version}"
 log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
 log.info "Command Line:			$workflow.commandLine"

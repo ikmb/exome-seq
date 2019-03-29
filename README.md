@@ -1,6 +1,6 @@
 ![](images/ikmb_bfx_logo.png)
 
-# IKMB Diagnostic Exome Pipeline
+# Exome-seq Pipeline
 
 # Please note
 
@@ -14,12 +14,12 @@ This pipeline offers a end-to-end workflow for exome analysis using the GATK4 to
 - joint variant calling
 -- variant hard-filtering [default]
 -- variant recalibration (SNPs and Indels) and filtering [optional, off by default and only recommended for >= 30 exomes]
-- effect prediction using VEP [optional, off by default]
 
-## Installing the pipeline
+The result will be a multi-sample VCF file as well as a list of VCF files for each sample.
 
-To install this pipeline, simply clone the repository to a location on RZCluster:
+## Documentation
 
+<<<<<<< HEAD
 `git clone git@git.ikmb.uni-kiel.de:bfx-core/NF-diagnostics-exome.git`
 
 To update the code, run git update inside of the local clone:
@@ -150,3 +150,10 @@ Within the output folder will be three subfolders:
 - Variants (the joint, filtered variant calls)
 - Summary - graphical summary reports for Fastq files, libraries and samples
 - Individual data (finalized read alignments, alignment statistics etc)
+=======
+1. [What happens in this pipeline?](docs/pipeline.md)
+2. [Installation and configuration](docs/installation.md)
+3. [Running the pipeline](docs/usage.md)
+4. [Output](docs/output.md)
+5. [Troubleshooting](docs/troubleshooting.md)
+>>>>>>> master
