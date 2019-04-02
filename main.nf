@@ -2,7 +2,7 @@
 
 /**
 ===============================
-IKMB Diagnostic Exome Pipeline
+Exome Pipeline
 ===============================
 
 This Pipeline performs one of two workflows to generate variant calls and effect predictions
@@ -178,7 +178,7 @@ log.info "Exome-seq pipeline v${params.version}"
 log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
 log.info "Command Line:			$workflow.commandLine"
-log.info "Run name: 			${params.run_name}"
+log.info "Run name: 			${run_name}"
 log.info "========================================="
 
 // Read sample file 
@@ -977,6 +977,7 @@ process runMultiqcSample {
     """
 }
 
+// this is not finished yet, need to create a proper yaml file
 process get_software_versions {
 
     publishDir "${OUTDIR}/Summary/versions", mode: 'copy'

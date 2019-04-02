@@ -41,17 +41,21 @@ The choice of genome assembly depends a bit on your local community and mostly p
 - GRCh38 (the current human reference assembly)
 - hg19 (another version of GRCh37, also referred to as the UCSC reference)
 
+For example, in a clinical setting, common choices are hg19 and GRCh37.
+
 ## The exome kit
 
 Each exome capture kit has a target and a bait definition, i.e. information about the exons it enriches and the specific RNA bait sequences that are used for capture. This information is important so the pipeline knows whichs regions of the genome to analyze and how to compute run metrics. 
 
-We have included these files for two capture kits - IDT xGen and Nextera. YOu can choose one or the other:
+We have included these files for two capture kits - IDT xGen and Nextera. You can choose one or the other:
 
 `--kit Nextera`
 
 `--kit xGen`
 
 We also offer a custom version of xGen (`--kit xGen_custom`), which includes a few additional SNPs missing from xGen; this is really only relevant if you use our custom mix - so it's safe to ignore. 
+
+If you have used any other type of kit for your enrichment, you are able to provide these from the command line during execution using `--baits` and `--targets`, respectively. Please not that these files must be in the Picard [interval_list](https://gatkforums.broadinstitute.org/gatk/discussion/1319/collected-faqs-about-interval-lists) format and have to be matched to the genome assembly (i.e. must have identical dictionary headers). 
 
 ## Reporting
 

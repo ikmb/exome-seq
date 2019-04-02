@@ -1,5 +1,5 @@
 ========================================
-IKMB Diagnostic Exome pipeline: version ${version}
+Exome pipeline: version ${version}
 ========================================
 Run Name: $runName
 
