@@ -928,7 +928,7 @@ process runMultiqcFastq {
     script:
 
     """
-    cp $baseDir/config/multiqc_config.yaml multiqc_config.yaml
+    cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
     multiqc -n fastp_multiqc *.json *.html
     """
 }
@@ -947,7 +947,7 @@ process runMultiqcLibrary {
     script:
 
     """
-    cp $baseDir/config/multiqc_config.yaml multiqc_config.yaml
+    cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
     multiqc -n library_multiqc *.txt
     """
 }
@@ -971,7 +971,7 @@ process runMultiqcSample {
     def recipient = params.email
 
     """
-    cp $baseDir/config/multiqc_config.yaml multiqc_config.yaml
+    cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
     multiqc -n sample_multiqc *
 
     """
