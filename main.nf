@@ -9,12 +9,12 @@ This Pipeline performs one of two workflows to generate variant calls and effect
 using either the GATK processing chain or Freebayes.
 
 ### Homepage / git
-http://git.ikmb.uni-kiel.de/bfx-core/NF-diagnostics-exome
+git@github.com:marchoeppner/exome-seq.git
 ### Implementation
-Implemented in Q1 2018
+Implemented in Q1 2019
 
 This pipeline is based on the updated GATK best-practices (where applicable).
- - trimming (Trimgalore)
+ - trimming (FastP)
  - Alignment (BWA)
  - Duplicate marking (GATK)
  - recalibration 
