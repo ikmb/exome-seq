@@ -10,7 +10,8 @@ Let's dissect this in the following:
 
 ### The samplesheet
 
-Information to this pipeline is given in form of a CSV sample sheet. This is to allow relevant, and possibly quite important, metadata to be included (such as meaningful sample names, sequencing center etc). 
+Information to this pipeline is given in form of a CSV sample sheet. This is to allow relevant, and possibly quite important, metadata to be included (such 
+as meaningful sample names, sequencing center etc). 
 
 The basic format of the sample sheet is as follows:
 
@@ -29,9 +30,13 @@ That is to say:
 - R1 - path to the left file of a paired-end data set
 - R2 - patht to the right file of a paried-end data set
 
-For convenience, we have included a simple script (bin/samplesheet_from_folder.rb) which accepts the path to a folder fill of PE exome data and automatically write a basic sample sheet. Obviously, it cannot derive meaningful sample and patient IDs from such information; this you would have to edit manually, if you so choose. 
+For convenience, we have included a simple script (bin/samplesheet_from_folder.rb) which accepts the path to a folder fill of PE exome data and automatically 
+write a basic sample sheet. Obviously, it cannot derive meaningful sample and patient IDs from such information; this you would have to edit manually, if 
+you so choose. 
 
-`ruby bin/samplesheet_from_folder.rb -f /path/to/foler > Samplesheet.csv`
+```bash
+ruby bin/samplesheet_from_folder.rb -f /path/to/foler > Samplesheet.csv`
+```
 
 ## The genome assembly
 
@@ -45,7 +50,8 @@ For example, in a clinical setting, common choices are hg19 and GRCh37.
 
 ## The exome kit
 
-Each exome capture kit has a target and a bait definition, i.e. information about the exons it enriches and the specific RNA bait sequences that are used for capture. This information is important so the pipeline knows whichs regions of the genome to analyze and how to compute run metrics. 
+Each exome capture kit has a target and a bait definition, i.e. information about the exons it enriches and the specific RNA bait sequences that are used 
+for capture. This information is important so the pipeline knows whichs regions of the genome to analyze and how to compute run metrics. 
 
 We have included these files for two capture kits - IDT xGen and Nextera. You can choose one or the other:
 
@@ -53,13 +59,31 @@ We have included these files for two capture kits - IDT xGen and Nextera. You ca
 
 `--kit xGen`
 
-We also offer a custom version of xGen (`--kit xGen_custom`), which includes a few additional SNPs missing from xGen; this is really only relevant if you use our custom mix - so it's safe to ignore. 
+We also offer a custom version of xGen (`--kit xGen_custom`), which includes a few additional SNPs missing from xGen; this is really only relevant if you use 
+our custom mix - so it's safe to ignore. 
 
-If you have used any other type of kit for your enrichment, you are able to provide these from the command line during execution using `--baits` and `--targets`, respectively. Please not that these files must be in the Picard [interval_list](https://gatkforums.broadinstitute.org/gatk/discussion/1319/collected-faqs-about-interval-lists) format and have to be matched to the genome assembly (i.e. must have identical dictionary headers). 
+If you have used any other type of kit for your enrichment, you are able to provide these from the command line during execution using `--baits` and 
+`--targets`, respectively. Please not that these files must be in the Picard [interval_list](https://gatkforums.broadinstitute.org/gatk/discussion/1319/collected-faqs-about-interval-lists) format and have to be matched to the genome assembly (i.e. must have identical dictionary headers). 
 
 ## Reporting
 
-The pipeline will send a basic report upon completion to your Email address of choice. This requires for the compute running the nextflow process to have a configured Mail demon.
+The pipeline will send a basic report upon completion to your Email address of choice. This requires for the compute running the nextflow process to have a 
+configured Mail demon.
+
+## The panels (optional)
+
+For practical reasons, it can be desirable to determine the coverage of a discrete set of target genes, such as for a gene panel. The pipeline currently 
+supports the following panels:
+
+- Dilatative Kardiomyopathie [cardio_dilatative]
+- Hypertrophe Kardiomyopathie [cardio_hypertrophic]
+- Non-Compaction Kardiomyopathie [cardio_non_compaction]
+
+To enable coverage statistics of a target panel, use the `--panel` argument:
+
+`
+nextflow run main.nf --samples Samples.csv --assembly GRCh38 --kit xGen_custom --panel cardio_dilatative
+`
 
 
 

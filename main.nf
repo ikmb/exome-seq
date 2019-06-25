@@ -105,6 +105,9 @@ BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
 SNP_RULES = params.snp_filter_rules
 INDEL_RULES = params.indel_filter_rules
 
+PANEL = params.panel_intervals ?: params.genomes[params.assembly].panels[ params.panel ].intervals
+PANEL_NAME = params.panel_intervals ?: params.genomes[params.assembly].panels[ params.panel ].description
+
 // Annotations to use for variant recalibration
 snp_recalibration_values = params.snp_recalibration_values
 indel_recalbration_values = params.indel_recalbration_values
@@ -145,6 +148,9 @@ summary['Current user'] = "$USER"
 summary['Current path'] = "$PWD"
 summary['Assembly'] = REF
 summary['Kit'] = TARGETS
+if (params.panel) {
+	summary['GenePanel'] = PANEL_NAME
+}
 summary['References'] = [:]
 summary['References']['DBSNP'] = DBSNP
 summary['References']['G1K'] = G1K
@@ -223,9 +229,10 @@ process runBWA {
     
     script:
     outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.bam"	
-
+    dict_file = REF.getBaseName() + ".dict"
+    
     """
-	bwa mem -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${REF}\\tCN:${center}" -t ${task.cpus} ${REF} $left $right | samtools sort -O bam -m 2G -@ 4 - > $outfile
+	bwa mem -H $dict_file -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${REF}\\tCN:${center}" -t ${task.cpus} ${REF} $left $right | samtools sort -O bam -m 2G -@ 4 - > $outfile
     """	
 }
 
@@ -260,6 +267,7 @@ process mergeBamFiles_bySample {
 			--IS_BISULFITE_SEQUENCE false
 
 		samtools index $merged_bam
+		rm -f merged.bam
 
 	"""
 }
@@ -358,7 +366,7 @@ process runApplyBQSR {
 	set indivID, sampleID, realign_bam, recal_table from runBaseRecalibratorOutput 
 
 	output:
-	set indivID, sampleID, file(outfile_bam), file("*.bai") into runPrintReadsOutput_for_Multiple_Metrics,inputHCSample,inputCollectReadCounts
+	set indivID, sampleID, file(outfile_bam), file("*.bai") into runPrintReadsOutput_for_Multiple_Metrics,inputHCSample,inputCollectReadCounts,inputPanelCoverage
 	set indivID, sampleID, realign_bam, recal_table into runPrintReadsOutput_for_PostRecal
 	set indivID, outfile_md5 into BamMD5
             
@@ -975,6 +983,54 @@ process runMultiqcSample {
     multiqc -n sample_multiqc *
 
     """
+}
+
+if (params.panel) {
+
+        process runPanelCoverage {
+
+                publishDir "${OUTDIR}/${indivID}/${sampleID}/PanelCoverage", mode: "copy"
+
+                input:
+                set indivID,sampleID,file(bam),file(bai) from inputPanelCoverage
+
+                output:
+                set indivID,sampleID,file(coverage) into outputPanelCoverage
+
+                script:
+                panel_name = file(params.panel).getSimpleName()
+                coverage = indivID + "_" + sampleID + "." +  panel_name  + ".hs_metrics.txt"
+
+                // do something here - get coverage and build a PDF
+                """
+                      picard -Xmx${task.memory.toGiga()}G CollectHsMetrics \
+                        INPUT=${bam} \
+                        OUTPUT=${coverage} \
+                        TARGET_INTERVALS=${PANEL} \
+                        BAIT_INTERVALS=${PANEL} \
+                        REFERENCE_SEQUENCE=${REF} \
+                        TMP_DIR=tmp
+                """
+        }
+
+	process runMultiqcPanel {
+
+		publishDir "${OUTDIR}/Summary/Panel", mode: "copy"
+
+		input:
+		file('*') from outputPanelCoverage.collect()
+
+		output:
+		file("panel_multiqc.html") into panel_qc_report
+
+		script:
+
+		"""
+			cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
+			multiqc -n panel_multiqc *
+		"""
+
+	}
 }
 
 // this is not finished yet, need to create a proper yaml file
