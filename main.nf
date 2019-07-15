@@ -105,8 +105,13 @@ BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
 SNP_RULES = params.snp_filter_rules
 INDEL_RULES = params.indel_filter_rules
 
-PANEL = params.panel_intervals ?: params.genomes[params.assembly].panels[ params.panel ].intervals
-PANEL_NAME = params.panel_intervals ?: params.genomes[params.assembly].panels[ params.panel ].description
+PANEL = params.panel ? params.genomes[params.assembly].panels[ params.panel ].intervals ?: false :false
+PANEL_NAME = params.panel ? params.genomes[params.assembly].panels[ params.panel ].description ?: false :false
+
+if (params.panel_intervals) {
+	PANEL = params.panel_intervals
+	PANEL_NAME = params.panel_intervals
+}
 
 // Annotations to use for variant recalibration
 snp_recalibration_values = params.snp_recalibration_values
