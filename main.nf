@@ -168,19 +168,6 @@ summary['Filtering']['INDEL_RULES'] = INDEL_RULES
 summary['IntervallPadding'] = params.interval_padding
 summary['SessionID'] = workflow.sessionId
 
-// Make sure the Nextflow version is current enough
-try {
-    if( ! nextflow.version.matches(">= $workflow.manifest.nextflowVersion") ){
-        throw GroovyException('Nextflow version too old')
-    }
-} catch (all) {
-    log.error "====================================================\n" +
-              "  Nextflow version $workflow.manifest.nextflowVersion required! You are running v$workflow.nextflow.version.\n" +
-              "  Pipeline execution will continue, but things may break.\n" +
-              "  Please use a more recent version of Nextflow!\n" +
-              "============================================================"
-}
-
 logParams(params, "${workflow.sessionId}.pipeline_parameters.txt")
 
 // Header log info
@@ -190,6 +177,9 @@ log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
 log.info "Command Line:			$workflow.commandLine"
 log.info "Run name: 			${run_name}"
+if (workflow.containerEngine) {
+	log.info "Container engine:	${workflow.containerEngine}"
+}
 log.info "========================================="
 
 // Read sample file 
@@ -261,12 +251,12 @@ process mergeBamFiles_bySample {
 
 	    	gatk MergeSamFiles \
                     -I ${aligned_bam_list.join(' -I ')} \
-                    -O merged.bam \
+                    -O /dev/stdout \
 		    --USE_THREADING true \
-                    --SORT_ORDER coordinate
+                    --SORT_ORDER coordinate |
 
 		gatk SetNmMdAndUqTags \
-			-I merged.bam \
+			-I /dev/stdin \
 			-O $merged_bam \
 			-R $REF \
 			--IS_BISULFITE_SEQUENCE false
@@ -585,7 +575,7 @@ process runCombineHardVariants {
         set file(merged_file),file(merged_file_index) into inputfilterPassVariants
 
         script:
-        merged_file = "${run_name}.merged_callset.hard.vcf.gz"
+        merged_file = "${run_name}.merged_callset.hard_filter.vcf.gz"
         merged_file_index = merged_file + ".tbi"
 
         """
@@ -608,12 +598,13 @@ process runSplitHardVariantsBySample {
         set file(vcf_clean),file(vcf_clean_index) from inputfilterPassVariants
 
         output:
-        file("*.vcf.gz") into HardVcfBySample
+        file("*.vcf.gz*") into HardVcfBySample
 
         script:
 
         """
                 for sample in `bcftools query -l ${vcf_clean}`; do gatk SelectVariants -R $REF -V ${vcf_clean} --exclude-non-variants --remove-unused-alternates -sn \$sample -O \$sample'.vcf.gz' ; done;
+		for i in $(echo *.vcf.gz); do tabix $ ; done;
         """
 
 }
@@ -625,7 +616,7 @@ process runSplitHardVariantsBySample {
 process runRecalibrationModeSNP {
 
 	tag "ALL"
-	publishDir "${OUTDIR}/Variants/Recal"
+	publishDir "${OUTDIR}/Variants/VSQR/Recal"
 	
 	input:
 	set file(vcf),file(vcf_index) from inputRecalSNP
@@ -662,7 +653,7 @@ process runRecalibrationModeSNP {
 process runRecalibrationModeIndel {
 	
 	tag "ALL"
-	publishDir "${OUTDIR}/Variants/Recal"
+	publishDir "${OUTDIR}/Variants/VSQR/Recal"
 
   	input:
 	set file(vcf),file(vcf_index) from inputRecalIndel
@@ -696,7 +687,7 @@ process runRecalibrationModeIndel {
 process runRecalIndelApply {
 
 	tag "ALL"
-        publishDir "${OUTDIR}/Variants/Recal"
+        publishDir "${OUTDIR}/Variants/VSQR/Recal"
 
         input:
         set file(recal_file),file(tranches),file(gvcf),file(gvcf_index) from inputRecalIndelApply
@@ -726,7 +717,7 @@ process runRecalIndelApply {
 process runRecalSNPApply {
 	
 	tag "ALL"
-	publishDir "${OUTDIR}/Variants/Filtered"
+	publishDir "${OUTDIR}/Variants/VSQR/Filtered"
 	
 	input:
 	set file(vcf),file(index) from outputRecalIndelApply
@@ -757,7 +748,7 @@ process runRecalSNPApply {
 process runVariantFiltrationIndel {
 
 	tag "ALL"
-	publishDir "${OUTDIR}/Variants/Filtered"
+	publishDir "${OUTDIR}/Variants/VSQR/Filtered"
 
   	input:
 	set file(vcf),file(vcf_index) from outputRecalIndelApply
@@ -784,7 +775,7 @@ process runVariantFiltrationIndel {
 process runSelectVariants {
 
 	tag "ALL|${params.assembly}"
-	publishDir "${OUTDIR}/Variants/Final", mode: 'copy'
+	publishDir "${OUTDIR}/Variants/VSQR/Final", mode: 'copy'
 
 	input:
 	set file(vcf),file(vcf_index) from inputSelectVariants
@@ -811,7 +802,7 @@ process runSelectVariants {
 process runSplitBySample {
 
         tag "ALL|${params.assembly}"
-        publishDir "${OUTDIR}/Variants/Final/BySample", mode: 'copy'
+        publishDir "${OUTDIR}/Variants/VSQR/Final/BySample", mode: 'copy'
 
 	input:
 	set file(vcf_clean),file(vcf_clean_index) from inputSplitSample
@@ -823,6 +814,7 @@ process runSplitBySample {
 
 	"""
 		for sample in `bcftools query -l ${vcf_clean}`; do gatk SelectVariants -R $REF -V ${vcf_clean} --exclude-non-variants --remove-unused-alternates -sn \$sample -O \$sample'.vcf.gz' -OVI true ; done;
+		for i in $(echo *.vcf.gz); do tabix $i ; done;
 	"""
 
 }

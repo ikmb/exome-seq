@@ -4,7 +4,13 @@
 
 The following command will execute this pipeline; the options will be discussed in the following:
 
-`nextflow run main.nf --samples Samples.csv --assembly hg19 --kit xGen --email 'hello@gmail.com'`
+A) If you are a new user and only have a local configuration file:
+
+`nextflow run /path/to/main.nf --samples Samples.csv --assembly hg19 --kit xGen --email 'hello@gmail.com' --profile your_profile`
+
+B) If we already have a config file for your cluster:
+
+`nextflow run marchoeppner/exome-seq --samples Samples.csv --assembly hg19 --kit xGen --email 'hello@gmail.com' --profile your_profile'
 
 Let's dissect this in the following:
 
@@ -31,7 +37,7 @@ That is to say:
 - R2 - patht to the right file of a paried-end data set
 
 For convenience, we have included a simple script (bin/samplesheet_from_folder.rb) which accepts the path to a folder fill of PE exome data and automatically 
-write a basic sample sheet. Obviously, it cannot derive meaningful sample and patient IDs from such information; this you would have to edit manually, if 
+writes a basic sample sheet. Obviously, it cannot derive meaningful sample and patient IDs from such information; this you would have to edit manually, if 
 you so choose. 
 
 ```bash
@@ -40,7 +46,8 @@ ruby bin/samplesheet_from_folder.rb -f /path/to/foler > Samplesheet.csv`
 
 ## The genome assembly
 
-The choice of genome assembly depends a bit on your local community and mostly personal preference. If you downloaded the GATk genome bundle as per the installation instruations, you have the following options automatically available:
+The choice of genome assembly depends a bit on your local community and mostly personal preference. If you downloaded the GATk genome bundle as per 
+the installation instructions, you have the following options automatically available:
 
 - GRCh37 (the 1000 genomes reference)
 - GRCh38 (the current human reference assembly)
@@ -63,7 +70,9 @@ We also offer a custom version of xGen (`--kit xGen_custom`), which includes a f
 our custom mix - so it's safe to ignore. 
 
 If you have used any other type of kit for your enrichment, you are able to provide these from the command line during execution using `--baits` and 
-`--targets`, respectively. Please not that these files must be in the Picard [interval_list](https://gatkforums.broadinstitute.org/gatk/discussion/1319/collected-faqs-about-interval-lists) format and have to be matched to the genome assembly (i.e. must have identical dictionary headers). 
+`--targets`, respectively. Please not that these files must be in the Picard 
+[interval_list](https://gatkforums.broadinstitute.org/gatk/discussion/1319/collected-faqs-about-interval-lists) format and have to be matched 
+to the genome assembly (i.e. must have identical dictionary headers). 
 
 ## Reporting
 
@@ -82,7 +91,7 @@ supports the following panels:
 To enable coverage statistics of a target panel, use the `--panel` argument:
 
 `
-nextflow run main.nf --samples Samples.csv --assembly GRCh38 --kit xGen_custom --panel cardio_dilatative
+nextflow run marchoeppner/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen_custom --panel cardio_dilatative
 `
 
 
