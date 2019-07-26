@@ -58,7 +58,7 @@ Optional parameters:
 --baits			       A interval_list bait file (set automatically if using the --kit option)
 --interval_padding	       For GATK, include this number of nt upstream and downstream around the exome targets (default: 50)
 Output:
---outdir                       Local directory to which all output is written (default: output)
+--outdir                       Local directory to which all output is written (default: results)
 """
 
 params.help = false
