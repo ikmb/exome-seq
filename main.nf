@@ -1016,13 +1016,13 @@ if (params.panel) {
 		file('*') from outputPanelCoverage.collect()
 
 		output:
-		file("panel_multiqc.html") into panel_qc_report
+		file("${panel_name}_multiqc.html") into panel_qc_report
 
 		script:
-
+		panel_name = file(params.panel).getSimpleName()
 		"""
 			cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
-			multiqc -n panel_multiqc *
+			multiqc -n ${panel_name}_multiqc *
 		"""
 
 	}
