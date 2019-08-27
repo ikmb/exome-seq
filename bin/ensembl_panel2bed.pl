@@ -9,10 +9,13 @@ perl ensembl_get_utr.pl
   Getting help:
     [--help]
 
-  For the species
-  	[--species]
-  	Names of species to use
-	
+  Input data
+	[--list filename]
+	The list of gene names to get BED coordinates for
+
+	[--assembly name]
+	Name of the genome assembly to use (GRCH37, hg19, GRCh38)	
+
   Ouput:
     [--output_file filename]
         The name of the output file. By default the output is the
@@ -27,7 +30,6 @@ my $help;
 
 GetOptions(
     "help" => \$help,
-    "species=s" => \$species,
     "assembly=s" => \$assembly,
     "list=s" => \$list,
     "output_file=s" => \$output_file);
