@@ -811,7 +811,6 @@ process runSplitBySample {
 
 	"""
 		for sample in `bcftools query -l $vcf_clean`; do gatk SelectVariants -R $REF -V $vcf_clean --exclude-non-variants --remove-unused-alternates -sn \$sample -O \$sample'.vcf.gz' -OVI true ; done;
-		for i in \$(echo *.vcf.gz); do tabix \$i ; done;
 	"""
 
 }
