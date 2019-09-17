@@ -4,13 +4,13 @@
 
 The following command will execute this pipeline; the options will be discussed in the following:
 
-A) If you are a new user and only have a local configuration file:
+A) If you are a new user and only have a local configuration file (and a local clone of the repository):
 
-`nextflow run /path/to/main.nf --samples Samples.csv --assembly hg19 --kit xGen --email 'hello@gmail.com' --profile your_profile`
+`nextflow run /path/to/main.nf --samples Samples.csv --assembly hg19 --kit xGen --email 'hello@gmail.com' -profile your_profile`
 
 B) If we already have a config file for your cluster:
 
-`nextflow run marchoeppner/exome-seq --samples Samples.csv --assembly hg19 --kit xGen --email 'hello@gmail.com' --profile your_profile'
+`nextflow run ikmb/exome-seq --samples Samples.csv --assembly hg19 --kit xGen --email 'hello@gmail.com' -profile your_profile'
 
 Let's dissect this in the following:
 
