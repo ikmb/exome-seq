@@ -89,7 +89,8 @@ foreach $line (<$fh>) {
 		my @exons = @{ $transcript->get_all_translateable_Exons() } ;
 		foreach my $exon (@exons) {
 			my $strand = $exon->strand == 1 ? "+" : "-" ;
-			printf $prefix . $gene->seq_region_name . "\t" . $exon->start . "\t" . $exon->end . "\t" . $line . "." . $exon->rank($transcript) . "\t" . 100 . "\t" . $strand . "\n";
+			my $exon_length = ($exon->start < $exon->end) ? ($exon->end-$exon->start) : ($exon->start-$exon->end);
+			printf $prefix . $gene->seq_region_name . "\t" . $exon->start . "\t" . $exon->end . "\t" . $line . "." . $exon->rank($transcript) . ":" . $exon_length . "\t" . 100 . "\t" . $strand . "\n";
 		}
 					
 		# Only need the first occurence of a reference gene

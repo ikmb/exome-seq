@@ -107,6 +107,7 @@ INDEL_RULES = params.indel_filter_rules
 
 PANEL = params.panel ? params.genomes[params.assembly].panels[ params.panel ].intervals ?: false :false
 PANEL_NAME = params.panel ? params.genomes[params.assembly].panels[ params.panel ].description ?: false :false
+PANEL_BED = params.panel ? params.genomes[params.assembly].panels[ params.panel ].bed ?: false :false
 
 if (params.panel_intervals) {
 	PANEL = params.panel_intervals
@@ -989,10 +990,12 @@ if (params.panel) {
 
                 output:
                 set indivID,sampleID,file(coverage) into outputPanelCoverage
+		set indivID,sampleID,file(samtools_coverage) into outputPanelCoverageBed
 
                 script:
                 panel_name = file(params.panel).getSimpleName()
                 coverage = indivID + "_" + sampleID + "." +  panel_name  + ".hs_metrics.txt"
+		samtools_coverage = indivID + "_" + sampleID + "." +  panel_name  + ".bedcov.txt"
 
                 // do something here - get coverage and build a PDF
                 """
@@ -1003,6 +1006,11 @@ if (params.panel) {
                         BAIT_INTERVALS=${PANEL} \
                         REFERENCE_SEQUENCE=${REF} \
                         TMP_DIR=tmp
+
+			samtools bedcov \
+			--reference $REF \
+			${PANEL_BED} $bam > $samtools_coverage
+			
                 """
         }
 
