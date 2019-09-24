@@ -919,7 +919,10 @@ process runMultiqcFastq {
 
     tag "Generating fastq level summary and QC plots"
     publishDir "${OUTDIR}/Summary/Fastq", mode: 'copy'
-	    
+
+    when:
+    !params.skip_multiqc	    
+
     input:
     file('*') from fastp_results.flatten().toList()
     
@@ -938,6 +941,9 @@ process runMultiqcLibrary {
 
     tag "Generating library level summary and QC plots"
     publishDir "${OUTDIR}/Summary/Library", mode: 'copy'
+
+    when:
+    !params.skip_multiqc
 	    
     input:
     file('*') from DuplicatesOutput_QC.flatten().toList()
@@ -957,6 +963,9 @@ process runMultiqcSample {
 
     tag "Generating sample level summary and QC plots"
     publishDir "${OUTDIR}/Summary/Sample", mode: 'copy'
+
+    when:
+    !params.skip_multiqc
 	    
     input:
     file('*') from CollectMultipleMetricsOutput.flatten().toList()
