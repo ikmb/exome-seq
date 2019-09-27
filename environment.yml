@@ -18,3 +18,4 @@ dependencies:
   - r=3.5.1
   - r-base=3.5.1
   - pandoc=2.7.3
+  - texlive-core

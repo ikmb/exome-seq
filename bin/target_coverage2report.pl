@@ -60,10 +60,9 @@ foreach my  $line (@lines) {
 	my ($chrom,$start,$end,$length,$name,$gc,$mean_coverage,$normalized_coverage,$min_normalized_coverage,$max_normalized_coverage,$min_coverage,$max_coverage,$pct_0x,$read_count) = split("\t", $line);
 
 	if ($mean_coverage < $min_cov) {
-		my $entry = qq(
-    <dt>$name</dt><dd><samp>$mean_coverage</samp></dd>
-		);
-        	printf "$entry\n";
+		my $entry = "<dt>$name</dt><dd><samp>$mean_coverage</samp></dd>" ;
+		chomp($entry);
+        	printf "    $entry\n";
 	}		
 }
 

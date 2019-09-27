@@ -1047,13 +1047,13 @@ if (params.panel) {
 		set indivID,sampleID,file(target_coverage_yaml) from outputPanelTargetCoverage
 
 		output:
-		file("*_multiqc.html") into PanelCoverageIndiv 
+		file("*.pdf") into PanelCoverageIndiv 
 
 		script:
 		panel_name = file(params.panel).getSimpleName()
 		"""
 			cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
-			multiqc -n ${panel_name}_${indivID}_${sampleID}_multiqc *
+			multiqc --pdf -n ${panel_name}_${indivID}_${sampleID}_multiqc *
 		"""
 
 	}
@@ -1072,7 +1072,7 @@ if (params.panel) {
 		panel_name = file(params.panel).getSimpleName()
 		"""
 			cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
-			multiqc --pdf -n ${panel_name}_multiqc *
+			multiqc -n ${panel_name}_multiqc *
 		"""
 
 	}
