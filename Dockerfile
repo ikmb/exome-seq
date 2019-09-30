@@ -6,4 +6,4 @@ COPY environment.yml /
 RUN conda env create -f /environment.yml && conda clean -a
 ENV PATH /opt/conda/envs/exome-seq-1.1/bin:$PATH
 
-RUN apt-get -y update && apt-get -y install texlive-xetex
+RUN apt-get -y update && apt-get -y install texlive texlive-latex-extra texlive-generic-extra texlive-xetex 

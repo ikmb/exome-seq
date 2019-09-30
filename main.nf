@@ -1066,7 +1066,7 @@ if (params.panel) {
 		file('*') from outputPanelCoverage
 
 		output:
-		file("${panel_name}_multiqc.pdf") into panel_qc_report
+		file("${panel_name}_multiqc.html") into panel_qc_report
 
 		script:
 		panel_name = file(params.panel).getSimpleName()
