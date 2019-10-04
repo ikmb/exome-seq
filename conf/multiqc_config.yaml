@@ -1,6 +1,6 @@
 title: "Exome pipeline report"
 subtitle: "Best-practice workflow for clinical SNP calling"
-custom_logo: "/ifs/data/nfs_share/ikmb_repository/references/logos/ikmb_bfx_logo.png"
+custom_logo: "ikmblogo.png"
 custom_logo_title: "Insitute of Clinical Molecular Biology, Kiel"
 custom_logo_url: "http://www.ikmb.uni-kiel.de"
 
@@ -9,9 +9,9 @@ extra_fn_clean_exts:
     - _R2
 report_comment: >
     This report has been generated automatically by the IKMB Diagnostic Exome pipeline.
-    For help interpreting the outputs, please see: http://git.ikmb.uni-kiel.de/bfx-core/NF-diagnostics-exome/tree/master/doc
+    For help interpreting the outputs, please see: https://github.com/ikmb/exome-seq
 
 report_header_info:
-    - Contact E-mail: "b.petersen@ikmb.uni-kiel.de"
+    - Contact E-mail: "b.loescher@ikmb.uni-kiel.de"
     - Application Type: "Whole exome sequencing"
 

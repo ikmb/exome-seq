@@ -916,6 +916,28 @@ process runOxoGMetrics {
 //
 // ------------------------------------------------------------------------------------------------------------
 
+// this is not finished yet, need to create a proper yaml file
+process get_software_versions {
+
+    publishDir "${OUTDIR}/Summary/versions", mode: 'copy'
+    output:
+    file("v*.txt") into software_versions
+    file 'software_versions_mqc.yaml' into software_versions_yaml_fastqc, software_versions_yaml_lib, software_versions_yaml_sample
+
+    script:
+    """
+    echo $workflow.manifest.version &> v_ikmb_exoseq.txt
+    echo $workflow.nextflow.version &> v_nextflow.txt
+    fastqc --version &> v_fastqc.txt
+    fastp -v &> v_fastp.txt
+    gatk --version &> v_gatk.txt
+    picard MarkDuplicates -h &> /dev/stdout | grep "Version" > v_picard.txt  || true
+    samtools --version &> v_samtools.txt
+    multiqc --version &> v_multiqc.txt
+    parse_versions.pl --outfile  software_versions_mqc.yaml
+    """
+}
+
 process runMultiqcFastq {
 
     tag "Generating fastq level summary and QC plots"
@@ -926,6 +948,7 @@ process runMultiqcFastq {
 
     input:
     file('*') from fastp_results.flatten().toList()
+    file('*') from software_versions_yaml_fastqc.collect()
     
     output:
     file("fastp_multiqc*") into runMultiQCFastqOutput
@@ -934,6 +957,7 @@ process runMultiqcFastq {
 
     """
     cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
+    cp $params.logo . 
     multiqc -n fastp_multiqc *.json *.html
     """
 }
@@ -948,6 +972,7 @@ process runMultiqcLibrary {
 	    
     input:
     file('*') from DuplicatesOutput_QC.flatten().toList()
+    file('*') from software_versions_yaml_lib.collect()
 
     output:
     file("library_multiqc*") into runMultiQCLibraryOutput
@@ -955,6 +980,7 @@ process runMultiqcLibrary {
     script:
 
     """
+    cp $params.logo .
     cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
     multiqc -n library_multiqc *.txt
     """
@@ -972,6 +998,7 @@ process runMultiqcSample {
     file('*') from CollectMultipleMetricsOutput.flatten().toList()
     file('*') from HybridCaptureMetricsOutput.flatten().toList()
     file('*') from runOxoGMetricsOutput.flatten().toList()
+    file('*') from software_versions_yaml_sample.collect()
         
     output:
     file("sample_multiqc.html") into multiqc_report
@@ -982,6 +1009,7 @@ process runMultiqcSample {
     def recipient = params.email
 
     """
+    cp $params.logo . 
     cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
     multiqc -n sample_multiqc *
 
@@ -999,12 +1027,13 @@ if (params.panel) {
 
                 output:
                 set indivID,sampleID,file(coverage) into outputPanelCoverage
-		set indivID,sampleID,file(samtools_coverage) into outputPanelCoverageBed
+		set indivID,sampleID,file(target_coverage_yaml) into outputPanelTargetCoverage
 
                 script:
                 panel_name = file(params.panel).getSimpleName()
                 coverage = indivID + "_" + sampleID + "." +  panel_name  + ".hs_metrics.txt"
-		samtools_coverage = indivID + "_" + sampleID + "." +  panel_name  + ".bedcov.txt"
+		target_coverage = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics.txt"
+		target_coverage_yaml = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics_mqc.yaml"
 
                 // do something here - get coverage and build a PDF
                 """
@@ -1014,21 +1043,40 @@ if (params.panel) {
                         TARGET_INTERVALS=${PANEL} \
                         BAIT_INTERVALS=${PANEL} \
                         REFERENCE_SEQUENCE=${REF} \
-                        TMP_DIR=tmp
+                        TMP_DIR=tmp \
+			PER_TARGET_COVERAGE=$target_coverage
 
-			samtools bedcov \
-			--reference $REF \
-			${PANEL_BED} $bam > $samtools_coverage
-			
+			target_coverage2report.pl --infile $target_coverage > $target_coverage_yaml
+
                 """
         }
+
+	process runMultiqcPanelPerIndiv {
+
+		publishDir "${OUTDIR}/${indivID}/${sampleID}/PanelCoverage", mode: "copy"
+		
+		input:
+		set indivID,sampleID,file(target_coverage_yaml) from outputPanelTargetCoverage
+
+		output:
+		file("*.pdf") into PanelCoverageIndiv 
+
+		script:
+		panel_name = file(params.panel).getSimpleName()
+		"""
+			cp $params.logo . 
+			cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
+			multiqc --pdf -n ${panel_name}_${indivID}_${sampleID}_multiqc *
+		"""
+
+	}
 
 	process runMultiqcPanel {
 
 		publishDir "${OUTDIR}/Summary/Panel", mode: "copy"
 
 		input:
-		file('*') from outputPanelCoverage.collect()
+		file('*') from outputPanelCoverage
 
 		output:
 		file("${panel_name}_multiqc.html") into panel_qc_report
@@ -1036,6 +1084,7 @@ if (params.panel) {
 		script:
 		panel_name = file(params.panel).getSimpleName()
 		"""
+			cp $params.logo . 
 			cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
 			multiqc -n ${panel_name}_multiqc *
 		"""
@@ -1043,27 +1092,6 @@ if (params.panel) {
 	}
 }
 
-// this is not finished yet, need to create a proper yaml file
-process get_software_versions {
-
-    publishDir "${OUTDIR}/Summary/versions", mode: 'copy'
-    output:
-    file 'software_versions_mqc.yaml' into software_versions_yaml
-    file '*.txt' into software_versions_txt
-
-    script:
-    """
-    echo $workflow.manifest.version &> v_ikmb_exoseq.txt
-    echo $workflow.nextflow.version &> v_nextflow.txt
-    fastqc --version &> v_fastqc.txt
-    fastp -v &> v_fastp.txt
-    gatk --version &> v_gatk.txt
-    picard MarkDuplicates -h &> /dev/stdout | grep "Version" > v_picard.txt  || true
-    samtools --version &> v_samtools.txt
-    multiqc --version &> v_multiqc.txt
-    cat *.txt >> software_versions_mqc.yaml
-    """
-}
 
 workflow.onComplete {
   log.info "========================================="
