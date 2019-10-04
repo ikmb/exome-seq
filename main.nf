@@ -954,6 +954,7 @@ process runMultiqcFastq {
 
     """
     cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
+    cp $params.logo . 
     multiqc -n fastp_multiqc *.json *.html
     """
 }
@@ -973,6 +974,7 @@ process runMultiqcLibrary {
     script:
 
     """
+    cp $params.logo .
     cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
     multiqc -n library_multiqc *.txt
     """
@@ -998,6 +1000,7 @@ process runMultiqcSample {
     def recipient = params.email
 
     """
+    cp $params.logo . 
     cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
     multiqc -n sample_multiqc *
 
@@ -1052,6 +1055,7 @@ if (params.panel) {
 		script:
 		panel_name = file(params.panel).getSimpleName()
 		"""
+			cp $params.logo . 
 			cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
 			multiqc --pdf -n ${panel_name}_${indivID}_${sampleID}_multiqc *
 		"""
@@ -1071,6 +1075,7 @@ if (params.panel) {
 		script:
 		panel_name = file(params.panel).getSimpleName()
 		"""
+			cp $params.logo . 
 			cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
 			multiqc -n ${panel_name}_multiqc *
 		"""
