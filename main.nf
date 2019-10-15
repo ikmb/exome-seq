@@ -46,6 +46,7 @@ Required parameters:
 Optional parameters:
 --skip_multiqc		       Don't attached MultiQC report to the email. 
 --vqsr 			       Whether to also run variant score recalibration (only works >= 30 samples) (default: false)
+--panel 		       Gene panel to check coverage of (valid options: cardio_dilatative, cardio_hypertrophic, cardio_non_compaction, eoIBD_25kb, imm_eoIBD_full)
 --run_name 		       A descriptive name for this pipeline run
 --cram			       Whether to output the alignments in CRAM format (default: bam)
 --fasta			       A reference genome in FASTA format (set automatically if using --assembly)
@@ -1046,7 +1047,7 @@ if (params.panel) {
                         TMP_DIR=tmp \
 			PER_TARGET_COVERAGE=$target_coverage
 
-			target_coverage2report.pl --infile $target_coverage > $target_coverage_yaml
+			target_coverage2report.pl --infile $target_coverage --min_cov $params.panel_coverage > $target_coverage_yaml
 
                 """
         }
@@ -1059,14 +1060,14 @@ if (params.panel) {
 		set indivID,sampleID,file(target_coverage_yaml) from outputPanelTargetCoverage
 
 		output:
-		file("*.pdf") into PanelCoverageIndiv 
+		file("*.html") into PanelCoverageIndiv 
 
 		script:
 		panel_name = file(params.panel).getSimpleName()
 		"""
 			cp $params.logo . 
 			cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
-			multiqc --pdf -n ${panel_name}_${indivID}_${sampleID}_multiqc *
+			multiqc -n ${panel_name}_${indivID}_${sampleID}_multiqc *
 		"""
 
 	}

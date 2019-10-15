@@ -15,3 +15,6 @@ report_header_info:
     - Contact E-mail: "b.loescher@ikmb.uni-kiel.de"
     - Application Type: "Whole exome sequencing"
 
+top_modules:
+    - 'general_stats'
+    - 'picard_hsmetrics'

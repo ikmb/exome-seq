@@ -42,7 +42,7 @@ my $header = qq(
 id: 'low coverage targets'\n
 section_name: 'ikmb/exome-seq low coverage targets'\n
 plot_type: 'html'\n
-description: ' lists all defined exome targets that fall below $min_cov coverage.'\n
+description: ' lists all defined exome targets that fall below $min_cov X coverage.'\n
 data: |\n
   <dl class="dl-horizontal">
 );
