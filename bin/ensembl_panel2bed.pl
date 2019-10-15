@@ -70,25 +70,27 @@ $fh->open( $list);
 foreach $line (<$fh>) {
 
 	chomp($line);
-	
-	# Theoretically, one HGNC can map to multiple Genes
-	my $genes = $gene_adaptor->fetch_all_by_external_name($line);
-	
-	my $skip_this = 0;
-	
-	die "Gene not found ($line)\n" if (scalar @$genes == 0) ;
 
-	foreach my $gene(@$genes) {
-		
-		# Check if this version of the gene is the reference version
-		my $is_reference = $gene->is_reference;
+	# Some genes may have different canonical names in different assemblies	
+	my @genes = (split ",", $line);
+	my $skip = 0;
 
-		next if ($is_reference == 0 || $skip_this == 1 || $gene->stable_id =~ /LRG.*/) ;
-	
+	foreach my $gene_name (@genes) {
+
+		next if ($skip == 1);
+
+		# Theoretically, one HGNC can map to multiple Genes
+		my $gene = $gene_adaptor->fetch_by_display_label($gene_name);
+
+		next if (!$gene);
+
+		$skip = 1;
+
 		my $transcript = $gene->canonical_transcript;
+
 		my @exons = @{ $transcript->get_all_translateable_Exons() } ;
 		foreach my $exon (@exons) {
-			next if (!$exon->is_coding) ;
+			next if (!$exon->is_coding($transcript) ) ;
 			my $ref_start = $exon->coding_region_start($transcript);
 			my $ref_end = $exon->coding_region_end($transcript);
 			if ($ref_start > $ref_end) {
@@ -97,10 +99,10 @@ foreach $line (<$fh>) {
 			my $strand = $exon->strand == 1 ? "+" : "-" ;
 			printf $prefix . $gene->seq_region_name . "\t" . $ref_start . "\t" . $ref_end . "\t" . $line . "." . $exon->rank($transcript) . "\t" . 100 . "\t" . $strand . "\n";
 		}
-					
-		# Only need the first occurence of a reference gene
-		$skip_this = 1;
 	}
+
+	die "Gene not found " . $line . "\n" if ($skip == 0);
+		
 }
 close ($fh);
 
