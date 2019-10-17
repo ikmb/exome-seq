@@ -158,6 +158,9 @@ summary['Kit'] = TARGETS
 if (params.panel) {
 	summary['GenePanel'] = PANEL_NAME
 }
+if (workflow.containerEngine) {
+	summary['Container'] = process.container
+}
 summary['References'] = [:]
 summary['References']['DBSNP'] = DBSNP
 summary['References']['G1K'] = G1K
@@ -189,8 +192,6 @@ Channel.from(inputFile)
 
 process runFastp {
 
-	tag "${indivID}|${sampleID}"
-
 	input:
 	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, center, date, fastqR1, fastqR2 from readPairsFastp
 
@@ -211,7 +212,6 @@ process runFastp {
 
 process runBWA {
 
-    tag "${indivID}|${sampleID}|${libraryID}|${rgID}"
     // publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/BWA/", mode: 'copy'
 
     // scratch use_scratch
@@ -235,8 +235,6 @@ runBWAOutput_grouped_by_sample = runBWAOutput.groupTuple(by: [0,1])
 
 process mergeBamFiles_bySample {
 
-        tag "${indivID}|${sampleID}"
-	
 	input:
         set indivID, sampleID, file(aligned_bam_list) from runBWAOutput_grouped_by_sample
 
@@ -269,8 +267,7 @@ process mergeBamFiles_bySample {
 
 process runMarkDuplicates {
 
-	tag "${indivID}|${sampleID}"
-        publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
+        // publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
 
         scratch use_scratch
 
@@ -324,7 +321,6 @@ if (params.no_dedup == false) {
 
 process runBaseRecalibrator {
 
-	tag "${indivID}|${sampleID}"
 	// publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
 	    
 	input:
@@ -352,7 +348,6 @@ process runBaseRecalibrator {
 
 process runApplyBQSR {
 
-	tag "${indivID}|${sampleID}"
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
 
 	scratch use_scratch
@@ -395,7 +390,6 @@ process runApplyBQSR {
 
 process runHCSample {
 
-	tag "${indivID}|${sampleID}"
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/Variants/HaplotypeCaller" , mode: 'copy'
 
 	input: 
@@ -428,7 +422,6 @@ process runHCSample {
 // From here on all samples are in the same file
 process runGenomicsDBImport  {
 
-	tag "ALL"
         publishDir "${OUTDIR}/Variants/JointGenotypes/", mode: 'copy'
 
 	scratch use_scratch 
@@ -461,7 +454,6 @@ process runGenomicsDBImport  {
 
 process runGenotypeGVCFs {
   
-	tag "ALL"
 	publishDir "${OUTDIR}/Variants/JointGenotypes", mode: 'copy'
   
 	input:
@@ -497,7 +489,6 @@ process runGenotypeGVCFs {
 
 process runHardFilterSNP {
 		
-	tag "ALL"
 	publishDir "${OUTDIR}/Variants/HardFilter/Preprocess", mode: 'copy'
 
 	input:
@@ -531,7 +522,6 @@ process runHardFilterSNP {
 
 process runHardFilterIndel {
 
-	tag "ALL"
         publishDir "${OUTDIR}/Variants/HardFilter/Preprocess", mode: 'copy'
         
         input:
@@ -564,7 +554,6 @@ process runHardFilterIndel {
 
 process runCombineHardVariants {
 
-	tag "ALL"
         publishDir "${OUTDIR}/Variants/HardFilter/Final", mode: 'copy'
 
         input:
@@ -591,7 +580,6 @@ process runCombineHardVariants {
 
 process runSplitHardVariantsBySample {
 
-	tag "ALL|${params.assembly}"
         publishDir "${OUTDIR}/Variants/HardFilter/Final/BySample", mode: 'copy'
 
         input:
@@ -614,7 +602,6 @@ process runSplitHardVariantsBySample {
 
 process runRecalibrationModeSNP {
 
-	tag "ALL"
 	publishDir "${OUTDIR}/Variants/VSQR/Recal"
 	
 	input:
@@ -651,7 +638,6 @@ process runRecalibrationModeSNP {
 
 process runRecalibrationModeIndel {
 	
-	tag "ALL"
 	publishDir "${OUTDIR}/Variants/VSQR/Recal"
 
   	input:
@@ -685,7 +671,6 @@ process runRecalibrationModeIndel {
 
 process runRecalIndelApply {
 
-	tag "ALL"
         publishDir "${OUTDIR}/Variants/VSQR/Recal"
 
         input:
@@ -715,7 +700,6 @@ process runRecalIndelApply {
 
 process runRecalSNPApply {
 	
-	tag "ALL"
 	publishDir "${OUTDIR}/Variants/VSQR/Filtered"
 	
 	input:
@@ -746,7 +730,6 @@ process runRecalSNPApply {
 
 process runVariantFiltrationIndel {
 
-	tag "ALL"
 	publishDir "${OUTDIR}/Variants/VSQR/Filtered"
 
   	input:
@@ -773,7 +756,6 @@ process runVariantFiltrationIndel {
 
 process runSelectVariants {
 
-	tag "ALL|${params.assembly}"
 	publishDir "${OUTDIR}/Variants/VSQR/Final", mode: 'copy'
 
 	input:
@@ -800,7 +782,6 @@ process runSelectVariants {
 
 process runSplitBySample {
 
-        tag "ALL|${params.assembly}"
         publishDir "${OUTDIR}/Variants/VSQR/Final/BySample", mode: 'copy'
 
 	input:
@@ -822,7 +803,6 @@ process runSplitBySample {
 // *********************
 
 process runCollectMultipleMetrics {
-	tag "${indivID}|${sampleID}"
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
  
 	scratch use_scratch
@@ -859,7 +839,6 @@ process runCollectMultipleMetrics {
 
 process runHybridCaptureMetrics {
 
-    tag "${indivID}|${sampleID}"
     publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
     input:
@@ -887,7 +866,6 @@ process runHybridCaptureMetrics {
 
 process runOxoGMetrics {
 
-    tag "${indivID}|${sampleID}"
     publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
     input:
@@ -941,7 +919,6 @@ process get_software_versions {
 
 process runMultiqcFastq {
 
-    tag "Generating fastq level summary and QC plots"
     publishDir "${OUTDIR}/Summary/Fastq", mode: 'copy'
 
     when:
@@ -965,7 +942,6 @@ process runMultiqcFastq {
 
 process runMultiqcLibrary {
 
-    tag "Generating library level summary and QC plots"
     publishDir "${OUTDIR}/Summary/Library", mode: 'copy'
 
     when:
@@ -989,7 +965,6 @@ process runMultiqcLibrary {
 
 process runMultiqcSample {
 
-    tag "Generating sample level summary and QC plots"
     publishDir "${OUTDIR}/Summary/Sample", mode: 'copy'
 
     when:
