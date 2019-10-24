@@ -46,6 +46,7 @@ Required parameters:
 Optional parameters:
 --skip_multiqc		       Don't attached MultiQC report to the email. 
 --vqsr 			       Whether to also run variant score recalibration (only works >= 30 samples) (default: false)
+--panel 		       Gene panel to check coverage of (valid options: cardio_dilatative, cardio_hypertrophic, cardio_non_compaction, eoIBD_25kb, imm_eoIBD_full)
 --run_name 		       A descriptive name for this pipeline run
 --cram			       Whether to output the alignments in CRAM format (default: bam)
 --fasta			       A reference genome in FASTA format (set automatically if using --assembly)
@@ -107,6 +108,7 @@ INDEL_RULES = params.indel_filter_rules
 
 PANEL = params.panel ? params.genomes[params.assembly].panels[ params.panel ].intervals ?: false :false
 PANEL_NAME = params.panel ? params.genomes[params.assembly].panels[ params.panel ].description ?: false :false
+PANEL_BED = params.panel ? params.genomes[params.assembly].panels[ params.panel ].bed ?: false :false
 
 if (params.panel_intervals) {
 	PANEL = params.panel_intervals
@@ -156,6 +158,9 @@ summary['Kit'] = TARGETS
 if (params.panel) {
 	summary['GenePanel'] = PANEL_NAME
 }
+if (workflow.containerEngine) {
+	summary['Container'] = process.container
+}
 summary['References'] = [:]
 summary['References']['DBSNP'] = DBSNP
 summary['References']['G1K'] = G1K
@@ -187,8 +192,6 @@ Channel.from(inputFile)
 
 process runFastp {
 
-	tag "${indivID}|${sampleID}"
-
 	input:
 	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, center, date, fastqR1, fastqR2 from readPairsFastp
 
@@ -209,7 +212,6 @@ process runFastp {
 
 process runBWA {
 
-    tag "${indivID}|${sampleID}|${libraryID}|${rgID}"
     // publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/BWA/", mode: 'copy'
 
     // scratch use_scratch
@@ -233,8 +235,6 @@ runBWAOutput_grouped_by_sample = runBWAOutput.groupTuple(by: [0,1])
 
 process mergeBamFiles_bySample {
 
-        tag "${indivID}|${sampleID}"
-	
 	input:
         set indivID, sampleID, file(aligned_bam_list) from runBWAOutput_grouped_by_sample
 
@@ -267,8 +267,7 @@ process mergeBamFiles_bySample {
 
 process runMarkDuplicates {
 
-	tag "${indivID}|${sampleID}"
-        publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
+        // publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
 
         scratch use_scratch
 
@@ -322,7 +321,6 @@ if (params.no_dedup == false) {
 
 process runBaseRecalibrator {
 
-	tag "${indivID}|${sampleID}"
 	// publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
 	    
 	input:
@@ -350,7 +348,6 @@ process runBaseRecalibrator {
 
 process runApplyBQSR {
 
-	tag "${indivID}|${sampleID}"
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
 
 	scratch use_scratch
@@ -393,7 +390,6 @@ process runApplyBQSR {
 
 process runHCSample {
 
-	tag "${indivID}|${sampleID}"
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/Variants/HaplotypeCaller" , mode: 'copy'
 
 	input: 
@@ -426,7 +422,6 @@ process runHCSample {
 // From here on all samples are in the same file
 process runGenomicsDBImport  {
 
-	tag "ALL"
         publishDir "${OUTDIR}/Variants/JointGenotypes/", mode: 'copy'
 
 	scratch use_scratch 
@@ -459,7 +454,6 @@ process runGenomicsDBImport  {
 
 process runGenotypeGVCFs {
   
-	tag "ALL"
 	publishDir "${OUTDIR}/Variants/JointGenotypes", mode: 'copy'
   
 	input:
@@ -495,7 +489,6 @@ process runGenotypeGVCFs {
 
 process runHardFilterSNP {
 		
-	tag "ALL"
 	publishDir "${OUTDIR}/Variants/HardFilter/Preprocess", mode: 'copy'
 
 	input:
@@ -529,7 +522,6 @@ process runHardFilterSNP {
 
 process runHardFilterIndel {
 
-	tag "ALL"
         publishDir "${OUTDIR}/Variants/HardFilter/Preprocess", mode: 'copy'
         
         input:
@@ -562,7 +554,6 @@ process runHardFilterIndel {
 
 process runCombineHardVariants {
 
-	tag "ALL"
         publishDir "${OUTDIR}/Variants/HardFilter/Final", mode: 'copy'
 
         input:
@@ -589,7 +580,6 @@ process runCombineHardVariants {
 
 process runSplitHardVariantsBySample {
 
-	tag "ALL|${params.assembly}"
         publishDir "${OUTDIR}/Variants/HardFilter/Final/BySample", mode: 'copy'
 
         input:
@@ -612,7 +602,6 @@ process runSplitHardVariantsBySample {
 
 process runRecalibrationModeSNP {
 
-	tag "ALL"
 	publishDir "${OUTDIR}/Variants/VSQR/Recal"
 	
 	input:
@@ -649,7 +638,6 @@ process runRecalibrationModeSNP {
 
 process runRecalibrationModeIndel {
 	
-	tag "ALL"
 	publishDir "${OUTDIR}/Variants/VSQR/Recal"
 
   	input:
@@ -683,7 +671,6 @@ process runRecalibrationModeIndel {
 
 process runRecalIndelApply {
 
-	tag "ALL"
         publishDir "${OUTDIR}/Variants/VSQR/Recal"
 
         input:
@@ -713,7 +700,6 @@ process runRecalIndelApply {
 
 process runRecalSNPApply {
 	
-	tag "ALL"
 	publishDir "${OUTDIR}/Variants/VSQR/Filtered"
 	
 	input:
@@ -744,7 +730,6 @@ process runRecalSNPApply {
 
 process runVariantFiltrationIndel {
 
-	tag "ALL"
 	publishDir "${OUTDIR}/Variants/VSQR/Filtered"
 
   	input:
@@ -771,7 +756,6 @@ process runVariantFiltrationIndel {
 
 process runSelectVariants {
 
-	tag "ALL|${params.assembly}"
 	publishDir "${OUTDIR}/Variants/VSQR/Final", mode: 'copy'
 
 	input:
@@ -798,7 +782,6 @@ process runSelectVariants {
 
 process runSplitBySample {
 
-        tag "ALL|${params.assembly}"
         publishDir "${OUTDIR}/Variants/VSQR/Final/BySample", mode: 'copy'
 
 	input:
@@ -820,7 +803,6 @@ process runSplitBySample {
 // *********************
 
 process runCollectMultipleMetrics {
-	tag "${indivID}|${sampleID}"
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
  
 	scratch use_scratch
@@ -857,7 +839,6 @@ process runCollectMultipleMetrics {
 
 process runHybridCaptureMetrics {
 
-    tag "${indivID}|${sampleID}"
     publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
     input:
@@ -885,7 +866,6 @@ process runHybridCaptureMetrics {
 
 process runOxoGMetrics {
 
-    tag "${indivID}|${sampleID}"
     publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
     input:
@@ -915,9 +895,30 @@ process runOxoGMetrics {
 //
 // ------------------------------------------------------------------------------------------------------------
 
+// this is not finished yet, need to create a proper yaml file
+process get_software_versions {
+
+    publishDir "${OUTDIR}/Summary/versions", mode: 'copy'
+    output:
+    file("v*.txt") into software_versions
+    file 'software_versions_mqc.yaml' into software_versions_yaml_fastqc, software_versions_yaml_lib, software_versions_yaml_sample
+
+    script:
+    """
+    echo $workflow.manifest.version &> v_ikmb_exoseq.txt
+    echo $workflow.nextflow.version &> v_nextflow.txt
+    fastqc --version &> v_fastqc.txt
+    fastp -v &> v_fastp.txt
+    gatk --version &> v_gatk.txt
+    picard MarkDuplicates -h &> /dev/stdout | grep "Version" > v_picard.txt  || true
+    samtools --version &> v_samtools.txt
+    multiqc --version &> v_multiqc.txt
+    parse_versions.pl --outfile  software_versions_mqc.yaml
+    """
+}
+
 process runMultiqcFastq {
 
-    tag "Generating fastq level summary and QC plots"
     publishDir "${OUTDIR}/Summary/Fastq", mode: 'copy'
 
     when:
@@ -925,6 +926,7 @@ process runMultiqcFastq {
 
     input:
     file('*') from fastp_results.flatten().toList()
+    file('*') from software_versions_yaml_fastqc.collect()
     
     output:
     file("fastp_multiqc*") into runMultiQCFastqOutput
@@ -933,13 +935,13 @@ process runMultiqcFastq {
 
     """
     cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
+    cp $params.logo . 
     multiqc -n fastp_multiqc *.json *.html
     """
 }
 
 process runMultiqcLibrary {
 
-    tag "Generating library level summary and QC plots"
     publishDir "${OUTDIR}/Summary/Library", mode: 'copy'
 
     when:
@@ -947,6 +949,7 @@ process runMultiqcLibrary {
 	    
     input:
     file('*') from DuplicatesOutput_QC.flatten().toList()
+    file('*') from software_versions_yaml_lib.collect()
 
     output:
     file("library_multiqc*") into runMultiQCLibraryOutput
@@ -954,6 +957,7 @@ process runMultiqcLibrary {
     script:
 
     """
+    cp $params.logo .
     cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
     multiqc -n library_multiqc *.txt
     """
@@ -961,7 +965,6 @@ process runMultiqcLibrary {
 
 process runMultiqcSample {
 
-    tag "Generating sample level summary and QC plots"
     publishDir "${OUTDIR}/Summary/Sample", mode: 'copy'
 
     when:
@@ -971,6 +974,7 @@ process runMultiqcSample {
     file('*') from CollectMultipleMetricsOutput.flatten().toList()
     file('*') from HybridCaptureMetricsOutput.flatten().toList()
     file('*') from runOxoGMetricsOutput.flatten().toList()
+    file('*') from software_versions_yaml_sample.collect()
         
     output:
     file("sample_multiqc.html") into multiqc_report
@@ -981,6 +985,7 @@ process runMultiqcSample {
     def recipient = params.email
 
     """
+    cp $params.logo . 
     cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
     multiqc -n sample_multiqc *
 
@@ -998,10 +1003,13 @@ if (params.panel) {
 
                 output:
                 set indivID,sampleID,file(coverage) into outputPanelCoverage
+		set indivID,sampleID,file(target_coverage_yaml) into outputPanelTargetCoverage
 
                 script:
                 panel_name = file(params.panel).getSimpleName()
                 coverage = indivID + "_" + sampleID + "." +  panel_name  + ".hs_metrics.txt"
+		target_coverage = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics.txt"
+		target_coverage_yaml = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics_mqc.yaml"
 
                 // do something here - get coverage and build a PDF
                 """
@@ -1011,16 +1019,40 @@ if (params.panel) {
                         TARGET_INTERVALS=${PANEL} \
                         BAIT_INTERVALS=${PANEL} \
                         REFERENCE_SEQUENCE=${REF} \
-                        TMP_DIR=tmp
+                        TMP_DIR=tmp \
+			PER_TARGET_COVERAGE=$target_coverage
+
+			target_coverage2report.pl --infile $target_coverage --min_cov $params.panel_coverage > $target_coverage_yaml
+
                 """
         }
+
+	process runMultiqcPanelPerIndiv {
+
+		publishDir "${OUTDIR}/${indivID}/${sampleID}/PanelCoverage", mode: "copy"
+		
+		input:
+		set indivID,sampleID,file(target_coverage_yaml) from outputPanelTargetCoverage
+
+		output:
+		file("*.html") into PanelCoverageIndiv 
+
+		script:
+		panel_name = file(params.panel).getSimpleName()
+		"""
+			cp $params.logo . 
+			cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
+			multiqc -n ${panel_name}_${indivID}_${sampleID}_multiqc *
+		"""
+
+	}
 
 	process runMultiqcPanel {
 
 		publishDir "${OUTDIR}/Summary/Panel", mode: "copy"
 
 		input:
-		file('*') from outputPanelCoverage.collect()
+		file('*') from outputPanelCoverage
 
 		output:
 		file("${panel_name}_multiqc.html") into panel_qc_report
@@ -1028,6 +1060,7 @@ if (params.panel) {
 		script:
 		panel_name = file(params.panel).getSimpleName()
 		"""
+			cp $params.logo . 
 			cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
 			multiqc -n ${panel_name}_multiqc *
 		"""
@@ -1035,27 +1068,6 @@ if (params.panel) {
 	}
 }
 
-// this is not finished yet, need to create a proper yaml file
-process get_software_versions {
-
-    publishDir "${OUTDIR}/Summary/versions", mode: 'copy'
-    output:
-    file 'software_versions_mqc.yaml' into software_versions_yaml
-    file '*.txt' into software_versions_txt
-
-    script:
-    """
-    echo $workflow.manifest.version &> v_ikmb_exoseq.txt
-    echo $workflow.nextflow.version &> v_nextflow.txt
-    fastqc --version &> v_fastqc.txt
-    fastp -v &> v_fastp.txt
-    gatk --version &> v_gatk.txt
-    picard MarkDuplicates -h &> /dev/stdout | grep "Version" > v_picard.txt  || true
-    samtools --version &> v_samtools.txt
-    multiqc --version &> v_multiqc.txt
-    cat *.txt >> software_versions_mqc.yaml
-    """
-}
 
 workflow.onComplete {
   log.info "========================================="

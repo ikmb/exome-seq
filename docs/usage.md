@@ -87,6 +87,8 @@ supports the following panels:
 - Dilatative Kardiomyopathie [cardio_dilatative]
 - Hypertrophe Kardiomyopathie [cardio_hypertrophic]
 - Non-Compaction Kardiomyopathie [cardio_non_compaction]
+- early-onset IBD [ imm_eoIBD_full ]
+- early-onset IBD (25kb sub panel) [ eoIBD_25kb ]
 
 To enable coverage statistics of a target panel, use the `--panel` argument:
 
