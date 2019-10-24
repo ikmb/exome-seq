@@ -159,7 +159,7 @@ if (params.panel) {
 	summary['GenePanel'] = PANEL_NAME
 }
 if (workflow.containerEngine) {
-	summary['Container'] = process.container
+	summary['Container'] = "$workflow.containerEngine - $workflow.container"
 }
 summary['References'] = [:]
 summary['References']['DBSNP'] = DBSNP
