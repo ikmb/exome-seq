@@ -50,6 +50,7 @@ Optional parameters:
 --run_name 		       A descriptive name for this pipeline run
 --cram			       Whether to output the alignments in CRAM format (default: bam)
 --fasta			       A reference genome in FASTA format (set automatically if using --assembly)
+--dict			       A sequence dictionary matching --fasta (set automatically if using --assembly)
 --dbsnp			       dbSNP data in VCF format (set automatically if using --assembly)
 --g1k			       A SNP reference (usually 1000genomes, set automatically if using --assembly)
 --mills_indels		       An INDEL reference (usually MILLS/1000genomes, set automatically if using --assembly)
@@ -92,6 +93,7 @@ if (params.run_name == false) {
 params.assembly = "hg19"
 
 REF = params.fasta ?: file(params.genomes[ params.assembly ].fasta)
+DICT = params.dict ?: file(params.genomes[ params.assembly ].dict)
 DBSNP = params.dbsnp ?: file(params.genomes[ params.assembly ].dbsnp )
 G1K = params.g1k ?: file(params.genomes[ params.assembly ].g1k )
 MILLS = params.mills_indels ?: file(params.genomes[ params.assembly ].mills )
@@ -206,7 +208,7 @@ process runFastp {
 	html = file(fastqR1).getBaseName() + ".fastp.html"
 
 	"""
-		fastp --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right -w ${task.cpus} -j $json -h $html --length_required 35
+		fastp --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right --detect_adapter_for_pe -w ${task.cpus} -j $json -h $html --length_required 35
 	"""
 }
 
@@ -224,10 +226,9 @@ process runBWA {
     
     script:
     outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.bam"	
-    dict_file = REF.getBaseName() + ".dict"
     
     """
-	bwa mem -H $dict_file -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${REF}\\tCN:${center}" -t ${task.cpus} ${REF} $left $right | samtools sort -O bam -m 2G -@ 4 - > $outfile
+	bwa mem -H $DICT -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${REF}\\tCN:${center}" -t ${task.cpus} ${REF} $left $right | samtools sort -O bam -m 2G -@ 4 - > $outfile
     """	
 }
 
@@ -245,24 +246,36 @@ process mergeBamFiles_bySample {
 	merged_bam = sampleID + ".merged.bam"
 	merged_bam_index = merged_bam + ".bai"
 
-	"""
+	if (aligned_bam_list.size() > 1 && aligned_bam_list.size() < 1000 ) {
+		"""
 
-	    	gatk MergeSamFiles \
-                    -I ${aligned_bam_list.join(' -I ')} \
-                    -O /dev/stdout \
-		    --USE_THREADING true \
-                    --SORT_ORDER coordinate |
+		    	gatk MergeSamFiles \
+                	    -I ${aligned_bam_list.join(' -I ')} \
+	                    -O /dev/stdout \
+			    --USE_THREADING true \
+                	    --SORT_ORDER coordinate |
 
-		gatk SetNmMdAndUqTags \
-			-I /dev/stdin \
-			-O $merged_bam \
-			-R $REF \
-			--IS_BISULFITE_SEQUENCE false
+			gatk SetNmMdAndUqTags \
+				-I /dev/stdin \
+				-O $merged_bam \
+				-R $REF \
+				--IS_BISULFITE_SEQUENCE false
 
-		samtools index $merged_bam
-		rm -f merged.bam
+			samtools index $merged_bam
 
-	"""
+		"""
+	} else {
+		"""
+			gatk SetNmMdAndUqTags \
+		                -I ${aligned_bam_list.join(' -I ') } \
+                	        -O $merged_bam \
+                        	-R $REF \
+	                        --IS_BISULFITE_SEQUENCE false
+
+        	        samtools index $merged_bam
+		"""
+
+	}
 }
 
 process runMarkDuplicates {
@@ -293,7 +306,7 @@ process runMarkDuplicates {
         	        -M ${outfile_metrics} \
                         --CREATE_INDEX true \
 			--ASSUME_SORT_ORDER=coordinate \
-			--MAX_RECORDS_IN_RAM 100000 \
+			--MAX_RECORDS_IN_RAM 50000 \
 			--CREATE_MD5_FILE true \
                         --TMP_DIR tmp \
 			-R ${REF}
