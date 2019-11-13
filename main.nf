@@ -949,7 +949,7 @@ process runMultiqcFastq {
     """
     cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
     cp $params.logo . 
-    multiqc -n fastp_multiqc *.json *.html
+    multiqc -n fastp_multiqc *.json *.html *.yaml
     """
 }
 
@@ -972,7 +972,7 @@ process runMultiqcLibrary {
     """
     cp $params.logo .
     cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
-    multiqc -n library_multiqc *.txt
+    multiqc -n library_multiqc *.txt *.yaml
     """
 }
 
