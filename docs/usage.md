@@ -64,7 +64,9 @@ We have included these files for two capture kits - IDT xGen and Nextera. You ca
 
 `--kit Nextera`
 
-`--kit xGen`
+`--kit xGen` (original IDT xGen kit, available for all three assemblies)
+
+`--kit xGen_v2` (v2 release of the IDT xGen kit, available only for GRCh38)
 
 We also offer a custom version of xGen (`--kit xGen_custom`), which includes a few additional SNPs missing from xGen; this is really only relevant if you use 
 our custom mix - so it's safe to ignore. 
@@ -89,6 +91,10 @@ supports the following panels:
 - Non-Compaction Kardiomyopathie [cardio_non_compaction]
 - early-onset IBD [ imm_eoIBD_full ]
 - early-onset IBD (25kb sub panel) [ eoIBD_25kb ]
+- Immune defect AK deficency (25kb panel) [ gene_immunedefect_ak-25kb ]
+- Immune defect CVID (25kb panel) [ gene_immunedefect_cvid-25kb ]
+- Immune defect full [ gene_immunedefect_full ]
+- Immune defect with intestinal component (25kb panel) [ gene_immunedefect_with_intestine-25kb ]
 
 To enable coverage statistics of a target panel, use the `--panel` argument:
 

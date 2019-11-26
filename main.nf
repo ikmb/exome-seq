@@ -41,7 +41,7 @@ the Nextera kit and using the GATK4 best-practice workflow.
 Required parameters:
 --samples                      A sample list in CSV format (see website for formatting hints)
 --assembly                     Name of the reference assembly to use
---kit			       Name of the exome kit (available options: xGen, xGen_custom, Nextera)
+--kit			       Name of the exome kit (available options: xGen, xGen_custom, xGen_v2, Nextera)
 --email 		       Email address to send reports to (enclosed in '')
 Optional parameters:
 --skip_multiqc		       Don't attached MultiQC report to the email. 
