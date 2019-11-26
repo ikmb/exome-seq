@@ -183,7 +183,7 @@ log.info "Assembly version: 		${params.assembly}"
 log.info "Command Line:			$workflow.commandLine"
 log.info "Run name: 			${run_name}"
 if (workflow.containerEngine) {
-	log.info "Container engine:	${workflow.containerEngine}"
+	log.info "Container engine:		${workflow.containerEngine}"
 }
 log.info "========================================="
 
