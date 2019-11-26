@@ -4,10 +4,10 @@ From:continuumio/anaconda
 %labels
     MAINTAINER Marc Hoeppner <m.hoeppner@ikmb.uni-kiel.de>
     DESCRIPTION Singularity image containing all requirements for the exome-seq pipeline
-    VERSION 1.0
+    VERSION 1.2
 
 %environment
-    PATH=/opt/conda/envs/exome-seq-1.1/bin:$PATH
+    PATH=/opt/conda/envs/exome-seq-1.2/bin:$PATH
     export PATH
 
 %files
