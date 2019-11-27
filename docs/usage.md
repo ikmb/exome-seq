@@ -89,8 +89,6 @@ supports the following panels:
 - Dilatative Kardiomyopathie [cardio_dilatative]
 - Hypertrophe Kardiomyopathie [cardio_hypertrophic]
 - Non-Compaction Kardiomyopathie [cardio_non_compaction]
-- early-onset IBD [ imm_eoIBD_full ]
-- early-onset IBD (25kb sub panel) [ eoIBD_25kb ]
 - Immune defect AK deficency (25kb panel) [ gene_immunedefect_ak-25kb ]
 - Immune defect CVID (25kb panel) [ gene_immunedefect_cvid-25kb ]
 - Immune defect full [ gene_immunedefect_full ]
@@ -99,7 +97,7 @@ supports the following panels:
 To enable coverage statistics of a target panel, use the `--panel` argument:
 
 `
-nextflow run marchoeppner/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen_custom --panel cardio_dilatative
+nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen_v2 --panel cardio_dilatative
 `
 
 
