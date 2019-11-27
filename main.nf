@@ -1017,6 +1017,7 @@ if (params.panel) {
                 output:
                 set indivID,sampleID,file(coverage) into outputPanelCoverage
 		set indivID,sampleID,file(target_coverage_yaml) into outputPanelTargetCoverage
+		file(target_coverage)
 
                 script:
                 panel_name = file(params.panel).getSimpleName()
