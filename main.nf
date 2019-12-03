@@ -1009,7 +1009,7 @@ if (params.panel) {
 
         process runPanelCoverage {
 
-                publishDir "${OUTDIR}/${indivID}/${sampleID}/PanelCoverage", mode: "copy"
+                publishDir "${OUTDIR}//Summary/Panel/PanelCoverage", mode: "copy"
 
                 input:
                 set indivID,sampleID,file(bam),file(bai) from inputPanelCoverage
@@ -1043,7 +1043,7 @@ if (params.panel) {
 
 	process runMultiqcPanelPerIndiv {
 
-		publishDir "${OUTDIR}/${indivID}/${sampleID}/PanelCoverage", mode: "copy"
+		publishDir "${OUTDIR}/Summary/Panel/PanelCoverage", mode: "copy"
 		
 		input:
 		set indivID,sampleID,file(target_coverage_yaml) from outputPanelTargetCoverage
@@ -1066,7 +1066,7 @@ if (params.panel) {
 		publishDir "${OUTDIR}/Summary/Panel", mode: "copy"
 
 		input:
-		file('*') from outputPanelCoverage
+		file('*') from outputPanelCoverage.collect()
 
 		output:
 		file("${panel_name}_multiqc.html") into panel_qc_report
