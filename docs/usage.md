@@ -93,6 +93,7 @@ supports the following panels:
 - Immune defect CVID (25kb panel) [ gene_immunedefect_cvid-25kb ]
 - Immune defect full [ gene_immunedefect_full ]
 - Immune defect with intestinal component (25kb panel) [ gene_immunedefect_with_intestine-25kb ]
+- Breast cancer panel [ breast_cancer ]
 
 To enable coverage statistics of a target panel, use the `--panel` argument:
 

@@ -1082,7 +1082,6 @@ if (params.panel) {
 	}
 }
 
-
 workflow.onComplete {
   log.info "========================================="
   log.info "Duration:		$workflow.duration"
