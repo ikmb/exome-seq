@@ -77,6 +77,8 @@ foreach $line (<$fh>) {
 
 	foreach my $gene_name (@genes) {
 
+		print STDERR "Searching for $gene_name ...\n" ;
+
 		next if ($skip == 1);
 
 		# Theoretically, one HGNC can map to multiple Genes
@@ -97,7 +99,7 @@ foreach $line (<$fh>) {
 				($ref_start,$ref_end) = ($ref_end,$ref_start);
 			}
 			my $strand = $exon->strand == 1 ? "+" : "-" ;
-			printf $prefix . $gene->seq_region_name . "\t" . $ref_start . "\t" . $ref_end . "\t" . $line . "." . $exon->rank($transcript) . "\t" . 100 . "\t" . $strand . "\n";
+			printf $prefix . $gene->seq_region_name . "\t" . $ref_start . "\t" . $ref_end . "\t" . $line . "." . $transcript->stable_id . "."  . $exon->rank($transcript) . "\t" . 100 . "\t" . $strand . "\n";
 		}
 	}
 

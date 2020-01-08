@@ -1009,21 +1009,21 @@ if (params.panel) {
 
         process runPanelCoverage {
 
-                publishDir "${OUTDIR}/${indivID}/${sampleID}/PanelCoverage", mode: "copy"
+                publishDir "${OUTDIR}//Summary/Panel/PanelCoverage", mode: "copy"
 
                 input:
                 set indivID,sampleID,file(bam),file(bai) from inputPanelCoverage
 
                 output:
                 set indivID,sampleID,file(coverage) into outputPanelCoverage
-		set indivID,sampleID,file(target_coverage_yaml) into outputPanelTargetCoverage
+		set indivID,sampleID,file(target_coverage_xls) into outputPanelTargetCoverage
 		file(target_coverage)
 
                 script:
                 panel_name = file(params.panel).getSimpleName()
                 coverage = indivID + "_" + sampleID + "." +  panel_name  + ".hs_metrics.txt"
 		target_coverage = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics.txt"
-		target_coverage_yaml = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics_mqc.yaml"
+		target_coverage_xls = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics_mqc.xlsx"
 
                 // do something here - get coverage and build a PDF
                 """
@@ -1036,37 +1036,17 @@ if (params.panel) {
                         TMP_DIR=tmp \
 			PER_TARGET_COVERAGE=$target_coverage
 
-			target_coverage2report.pl --infile $target_coverage --min_cov $params.panel_coverage > $target_coverage_yaml
+			target_coverage2xls.pl --infile $target_coverage --min_cov $params.panel_coverage --outfile $target_coverage_xls
 
                 """
         }
-
-	process runMultiqcPanelPerIndiv {
-
-		publishDir "${OUTDIR}/${indivID}/${sampleID}/PanelCoverage", mode: "copy"
-		
-		input:
-		set indivID,sampleID,file(target_coverage_yaml) from outputPanelTargetCoverage
-
-		output:
-		file("*.html") into PanelCoverageIndiv 
-
-		script:
-		panel_name = file(params.panel).getSimpleName()
-		"""
-			cp $params.logo . 
-			cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
-			multiqc -n ${panel_name}_${indivID}_${sampleID}_multiqc *
-		"""
-
-	}
 
 	process runMultiqcPanel {
 
 		publishDir "${OUTDIR}/Summary/Panel", mode: "copy"
 
 		input:
-		file('*') from outputPanelCoverage
+		file('*') from outputPanelCoverage.collect()
 
 		output:
 		file("${panel_name}_multiqc.html") into panel_qc_report
@@ -1081,7 +1061,6 @@ if (params.panel) {
 
 	}
 }
-
 
 workflow.onComplete {
   log.info "========================================="
