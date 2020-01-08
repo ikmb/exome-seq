@@ -1023,7 +1023,7 @@ if (params.panel) {
                 panel_name = file(params.panel).getSimpleName()
                 coverage = indivID + "_" + sampleID + "." +  panel_name  + ".hs_metrics.txt"
 		target_coverage = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics.txt"
-		target_coverage_xks = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics_mqc.xlsx"
+		target_coverage_xls = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics_mqc.xlsx"
 
                 // do something here - get coverage and build a PDF
                 """

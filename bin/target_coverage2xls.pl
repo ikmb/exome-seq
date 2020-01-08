@@ -63,18 +63,10 @@ my $worksheet = $workbook->add_worksheet();
 
 my $row = 0;
 
-printf "Gene/Transcript/Exon\tMean coverage"
+my $fh = IO::File->new();
+$fh->open( $infile );
 
-open (my $IN, '<', $infile) or die "FATAL: Can't open file: $infile for reading.\n$!\n";
-
-chomp(my @lines = <$IN>);
-
-# Write a header for this sheet
-my @header = ("Exon","Coverage");
-&write_xlsx($worksheet, $row, @header);
-++$row;
-
-foreach my  $line (@lines) {
+foreach my $line (<$fh>) {
 
 	chomp($line);
 	my ($chrom,$start,$end,$length,$name,$gc,$mean_coverage,$normalized_coverage,$min_normalized_coverage,$max_normalized_coverage,$min_coverage,$max_coverage,$pct_0x,$read_count) = split("\t", $line);
@@ -92,7 +84,7 @@ foreach my  $line (@lines) {
 	
 }
 
-close($IN);
+close($fh);
 
 sub write_xlsx{
     my ($worksheet, $tem_row, @ele) = @_;
