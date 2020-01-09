@@ -1018,6 +1018,7 @@ if (params.panel) {
                 set indivID,sampleID,file(coverage) into outputPanelCoverage
 		set indivID,sampleID,file(target_coverage_xls) into outputPanelTargetCoverage
 		file(target_coverage)
+		file("overlaps.interval_list")
 
                 script:
                 panel_name = file(params.panel).getSimpleName()
@@ -1027,6 +1028,13 @@ if (params.panel) {
 
                 // do something here - get coverage and build a PDF
                 """
+
+	              picard -Xmx${task.memory.toGiga()}G IntervalListTools \
+			INPUT=$PANEL \
+			SECOND_INPUT=$TARGETS \
+			ACTION=SUBTRACT \
+			OUTPUT=overlaps.interval_list
+
                       picard -Xmx${task.memory.toGiga()}G CollectHsMetrics \
                         INPUT=${bam} \
                         OUTPUT=${coverage} \
@@ -1036,7 +1044,7 @@ if (params.panel) {
                         TMP_DIR=tmp \
 			PER_TARGET_COVERAGE=$target_coverage
 
-			target_coverage2xls.pl --infile $target_coverage --min_cov $params.panel_coverage --outfile $target_coverage_xls
+			target_coverage2xls.pl --infile $target_coverage --min_cov $params.panel_coverage --skip overlaps.interval_list --outfile $target_coverage_xls
 
                 """
         }
