@@ -94,7 +94,7 @@ foreach my $line (<$fh>) {
 
 	chomp($line);
 	my ($chrom,$start,$end,$length,$name,$gc,$mean_coverage,$normalized_coverage,$min_normalized_coverage,$max_normalized_coverage,$min_coverage,$max_coverage,$pct_0x,$read_count) = split("\t", $line);
-	my $status = "UNDETERMINED";
+	my $status = "";
 	if ($mean_coverage < $min_cov) {
 		if ( exists($kill{$name}) ) {
 			$status = "KNOWN_BAD" ;
