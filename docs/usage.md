@@ -60,13 +60,15 @@ For example, in a clinical setting, common choices are hg19 and GRCh37.
 Each exome capture kit has a target and a bait definition, i.e. information about the exons it enriches and the specific RNA bait sequences that are used 
 for capture. This information is important so the pipeline knows whichs regions of the genome to analyze and how to compute run metrics. 
 
-We have included these files for two capture kits - IDT xGen and Nextera. You can choose one or the other:
+We have included these files for the following kits:
 
 `--kit Nextera`
 
 `--kit xGen` (original IDT xGen kit, available for all three assemblies)
 
 `--kit xGen_v2` (v2 release of the IDT xGen kit, available only for GRCh38)
+
+`--kit Pan_cancer` (available only for hg19)
 
 We also offer a custom version of xGen (`--kit xGen_custom`), which includes a few additional SNPs missing from xGen; this is really only relevant if you use 
 our custom mix - so it's safe to ignore. 

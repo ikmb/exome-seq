@@ -41,9 +41,10 @@ the Nextera kit and using the GATK4 best-practice workflow.
 Required parameters:
 --samples                      A sample list in CSV format (see website for formatting hints)
 --assembly                     Name of the reference assembly to use
---kit			       Name of the exome kit (available options: xGen, xGen_custom, xGen_v2, Nextera)
+--kit			       Name of the exome kit (available options: xGen, xGen_custom, xGen_v2, Nextera, Pan_cancer)
 --email 		       Email address to send reports to (enclosed in '')
 Optional parameters:
+--max_length		       Cut reads down to this length (optional, default 0 = no trimming)
 --skip_multiqc		       Don't attached MultiQC report to the email. 
 --vqsr 			       Whether to also run variant score recalibration (only works >= 30 samples) (default: false)
 --panel 		       Gene panel to check coverage of (valid options: cardio_dilatative, cardio_hypertrophic, cardio_non_compaction, eoIBD_25kb, imm_eoIBD_full, breast_cancer)
@@ -149,6 +150,17 @@ use_scratch = params.scratch
 if (params.no_dedup) {
 	println "Selected to skip duplicate marking. This is NOT recommended!"
 }
+
+// Check if the max_length argument is a number
+if (params.max_length) {
+	summary['maxReadLength'] = params.max_length
+ 	if (params.max_length instanceof Integer) {
+
+	} else {
+		exit 1, "Defined a max_length option, but it is not an integer...!"
+	}
+}
+
 	
 summary['runName'] = run_name
 summary['Samples'] = inputFile
@@ -202,13 +214,18 @@ process runFastp {
 	set file(html),file(json) into fastp_results
 
 	script:
+	def options = ""
+	if (params.max_length != false) {
+		options += " -b ${params.max_length} -B ${params.max_length}"
+	}
+
 	left = file(fastqR1).getBaseName() + "_trimmed.fastq.gz"
 	right = file(fastqR2).getBaseName() + "_trimmed.fastq.gz"
 	json = file(fastqR1).getBaseName() + ".fastp.json"
 	html = file(fastqR1).getBaseName() + ".fastp.html"
 
 	"""
-		fastp --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right --detect_adapter_for_pe -w ${task.cpus} -j $json -h $html --length_required 35
+		fastp $options --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right --detect_adapter_for_pe -w ${task.cpus} -j $json -h $html --length_required 35
 	"""
 }
 
