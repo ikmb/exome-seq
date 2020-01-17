@@ -46,7 +46,7 @@ Required parameters:
 Optional parameters:
 --skip_multiqc		       Don't attached MultiQC report to the email. 
 --vqsr 			       Whether to also run variant score recalibration (only works >= 30 samples) (default: false)
---panel 		       Gene panel to check coverage of (valid options: cardio_dilatative, cardio_hypertrophic, cardio_non_compaction, eoIBD_25kb, imm_eoIBD_full)
+--panel 		       Gene panel to check coverage of (valid options: cardio_dilatative, cardio_hypertrophic, cardio_non_compaction, eoIBD_25kb, imm_eoIBD_full, breast_cancer)
 --run_name 		       A descriptive name for this pipeline run
 --cram			       Whether to output the alignments in CRAM format (default: bam)
 --fasta			       A reference genome in FASTA format (set automatically if using --assembly)
@@ -58,7 +58,7 @@ Optional parameters:
 --hapmap		       A SNP reference (usually HAPMAP, set automatically if using --assembly)
 --targets		       A interval_list target file (set automatically if using the --kit option)
 --baits			       A interval_list bait file (set automatically if using the --kit option)
---interval_padding	       For GATK, include this number of nt upstream and downstream around the exome targets (default: 50)
+--interval_padding	       For GATK, include this number of nt upstream and downstream around the exome targets (default: 10)
 Output:
 --outdir                       Local directory to which all output is written (default: results)
 """
@@ -1018,7 +1018,6 @@ if (params.panel) {
                 set indivID,sampleID,file(coverage) into outputPanelCoverage
 		set indivID,sampleID,file(target_coverage_xls) into outputPanelTargetCoverage
 		file(target_coverage)
-		file("overlaps.interval_list")
 
                 script:
                 panel_name = file(params.panel).getSimpleName()
@@ -1026,7 +1025,8 @@ if (params.panel) {
 		target_coverage = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics.txt"
 		target_coverage_xls = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics_mqc.xlsx"
 
-                // do something here - get coverage and build a PDF
+                // do something here - get coverage and build an XLS sheet
+		// First we identify which analysed exons are actually part of the exome kit target definition. 
                 """
 
 	              picard -Xmx${task.memory.toGiga()}G IntervalListTools \
