@@ -53,13 +53,13 @@ Your Email address in quotes to which the pipeline report is sent upon completio
 
 ## Optional arguments
 
-## `--baits` | `--targets` 
+### `--baits` | `--targets` 
 If you have used any other type of kit for your enrichment, you are able to provide these from the command line during execution using `--baits` and 
 `--targets`, respectively. Please not that these files must be in the Picard 
 [interval_list](https://gatkforums.broadinstitute.org/gatk/discussion/1319/collected-faqs-about-interval-lists) format and have to be matched 
 to the genome assembly (i.e. must have identical dictionary headers). 
 
-## `--panel`
+### `--panel`
 For practical reasons, it can be desirable to determine the coverage of a discrete set of target genes, such as for a gene panel. The pipeline currently 
 supports the following panels:
 
@@ -74,42 +74,42 @@ supports the following panels:
 
 Please not that this will also create additional run metrics, including a per-sample list of target exons that fall below a minimum sequence coverage. 
 
-## `--max_length` 
+### `--max_length` 
 Set this to a positive number to trim all reads down to a desired size. Default: no size-trimming.
 
-## `--interval_padding`
+### `--interval_padding`
 Set this to a positive number to include flanking regions of exon targets in the analysis. Default: 10
 
-## `--skip_multiqc`
+### `--skip_multiqc`
 Skip the sending of a QC report. Default: false
 
-## `--cram`
+### `--cram`
 Create CRAM instead of BAM files to save space. Not that CRAM files are slower to read by IGV. 
 
-## `--vqsr`
+### `--vqsr`
 Perform the variant score recalibration filtering workflow. This requires > 30 exomes to be analysed in parallel and is deactivated by default. 
 
-## `--run_name`
+### `--run_name`
 Give this run a meaningful name (like a LIMS or project ID)
 
-## `--fasta`
+### `--fasta`
 Provide path to a genome sequence in FASTA format (default: false, uses a pre-configured genome)
 
-## `--dict`
+### `--dict`
 Provide path to a genome sequence dictionary file (default: false, uses a pre-configured dictionary)
 
-## `--dbsnp`
+### `--dbsnp`
 Provide path to a dbSNP reference VCF file for variant filtering (default: false, uses a pre-configured reference)
 
-## `--g1k`
+### `--g1k`
 Provide path to a 1000genomes reference VCF file for variant filtering (default: false, uses a pre-configured reference)
 
-## `--mills_indels`
+### `--mills_indels`
 Provide path to a indel reference VCF file for variant filtering (default: false, uses a pre-configured reference)
 
-## `--omni`
+### `--omni`
 Provide path to a SNP reference VCF file for variant filtering (default: false, uses a pre-configured reference)
 
-## `--hapmap`
+### `--hapmap`
 Provide path to a SNP reference VCF file for variant filtering (default: false, uses a pre-configured reference)
 
