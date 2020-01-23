@@ -55,7 +55,7 @@ Your Email address in quotes to which the pipeline report is sent upon completio
 
 ### `--baits` | `--targets` 
 If you have used any other type of kit for your enrichment, you are able to provide these from the command line during execution using `--baits` and 
-`--targets`, respectively. Please not that these files must be in the Picard 
+`--targets`, respectively. Please note that these files must be in the Picard 
 [interval_list](https://gatkforums.broadinstitute.org/gatk/discussion/1319/collected-faqs-about-interval-lists) format and have to be matched 
 to the genome assembly (i.e. must have identical dictionary headers). 
 
@@ -72,7 +72,7 @@ supports the following panels:
 - Immune defect with intestinal component (25kb panel) [ gene_immunedefect_with_intestine-25kb ]
 - Breast cancer panel [ breast_cancer ]
 
-Please not that this will also create additional run metrics, including a per-sample list of target exons that fall below a minimum sequence coverage. 
+Please note that this will also create additional run metrics, including a per-sample list of target exons that fall below a minimum sequence coverage. 
 
 ### `--max_length` 
 Set this to a positive number to trim all reads down to a desired size. Default: no size-trimming.
@@ -84,7 +84,7 @@ Set this to a positive number to include flanking regions of exon targets in the
 Skip the sending of a QC report. Default: false
 
 ### `--cram`
-Create CRAM instead of BAM files to save space. Not that CRAM files are slower to read by IGV. 
+Create CRAM instead of BAM files to save space. Note that CRAM files are slower to read by IGV. 
 
 ### `--vqsr`
 Perform the variant score recalibration filtering workflow. This requires > 30 exomes to be analysed in parallel and is deactivated by default. 

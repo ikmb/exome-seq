@@ -1057,6 +1057,7 @@ if (params.panel) {
                         OUTPUT=${coverage} \
                         TARGET_INTERVALS=${PANEL} \
                         BAIT_INTERVALS=${PANEL} \
+			CLIP_OVERLAPPING_READS=false \
                         REFERENCE_SEQUENCE=${REF} \
                         TMP_DIR=tmp \
 			PER_TARGET_COVERAGE=$target_coverage
