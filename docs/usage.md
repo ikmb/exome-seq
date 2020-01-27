@@ -6,7 +6,7 @@ The following command will execute this pipeline; the options will be discussed 
 
 If you are at the IKMB, the following will work:
 
-`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com' 
+`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com`
 
 If you try to run the pipeline on another system, you will need to configure a profile (see the installation instructions):
 
@@ -54,7 +54,7 @@ Your Email address in quotes to which the pipeline report is sent upon completio
 ## Optional arguments
 
 ### `--baits` | `--targets` 
-If you have used any other type of kit for your enrichment, you are able to provide these from the command line during execution using `--baits` and 
+If you have used any other type of kit for your enrichment, you are able to provide the target and bait definitions from the command line during execution using `--baits` and 
 `--targets`, respectively. Please note that these files must be in the Picard 
 [interval_list](https://gatkforums.broadinstitute.org/gatk/discussion/1319/collected-faqs-about-interval-lists) format and have to be matched 
 to the genome assembly (i.e. must have identical dictionary headers). 

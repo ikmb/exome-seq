@@ -1,5 +1,9 @@
 # Installation
 
+## At the IKMB
+
+If you are at the IKMB, you will not have to do anything to make this run, it is all pre-configured for our compute system(s).
+ 
 ## Site-specific config file
 
 This pipeline requires a site-specific configuration file to be able to talk to your local cluster or compute infrastructure. Nextflow supports a wide
