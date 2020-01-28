@@ -74,6 +74,11 @@ supports the following panels:
 
 Please note that this will also create additional run metrics, including a per-sample list of target exons that fall below a minimum sequence coverage. 
 
+### `--kill`
+For panel-based statistics, it is desirable to mark any exons that are known to underperform in exome sequencing - for example due to homology and
+resulting multimapping (MAPQ = 0). This options allows the user to provide a list of panel targets that are to be listed as "KNOWN BAD" when compiling the
+coverage report. An example is included for the IDT xGen v2 kit and assembly GRCh38 [here](../assets/kits/hg38_no_alt/idt_xgen_v2/kill.txt) .
+
 ### `--max_length` 
 Set this to a positive number to trim all reads down to a desired size. Default: no size-trimming.
 
