@@ -105,7 +105,7 @@ foreach my $line (<$fh>) {
 				$status = "IN_TARGET" ;
 			}
 		}
-		// work-around for the header of the table
+		# work-around for the header of the table
 		if ($name eq "name") {
 			$status = "status";
 		}

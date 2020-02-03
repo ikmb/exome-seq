@@ -45,6 +45,7 @@ Required parameters:
 --email 		       Email address to send reports to (enclosed in '')
 Optional parameters:
 --max_length		       Cut reads down to this length (optional, default 0 = no trimming)
+--kill			       A list of known bad exons in the genome build that are ignored for panel coverage statistics (see documentation for details)
 --skip_multiqc		       Don't attached MultiQC report to the email. 
 --vqsr 			       Whether to also run variant score recalibration (only works >= 30 samples) (default: false)
 --panel 		       Gene panel to check coverage of (valid options: cardio_dilatative, cardio_hypertrophic, cardio_non_compaction, eoIBD_25kb, imm_eoIBD_full, breast_cancer)
@@ -105,6 +106,11 @@ MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitoch
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
+if (params.kill) {
+	KILL = params.kill
+} else if (params.genomes[params.assembly].kits[params.kit].kill) {
+	KILL = params.genomes[params.assembly].kits[params.kit].kill
+}
 
 SNP_RULES = params.snp_filter_rules
 INDEL_RULES = params.indel_filter_rules
@@ -171,6 +177,9 @@ summary['Assembly'] = REF
 summary['Kit'] = TARGETS
 if (params.panel) {
 	summary['GenePanel'] = PANEL_NAME
+}
+if (KILL) {
+        summary['KillList'] = KILL
 }
 if (workflow.containerEngine) {
 	summary['Container'] = "$workflow.containerEngine - $workflow.container"
@@ -1042,6 +1051,12 @@ if (params.panel) {
 		target_coverage = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics.txt"
 		target_coverage_xls = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics_mqc.xlsx"
 
+		// optionally support a kill list of known bad exons
+		def options = ""
+		if (KILL) {
+			options = "--ban ${KILL}"
+		}
+
                 // do something here - get coverage and build an XLS sheet
 		// First we identify which analysed exons are actually part of the exome kit target definition. 
                 """
@@ -1062,7 +1077,7 @@ if (params.panel) {
                         TMP_DIR=tmp \
 			PER_TARGET_COVERAGE=$target_coverage
 
-			target_coverage2xls.pl --infile $target_coverage --min_cov $params.panel_coverage --skip overlaps.interval_list --outfile $target_coverage_xls
+			target_coverage2xls.pl $options --infile $target_coverage --min_cov $params.panel_coverage --skip overlaps.interval_list --outfile $target_coverage_xls
 
                 """
         }
