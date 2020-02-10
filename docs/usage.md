@@ -66,10 +66,10 @@ supports the following panels:
 - Dilatative Kardiomyopathie [cardio_dilatative]
 - Hypertrophe Kardiomyopathie [cardio_hypertrophic]
 - Non-Compaction Kardiomyopathie [cardio_non_compaction]
-- Immune defect AK deficency (25kb panel) [ gene_immunedefect_ak-25kb ]
-- Immune defect CVID (25kb panel) [ gene_immunedefect_cvid-25kb ]
-- Immune defect full [ gene_immunedefect_full ]
-- Immune defect with intestinal component (25kb panel) [ gene_immunedefect_with_intestine-25kb ]
+- Gene Immundefekt Agammaglobulinämie (25kb panel) [IMM_AGG]
+- Gene Immundefekt Hypogammaglobulinämie (25kb panel) [IMM_HGG]
+- Gene Immundefekt großes Panel [IMM]
+- Gene Immundefekt intestinal (25kb panel) [IMM_IBD]
 - Breast cancer panel [ breast_cancer ]
 
 Please note that this will also create additional run metrics, including a per-sample list of target exons that fall below a minimum sequence coverage. 
