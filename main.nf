@@ -150,9 +150,6 @@ if(params.email == false) {
 	exit 1, "You must provide an Email address to which pipeline updates are send!"
 }
 
-// Whether to use a local scratch disc
-use_scratch = params.scratch
-
 if (params.no_dedup) {
 	println "Selected to skip duplicate marking. This is NOT recommended!"
 }
@@ -215,6 +212,8 @@ Channel.from(inputFile)
 
 process runFastp {
 
+	scratch true
+
 	input:
 	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, center, date, fastqR1, fastqR2 from readPairsFastp
 
@@ -242,7 +241,7 @@ process runBWA {
 
     // publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Libraries/${libraryID}/${rgID}/BWA/", mode: 'copy'
 
-    // scratch use_scratch
+    scratch true
 	
     input:
     set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, run_date, center,file(left),file(right) from inputBwa
@@ -261,6 +260,8 @@ process runBWA {
 runBWAOutput_grouped_by_sample = runBWAOutput.groupTuple(by: [0,1])
 
 process mergeBamFiles_bySample {
+
+	scratch true
 
 	input:
         set indivID, sampleID, file(aligned_bam_list) from runBWAOutput_grouped_by_sample
@@ -308,7 +309,7 @@ process runMarkDuplicates {
 
         // publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
 
-        scratch use_scratch
+        scratch true
 
         input:
         set indivID, sampleID, file(merged_bam),file(merged_bam_index) from mergedBamFile_by_Sample
@@ -389,7 +390,7 @@ process runApplyBQSR {
 
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
 
-	scratch use_scratch
+	scratch true
 	    
 	input:
 	set indivID, sampleID, realign_bam, recal_table from runBaseRecalibratorOutput 
@@ -429,6 +430,8 @@ process runApplyBQSR {
 
 process runHCSample {
 
+	scratch true 
+
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/Variants/HaplotypeCaller" , mode: 'copy'
 
 	input: 
@@ -463,7 +466,7 @@ process runGenomicsDBImport  {
 
         publishDir "${OUTDIR}/Variants/JointGenotypes/", mode: 'copy'
 
-	scratch use_scratch 
+	scratch true
 
 	input:
         file(vcf_list) from outputHCSample.collect()
@@ -492,6 +495,8 @@ process runGenomicsDBImport  {
 // Perform genotyping on a per chromosome basis
 
 process runGenotypeGVCFs {
+
+	scratch true
   
 	publishDir "${OUTDIR}/Variants/JointGenotypes", mode: 'copy'
   
@@ -844,7 +849,7 @@ process runSplitBySample {
 process runCollectMultipleMetrics {
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
  
-	scratch use_scratch
+	scratch true
 	    
 	input:
 	set indivID, sampleID, bam, bai from BamForMultipleMetrics
@@ -1046,10 +1051,10 @@ if (params.panel) {
 		file(target_coverage)
 
                 script:
-                panel_name = file(params.panel).getSimpleName()
+                panel_name = file(PANEL).getSimpleName()
                 coverage = indivID + "_" + sampleID + "." +  panel_name  + ".hs_metrics.txt"
 		target_coverage = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics.txt"
-		target_coverage_xls = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics_mqc.xlsx"
+		target_coverage_xls = indivID + "_" + sampleID + "." + panel_name + ".per_target.hs_metrics_mqc.xlsx"
 
 		// optionally support a kill list of known bad exons
 		def options = ""
