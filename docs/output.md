@@ -31,6 +31,8 @@ selection/amplification. The level of duplication should be low, but can sometim
 ### Sample MultiQC
 
 The sample report contains essential information about the actual enrichment performance, including values critical for the final reporting, such as mean coverage of the exome target. 
+This report furthermore contains a simple sex check by reporting the coverage of the SRY gene. Male samples sould have very high coverage (>10.000) in this region, 
+wheras in female samples coverage should be very low (<<1000). If the value for any given sample is 0, it means that SRY was not part of the enrichment kit. 
 
 ### Panel MultiQC
 

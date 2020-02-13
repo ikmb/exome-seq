@@ -33,10 +33,10 @@ if ($outfile) {
 }
 
 my $header = qq(
-id: 'software_versions'\n
-section_name: 'ikmb/exome-seq Software Versions'\n
-plot_type: 'html'\n
-description: 'are collected at run time from the software output.'\n
+id: 'software_versions'
+section_name: 'Software Versions'
+plot_type: 'html'
+description: 'are collected at run time from the software output.'
 data: |\n  <dl class="dl-horizontal">
 );
 
@@ -85,9 +85,9 @@ while (my $file = readdir(DIR)) {
 		$version = @elements[-1];
 	}
 	
-	my $entry = qq(
-		<dt>$tool</dt><dd><samp>$version</samp></dd>
-	);
+	#my $entry = qq(
+	my $entry = "<dt>$tool</dt><dd><samp>$version</samp></dd>" ;
+	#);
 	printf "    $entry\n";
 	
 	close($IN);
