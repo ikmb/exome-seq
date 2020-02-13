@@ -124,6 +124,10 @@ if (params.panel_intervals) {
 	PANEL_NAME = params.panel_intervals
 }
 
+// A single exon only covered in male samples - simple sex check
+SRY_BED  = params.sry_bed ?: params.genomes[params.assembly].sry_bed
+SRY_REGION = file(SRY_BED)
+
 // Annotations to use for variant recalibration
 snp_recalibration_values = params.snp_recalibration_values
 indel_recalbration_values = params.indel_recalbration_values
@@ -316,6 +320,7 @@ process runMarkDuplicates {
 
         output:
         set indivID, sampleID, file(outfile_bam),file(outfile_bai) into MarkDuplicatesOutput, BamForMultipleMetrics, runPrintReadsOutput_for_OxoG_Metrics, runPrintReadsOutput_for_HC_Metrics, BamForDepthOfCoverage
+	set file(outfile_bam), file(outfile_bai) into BamForSexCheck
 	file(outfile_md5) into MarkDuplicatesMD5
 	file(outfile_metrics) into DuplicatesOutput_QC
 
@@ -339,6 +344,24 @@ process runMarkDuplicates {
 			-R ${REF}
 	"""
 
+}
+
+// a simple sex check looking at coverage of the SRY gene
+process runSexCheck {
+
+
+	input:
+	file(bams) from BamForSexCheck.collect()
+
+	output:
+	file(sex_check_yaml) into SexChecKYaml
+
+	script:
+	sex_check_yaml = "sex_check_mqc.yaml"
+
+	"""
+		parse_sry_coverage.pl --fasta $REF --region $SRY_REGION > $sex_check_yaml
+	"""	
 }
 
 // If we don't want to use the deduped BAM file, allow skipping it. 
@@ -945,9 +968,11 @@ process get_software_versions {
     publishDir "${OUTDIR}/Summary/versions", mode: 'copy'
     output:
     file("v*.txt") into software_versions
-    file 'software_versions_mqc.yaml' into software_versions_yaml_fastqc, software_versions_yaml_lib, software_versions_yaml_sample
+    file(yaml_file) into (software_versions_yaml_fastqc, software_versions_yaml_lib, software_versions_yaml_sample)
 
     script:
+    yaml_file = "software_versions_mqc.yaml"
+
     """
     echo $workflow.manifest.version &> v_ikmb_exoseq.txt
     echo $workflow.nextflow.version &> v_nextflow.txt
@@ -957,7 +982,7 @@ process get_software_versions {
     picard MarkDuplicates -h &> /dev/stdout | grep "Version" > v_picard.txt  || true
     samtools --version &> v_samtools.txt
     multiqc --version &> v_multiqc.txt
-    parse_versions.pl --outfile  software_versions_mqc.yaml
+    parse_versions.pl >  $yaml_file
     """
 }
 
@@ -1018,11 +1043,13 @@ process runMultiqcSample {
     file('*') from CollectMultipleMetricsOutput.flatten().toList()
     file('*') from HybridCaptureMetricsOutput.flatten().toList()
     file('*') from runOxoGMetricsOutput.flatten().toList()
-    file('*') from software_versions_yaml_sample.collect()
+    file('*') from software_versions_yaml_sample.collect() 
+    file('*') from SexChecKYaml.collect()
         
     output:
     file("sample_multiqc.html") into multiqc_report
-    	
+    file("*.yaml")
+	
     script:
 
     def subject = 'Diagnostic exome analysis quality report'
