@@ -112,6 +112,17 @@ if (params.kill) {
 	KILL = params.genomes[params.assembly].kits[params.kit].kill
 }
 
+// ***********
+// VEP OPTIONS
+// ***********
+
+if (params.vep) {
+	dbscSNV1 = params.dbscSNV1 ?: file(params.genomes[ params.assembly ].dbscSNV1) 
+	if (!dbscSNV1) 	exit 1, "Requested to run VEP but did not provide a path to the dbscSNV1 data"
+
+	if(!dbscSNV1.exists() ) exit 1, "Could not find the dbscSNV1 reference file" 	
+}
+
 SNP_RULES = params.snp_filter_rules
 INDEL_RULES = params.indel_filter_rules
 
@@ -605,7 +616,7 @@ process runCombineHardVariants {
 	set file(snp),file(snp_index) from outputHardFilterSNP
 
         output:
-        set file(merged_file),file(merged_file_index) into inputfilterPassVariants
+        set file(merged_file),file(merged_file_index) into inputfilterPassVariants, inputVepHard
 
         script:
         merged_file = "${run_name}.merged_callset.hard_filter.vcf.gz"
@@ -620,6 +631,41 @@ process runCombineHardVariants {
 		gatk IndexFeatureFile -F $merged_file
 
         """
+}
+
+process runVep {
+
+	publishDir "${OUTDIR}/Variants/HardFilter/Final/VEP", mode: 'copy'
+
+	when:
+	params.vep
+
+	input:
+	set file(vcf),file(index) from inputVepHard
+
+	output:
+	file(vep_result) into outputVepHard
+
+	script:
+
+	vep_result = vcf.getBaseName + ".vep.vcf"
+
+	"""
+		vep -i $vcf --format vcf -o $vep_result \
+			--fork ${task.cpus} \
+			--dir $VEP_PLUGINS \
+			--dir_cache $VEP_CACHE \
+			--refseq \
+			--offline \
+			--species human \
+			--assembly ${params.assembly} \
+			--plugins_dir /opt/vep/plugins \
+			--plugin dbscSNV,$dbscSNV1 \
+			--plugin SpliceRegion \
+			--plugin ExACpLI \
+			--vcf
+	"""
+
 }
 
 process runSplitHardVariantsBySample {
@@ -841,6 +887,7 @@ process runSplitBySample {
 	"""
 
 }
+
 
 // *********************
 // Compute statistics for fastQ files, libraries and samples

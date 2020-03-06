@@ -5,16 +5,21 @@ channels:
   - bioconda
   - conda-forge
   - defaults
+  - anaconda
 dependencies:
   - fastqc=0.11.8
   - fastp=0.20.0
   - picard=2.18.11
   - bwa=0.7.17
-  - multiqc=1.7
-  - gatk4=4.1.0.0
+  - multiqc=1.8
+  - gatk4=4.1.5.0
   - samtools=1.9
   - bcftools=1.9
   - htslib=1.9 
   - r=3.5.1
   - r-base=3.5.1
   - perl-excel-writer-xlsx
+  - ensembl-vep=99
+  - perl-bio-db-hts
+  - perl-extutils-cbuilder
+  - gcc=4.8.5
