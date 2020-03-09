@@ -20,6 +20,3 @@ dependencies:
   - r-base=3.5.1
   - perl-excel-writer-xlsx
   - ensembl-vep=99
-  - perl-bio-db-hts
-  - perl-extutils-cbuilder
-  - gcc=4.8.5
