@@ -110,7 +110,10 @@ if (params.kill) {
 	KILL = params.kill
 } else if (params.genomes[params.assembly].kits[params.kit].kill) {
 	KILL = params.genomes[params.assembly].kits[params.kit].kill
+} else {
+	KILL = false
 }
+
 
 SNP_RULES = params.snp_filter_rules
 INDEL_RULES = params.indel_filter_rules
@@ -127,6 +130,10 @@ if (params.panel_intervals) {
 // A single exon only covered in male samples - simple sex check
 SRY_BED  = params.sry_bed ?: params.genomes[params.assembly].sry_bed
 SRY_REGION = file(SRY_BED)
+
+if (!SRY_REGION.exists() ) {
+	exit 1, "Could not find the bed file for SRY check!"
+}
 
 // Annotations to use for variant recalibration
 snp_recalibration_values = params.snp_recalibration_values
