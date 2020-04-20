@@ -11,7 +11,7 @@ dependencies:
   - picard=2.18.11
   - bwa=0.7.17
   - multiqc=1.7
-  - gatk4=4.1.0.0
+  - gatk4=4.1.6.0
   - samtools=1.9
   - bcftools=1.9
   - htslib=1.9 

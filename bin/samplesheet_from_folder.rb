@@ -33,8 +33,8 @@ groups = fastq_files.group_by{|f| f.split("/")[-1].split(/_S/)[0] }
 warn "Building input sample sheet from FASTQ folder"
 warn "Performing sanity check on md5sums" if options.sanity
 
-options.platform ? sequencer = options.platform : sequencer = "NextSeq500
-"
+options.platform ? sequencer = options.platform : sequencer = "NovaSeq6000"
+
 puts "IndivID;SampleID;libraryID;rgID;rgPU;platform;platform_model;Center;Date;R1;R2"
 
 #G00076-L2_S19_L003_R1_001.fastq.gz
@@ -49,6 +49,8 @@ groups.each do |group, files|
 	pairs.each do |p,reads|
 
         	left,right = reads.sort.collect{|f| File.absolute_path(f)}
+	
+		abort "This sample seems to not be a set of PE files! #{p}" unless left && right
 
 		if options.sanity
 			Dir.chdir(options.folder) {

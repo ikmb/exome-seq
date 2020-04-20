@@ -22,7 +22,7 @@ perl ensembl_get_utr.pl
         standard output
 };
 
-my $species = "human";
+my $species = "homo_sapiens";
 my $output_file = undef;
 my $list = undef;
 my $assembly = "GRCh38";
