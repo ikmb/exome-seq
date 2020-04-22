@@ -71,6 +71,7 @@ supports the following panels:
 - Gene Immundefekt großes Panel [IMM]
 - Gene Immundefekt intestinal (25kb panel) [IMM_IBD]
 - Breast cancer panel [ breast_cancer ]
+- Liver disease [ Liver ]
 
 Please note that this will also create additional run metrics, including a per-sample list of target exons that fall below a minimum sequence coverage. 
 

@@ -77,7 +77,7 @@ foreach $line (<$fh>) {
 
 	foreach my $gene_name (@genes) {
 
-		print STDERR "Searching for $gene_name ...\n" ;
+		printf STDERR "Searching for $gene_name ...\n";
 
 		next if ($skip == 1);
 
