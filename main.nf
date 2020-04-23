@@ -548,7 +548,6 @@ process runGenotypeGVCFs {
 		-L $TARGETS \
 		-L $MITOCHONDRION \
 		-ip ${params.interval_padding} \
-		-new-qual \
 		--only-output-calls-starting-in-intervals \
 		-V $merged_vcf \
               	--output $gvcf \
@@ -647,7 +646,7 @@ process runCombineHardVariants {
 		-I $snp \
 		-O $merged_file \
 		
-		gatk IndexFeatureFile -F $merged_file
+		gatk IndexFeatureFile -I $merged_file
 
         """
 }
