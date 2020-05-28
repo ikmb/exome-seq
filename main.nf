@@ -114,7 +114,6 @@ if (params.kill) {
 	KILL = false
 }
 
-
 SNP_RULES = params.snp_filter_rules
 INDEL_RULES = params.indel_filter_rules
 
@@ -482,11 +481,13 @@ process runHCSample {
 		-I ${bam} \
 		-L $TARGETS \
 		-L $MITOCHONDRION \
+		--dbsnp $DBSNP \
 		-ip ${params.interval_padding} \
 		--emit-ref-confidence GVCF \
 		-OVI true \
     		--output $vcf \
-		--native-pair-hmm-threads ${task.cpus} &> log.txt \
+		--native-pair-hmm-threads 4 \
+		-G AS_StandardAnnotation  -G StandardAnnotation -G StandardHCAnnotation 
   	"""
 }
 
@@ -518,6 +519,7 @@ process runGenomicsDBImport  {
 		-ip ${params.interval_padding} \
 		--OVI true \
 		--output $merged_vcf \
+		-D $DBSNP
 	"""
 
 }
@@ -551,7 +553,7 @@ process runGenotypeGVCFs {
 		--only-output-calls-starting-in-intervals \
 		-V $merged_vcf \
               	--output $gvcf \
-                -G StandardAnnotation \
+                -G StandardAnnotation -G AS_StandardAnnotation \
 		-OVI true
 	"""
 }
