@@ -119,3 +119,13 @@ Provide path to a SNP reference VCF file for variant filtering (default: false, 
 ### `--hapmap`
 Provide path to a SNP reference VCF file for variant filtering (default: false, uses a pre-configured reference)
 
+## Debug / custom arguments
+
+### `--panel_coverage`
+This option changes the cut-off for reporting lowly covered panel intervals (default: 10)
+
+### `--panel_intervals`
+This option allows the user to run non-defined panels. Must be in picard interval list format and match the sequence dictionary of the
+genome assembly to run against (use with care!!!). Usually, you would start with a target list in BED format and convert this into an interval list
+using the Picard Tools "BedToIntervalList" command.
+
