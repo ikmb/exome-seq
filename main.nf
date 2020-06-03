@@ -60,6 +60,8 @@ Optional parameters:
 --hapmap		       A SNP reference (usually HAPMAP, set automatically if using --assembly)
 --targets		       A interval_list target file (set automatically if using the --kit option)
 --baits			       A interval_list bait file (set automatically if using the --kit option)
+--bed			       A list of calling intervals to be used by Deepvariant (default: exome kit targets will be converted to bed)
+--deepvariant		       Enable variant calling with Google DeepVariant
 --interval_padding	       For GATK, include this number of nt upstream and downstream around the exome targets (default: 10)
 Output:
 --outdir                       Local directory to which all output is written (default: results)
@@ -106,6 +108,7 @@ MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitoch
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
+targets_to_bed = Channel.fromPath(TARGETS)
 
 if (params.kill) {
 	KILL = params.kill
@@ -393,230 +396,224 @@ if (params.no_dedup == false) {
 
 // Make samples
 
-//setup fasta channels
-(fastaToIndexCh, fastaToGzCh, fastaToGzFaiCh, fastaToGziCh) = Channel.fromPath(REF).into(4)
+if (params.deepvariant) {
+	//setup fasta channels
+	(fastaToIndexCh, fastaToGzCh, fastaToGzFaiCh, fastaToGziCh) = Channel.fromPath(REF).into(4)
 
-bedToExamples = Channel
-    .fromPath(params.bed)
-    .ifEmpty { exit 1, "please specify --bed option (--bed bedfile)"}
+	if(params.bed){
+	bedToExamples = Channel
+	    .fromPath(params.bed)
+	    .ifEmpty { exit 1, "please specify --bed option (--bed bedfile)"}
+	} else {
+		process list_to_bed {
 
-if(params.fai){
-faiToExamples = Channel
-    .fromPath(params.fai)
-    .ifEmpty{exit 1, "Fai file not found: ${params.fai}"}
-}
+                	input:
+	                file(targets) from targets_to_bed
 
-if(params.fastagz){
-fastaGz = Channel
-    .fromPath(params.fastagz)
-    .ifEmpty{exit 1, "Fastagz file not found: ${params.fastagz}"}
-    .into {fastaGzToExamples; fastaGzToVariants }
-}
+        	        output:
+                	file(bed) into bedToExamples
 
-if(params.gzfai){
-gzFai = Channel
-    .fromPath(params.gzfai)
-    .ifEmpty{exit 1, "gzfai file not found: ${params.gzfai}"}
-    .into{gzFaiToExamples; gzFaiToVariants }
-}
+	                script:
+        	        bed = targets.getBaseName() + ".bed"
 
-if(params.gzi){
-gzi = Channel
-    .fromPath(params.gzi)
-    .ifEmpty{exit 1, "gzi file not found: ${params.gzi}"}
-    .into {gziToExamples; gziToVariants}
-}
+                	"""
+                        picard IntervalListToBed I=$targets O=$bed
+			"""
+		}
+	}
 
-if(!params.fai) {
-  process preprocess_fai {
-      tag "${fasta}.fai"
-      publishDir "$baseDir/sampleDerivatives"
+	if(params.fai){
+	faiToExamples = Channel
+	    .fromPath(params.fai)
+	    .ifEmpty{exit 1, "Fai file not found: ${params.fai}"}
+	}
 
-      input:
-      file(fasta) from fastaToIndexCh
+	if(params.fastagz){
+	fastaGz = Channel
+	    .fromPath(params.fastagz)
+	    .ifEmpty{exit 1, "Fastagz file not found: ${params.fastagz}"}
+	    .into {fastaGzToExamples; fastaGzToVariants }
+	}
 
-      output:
-      file("${fasta}.fai") into faiToExamples
+	if(params.gzfai){
+	gzFai = Channel
+	    .fromPath(params.gzfai)
+	    .ifEmpty{exit 1, "gzfai file not found: ${params.gzfai}"}
+	    .into{gzFaiToExamples; gzFaiToVariants }
+	}
 
-      script:
-      """
-      samtools faidx $fasta
-      """
-  }
-}
+	if(params.gzi){
+	gzi = Channel
+	    .fromPath(params.gzi)
+	    .ifEmpty{exit 1, "gzi file not found: ${params.gzi}"}
+	    .into {gziToExamples; gziToVariants}
+	}
 
-if(!params.fastagz) {
-  process preprocess_fastagz {
-      tag "${fasta}.gz"
-      publishDir "$baseDir/sampleDerivatives"
+	if(!params.fai) {
+	  process preprocess_fai {
+	      tag "${fasta}.fai"
+	      publishDir "$baseDir/sampleDerivatives"
 
-      input:
-      file(fasta) from fastaToGzCh
+	      input:
+	      file(fasta) from fastaToIndexCh
 
-      output:
-      file("*.gz") into (tmpFastaGzCh, fastaGzToExamples, fastaGzToVariants)
+	      output:
+	      file("${fasta}.fai") into faiToExamples
 
-      script:
-      """
-      bgzip -c ${fasta} > ${fasta}.gz
-      """
-  }
-}
+	      script:
+	      """
+	      samtools faidx $fasta
+	      """
+	  }
+	}
 
-if(!params.gzfai) {
-  process preprocess_gzfai {
-    tag "${fasta}.gz.fai"
-    publishDir "$baseDir/sampleDerivatives"
+	if(!params.fastagz) {
+	  process preprocess_fastagz {
+	      tag "${fasta}.gz"
+	      publishDir "$baseDir/sampleDerivatives"
 
-    input:
-    file(fasta) from fastaToGzFaiCh
-    file(fastagz) from tmpFastaGzCh
+	      input:
+	      file(fasta) from fastaToGzCh
 
-    output:
-    file("*.gz.fai") into (gzFaiToExamples, gzFaiToVariants)
+	      output:
+	      file("*.gz") into (tmpFastaGzCh, fastaGzToExamples, fastaGzToVariants)
 
-    script:
-    """
-    samtools faidx $fastagz
-    """
-  }
-}
+	      script:
+	      """
+	      bgzip -c ${fasta} > ${fasta}.gz
+	      """
+	  }
+	}
 
-if(!params.gzi){
-  process preprocess_gzi {
-    tag "${fasta}.gz.gzi"
-    publishDir "$baseDir/sampleDerivatives"
+	if(!params.gzfai) {
+	  process preprocess_gzfai {
+	    tag "${fasta}.gz.fai"
+	    publishDir "$baseDir/sampleDerivatives"
 
-    input:
-    file(fasta) from fastaToGziCh
+	    input:
+	    file(fasta) from fastaToGzFaiCh
+	    file(fastagz) from tmpFastaGzCh
 
-    output:
-    file("*.gz.gzi") into (gziToExamples, gziToVariants)
+	    output:
+	    file("*.gz.fai") into (gzFaiToExamples, gzFaiToVariants)
 
-    script:
-    """
-    bgzip -c -i ${fasta} > ${fasta}.gz
-    """
-  }
-}
+	    script:
+	    """
+	    samtools faidx $fastagz
+	    """
+	  }
+	}
 
-// **********************
-// Convert Targets to BED
-// **********************
+	if(!params.gzi){
+	  process preprocess_gzi {
+	    tag "${fasta}.gz.gzi"
+	    publishDir "$baseDir/sampleDerivatives"
 
-process list_to_bed {
+	    input:
+	    file(fasta) from fastaToGziCh
 
-	input:
-	file(targets) from targets_to_bed
+	    output:
+	    file("*.gz.gzi") into (gziToExamples, gziToVariants)
 
-	output:
-	file(bed) into bedToExamples
+	    script:
+	    """
+	    bgzip -c -i ${fasta} > ${fasta}.gz
+	    """
+	  }
+	}
 
-	script:
-	bed = targets.getbaseName() + ".bed"
+	/********************************************************************
+	  process make_examples
+	  Getting bam files and converting them to images ( named examples )
+	********************************************************************/
 
-	"""
-		picard IntervalListToBed I=$targets O=$bed
-	"""
+	process DV_make_examples{
 
-}
+	  publishDir "${params.outdir}/make_examples", mode: 'copy',
+	  saveAs: {filename -> "logs/log"}
 
-/********************************************************************
-  process make_examples
-  Getting bam files and converting them to images ( named examples )
-********************************************************************/
+	  input:
+	  file fai from faiToExamples.collect()
+	  file fastagz from fastaGzToExamples.collect()
+	  file gzfai from gzFaiToExamples.collect()
+	  file gzi from gziToExamples.collect()
+	  file bed from bedToExamples.collect()
+	  set val(indivID),val(sampleID),file(bam), file(bai) from BamToDV
 
-process make_examples{
+	  output:
+	  set val(indivID),val(sampleID),file("${bam}"),file('*_shardedExamples') into examples
 
-  tag "${bam}"
-  publishDir "${params.outdir}/make_examples", mode: 'copy',
-  saveAs: {filename -> "logs/log"}
+	  script:
+	  """
+	  mkdir logs
+	  mkdir ${bam.baseName}_shardedExamples
+	  dv_make_examples.py \
+	  --cores ${task.cpus} \
+	  --sample ${bam} \
+	  --ref ${fastagz} \
+	  --reads ${bam} \
+	  --regions ${bed} \
+	  --logdir logs \
+	  --examples ${bam.baseName}_shardedExamples
+	  """
+	}
 
-  input:
-  file fai from faiToExamples.collect()
-  file fastagz from fastaGzToExamples.collect()
-  file gzfai from gzFaiToExamples.collect()
-  file gzi from gziToExamples.collect()
-  file bed from bedToExamples.collect()
-  set val(indivID),val(sampleID),file(bam), file(bai) from BamToDV
+	/********************************************************************
+	  process call_variants
+	  Doing the variant calling based on the ML trained model.
+	********************************************************************/
 
-  output:
-  set val(indivID),val(sampleID),file("${bam}"),file('*_shardedExamples') into examples
+	process DV_call_variants{
 
-  script:
-  """
-  mkdir logs
-  mkdir ${bam.baseName}_shardedExamples
-  dv_make_examples.py \
-  --cores ${task.cpus} \
-  --sample ${bam} \
-  --ref ${fastagz} \
-  --reads ${bam} \
-  --regions ${bed} \
-  --logdir logs \
-  --examples ${bam.baseName}_shardedExamples
-  """
-}
+	  input:
+	  set val(indivID),val(sampleID),file(bam),file(shardedExamples) from examples
 
-/********************************************************************
-  process call_variants
-  Doing the variant calling based on the ML trained model.
-********************************************************************/
+	  output:
+	  set val(indivID),val(sampleID),file(bam),file('*_call_variants_output.tfrecord') into called_variants
 
-process call_variants{
+	  script:
+	  """
+	  dv_call_variants.py \
+	    --cores ${task.cpus} \
+	    --sample ${bam} \
+	    --outfile ${bam.baseName}_call_variants_output.tfrecord \
+	    --examples $shardedExamples \
+	    --model ${model}
+	  """
+	}
 
-  tag "${bam}"
+	/********************************************************************
+	  process postprocess_variants
+	  Trasforming the variant calling output (tfrecord file) into a standard vcf file.
+	********************************************************************/
 
-  input:
-  set val(indivID),val(sampleID),file(bam),file(shardedExamples) from examples
+	process DV_postprocess_variants{
 
-  output:
-  set val(indivID),val(sampleID),file(bam),file('*_call_variants_output.tfrecord') into called_variants
+	  tag "${bam}"
 
-  script:
-  """
-  dv_call_variants.py \
-    --cores ${task.cpus} \
-    --sample ${bam} \
-    --outfile ${bam.baseName}_call_variants_output.tfrecord \
-    --examples $shardedExamples \
-    --model ${model}
-  """
-}
+	  publishDir "${params.outdir}/${indivID}/${sampleID}/DeepVariant", mode: 'copy'
 
+	  input:
+	  file fastagz from fastaGzToVariants.collect()
+	  file gzfai from gzFaiToVariants.collect()
+	  file gzi from gziToVariants.collect()
+	  set val(indivID),val(sampleID),file(bam),file('call_variants_output.tfrecord') from called_variants
 
+	  output:
+	   set val("${bam}"),file("${bam}.vcf") into postout
 
-/********************************************************************
-  process postprocess_variants
-  Trasforming the variant calling output (tfrecord file) into a standard vcf file.
-********************************************************************/
+	  script:
+	  """
+	  dv_postprocess_variants.py \
+	  --ref ${fastagz} \
+	  --infile call_variants_output.tfrecord \
+	  --outfile "${bam}.vcf"
+	  """
+	}
 
-process postprocess_variants{
+} // end Deepvariant
 
-  tag "${bam}"
-
-  publishDir "${params.outdir}/${indivID}/${sampleID}/DeepVariant", mode: 'copy'
-
-  input:
-  file fastagz from fastaGzToVariants.collect()
-  file gzfai from gzFaiToVariants.collect()
-  file gzi from gziToVariants.collect()
-  set val(indivID),val(sampleID),file(bam),file('call_variants_output.tfrecord') from called_variants
-
-  output:
-   set val("${bam}"),file("${bam}.vcf") into postout
-
-  script:
-  """
-  dv_postprocess_variants.py \
-  --ref ${fastagz} \
-  --infile call_variants_output.tfrecord \
-  --outfile "${bam}.vcf"
-  """
-}
-
-// ------------------------------------------------------------------------------------------------------------
-//
+// ------------------------------------------------------------------------------------------------------------	//
 // Perform base quality score recalibration (BQSR) including
 // 1) Generate a recalibration table
 // 2) Generate a new table after applying recalibration
@@ -628,10 +625,10 @@ process postprocess_variants{
 process runBaseRecalibrator {
 
 	// publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
-	    
+    
 	input:
 	set indivID, sampleID, dedup_bam, dedup_bai from BamToBSQR
-    
+   
 	output:
 	set indivID, sampleID, dedup_bam, file(recal_table) into runBaseRecalibratorOutput
 
