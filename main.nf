@@ -53,7 +53,7 @@ Optional parameters:
 --cram			       Whether to output the alignments in CRAM format (default: bam)
 --deepvariant		       Enable variant calling with Google DeepVariant
 --interval_padding	       For GATK, include this number of nt upstream and downstream around the exome targets (default: 10)
-Expert options (usually not necessary to chancge!):
+Expert options (usually not necessary to change!):
 --fasta                        A reference genome in FASTA format (set automatically if using --assembly)
 --dict                         A sequence dictionary matching --fasta (set automatically if using --assembly)
 --dbsnp                        dbSNP data in VCF format (set automatically if using --assembly)
@@ -476,7 +476,7 @@ if (params.deepvariant) {
 	if(!params.fai) {
 	  process preprocess_fai {
 	      tag "${fasta}.fai"
-	      publishDir "${params.outdir}/DV/"
+	      //publishDir "${params.outdir}/DV/"
 
 	      input:
 	      file(fasta) from fastaToIndexCh
@@ -494,7 +494,7 @@ if (params.deepvariant) {
 	if(!params.fastagz) {
 	  process preprocess_fastagz {
 	      tag "${fasta}.gz"
-	      publishDir "${params.outdir}/DV/"
+	      //publishDir "${params.outdir}/DV/"
 
 	      input:
 	      file(fasta) from fastaToGzCh
@@ -512,7 +512,7 @@ if (params.deepvariant) {
 	if(!params.gzfai) {
 	  process preprocess_gzfai {
 	    tag "${fasta}.gz.fai"
-	    publishDir "${params.outdir}/DV/"
+	    //publishDir "${params.outdir}/DV/"
 
 	    input:
 	    file(fasta) from fastaToGzFaiCh
@@ -531,7 +531,7 @@ if (params.deepvariant) {
 	if(!params.gzi){
 	  process preprocess_gzi {
 	    tag "${fasta}.gz.gzi"
-	    publishDir "${params.outdir}/DV/"
+	    //publishDir "${params.outdir}/DV/"
 
 	    input:
 	    file(fasta) from fastaToGziCh

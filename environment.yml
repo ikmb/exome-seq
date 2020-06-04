@@ -18,4 +18,3 @@ dependencies:
   - r=3.5.1
   - r-base=3.5.1
   - perl-excel-writer-xlsx
-  - deepvariant=0.7.0
