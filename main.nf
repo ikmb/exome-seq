@@ -128,7 +128,7 @@ INDEL_RULES = params.indel_filter_rules
 PANEL COVERAGE - pick the correct panel for reporting
 */
 
-if (params.panel && params.panels || params.panel && params.panel_intervals || params.panels && params.panel_intervals) {
+if (params.panel && params.all_panels || params.panel && params.panel_intervals || params.all_panels && params.panel_intervals) {
 	log.info "The options for panel stats are mutually exclusive! Will use the highest ranked choice (panel > panel_intervals > panels)"
 }
 if (params.panel) {
