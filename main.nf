@@ -44,23 +44,28 @@ Required parameters:
 --kit			       Name of the exome kit (available options: xGen, xGen_custom, xGen_v2, Nextera, Pan_cancer)
 --email 		       Email address to send reports to (enclosed in '')
 Optional parameters:
---max_length		       Cut reads down to this length (optional, default 0 = no trimming)
---kill			       A list of known bad exons in the genome build that are ignored for panel coverage statistics (see documentation for details)
 --skip_multiqc		       Don't attached MultiQC report to the email. 
 --vqsr 			       Whether to also run variant score recalibration (only works >= 30 samples) (default: false)
 --panel 		       Gene panel to check coverage of (valid options: cardio_dilatative, cardio_hypertrophic, cardio_non_compaction, eoIBD_25kb, imm_eoIBD_full, breast_cancer)
+--all_panels 		       Run all gene panels defined for this assembly (none if no panel is defined!)
+--panel_intervals	       Run a custom gene panel in interval list format (must have a matching sequence dictionary!)
 --run_name 		       A descriptive name for this pipeline run
 --cram			       Whether to output the alignments in CRAM format (default: bam)
---fasta			       A reference genome in FASTA format (set automatically if using --assembly)
---dict			       A sequence dictionary matching --fasta (set automatically if using --assembly)
---dbsnp			       dbSNP data in VCF format (set automatically if using --assembly)
---g1k			       A SNP reference (usually 1000genomes, set automatically if using --assembly)
---mills_indels		       An INDEL reference (usually MILLS/1000genomes, set automatically if using --assembly)
---omni			       A SNP reference (usually OMNI, set automatically if using --assembly)
---hapmap		       A SNP reference (usually HAPMAP, set automatically if using --assembly)
---targets		       A interval_list target file (set automatically if using the --kit option)
---baits			       A interval_list bait file (set automatically if using the --kit option)
+--deepvariant		       Enable variant calling with Google DeepVariant
 --interval_padding	       For GATK, include this number of nt upstream and downstream around the exome targets (default: 10)
+Expert options (usually not necessary to chancge!):
+--fasta                        A reference genome in FASTA format (set automatically if using --assembly)
+--dict                         A sequence dictionary matching --fasta (set automatically if using --assembly)
+--dbsnp                        dbSNP data in VCF format (set automatically if using --assembly)
+--g1k                          A SNP reference (usually 1000genomes, set automatically if using --assembly)
+--mills_indels                 An INDEL reference (usually MILLS/1000genomes, set automatically if using --assembly)
+--omni                         A SNP reference (usually OMNI, set automatically if using --assembly)
+--hapmap                       A SNP reference (usually HAPMAP, set automatically if using --assembly)
+--targets                      A interval_list target file (set automatically if using the --kit option)
+--baits                        A interval_list bait file (set automatically if using the --kit option)
+--bed                          A list of calling intervals to be used by Deepvariant (default: exome kit targets will be converted to bed)
+--max_length                   Cut reads down to this length (optional, default 0 = no trimming)
+--kill                         A list of known bad exons in the genome build that are ignored for panel coverage statistics (see documentation for details)
 Output:
 --outdir                       Local directory to which all output is written (default: results)
 """
@@ -106,6 +111,8 @@ MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitoch
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
+targets_to_bed = Channel.fromPath(TARGETS)
+
 if (params.kill) {
 	KILL = params.kill
 } else if (params.genomes[params.assembly].kits[params.kit].kill) {
@@ -117,13 +124,30 @@ if (params.kill) {
 SNP_RULES = params.snp_filter_rules
 INDEL_RULES = params.indel_filter_rules
 
-PANEL = params.panel ? params.genomes[params.assembly].panels[ params.panel ].intervals ?: false :false
-PANEL_NAME = params.panel ? params.genomes[params.assembly].panels[ params.panel ].description ?: false :false
-PANEL_BED = params.panel ? params.genomes[params.assembly].panels[ params.panel ].bed ?: false :false
+/*
+PANEL COVERAGE - pick the correct panel for reporting
+*/
 
-if (params.panel_intervals) {
-	PANEL = params.panel_intervals
-	PANEL_NAME = params.panel_intervals
+if (params.panel && params.panels || params.panel && params.panel_intervals || params.panels && params.panel_intervals) {
+	log.info "The options for panel stats are mutually exclusive! Will use the highest ranked choice (panel > panel_intervals > panels)"
+}
+if (params.panel) {
+	panel = params.genomes[params.assembly].panels[params.panel].intervals
+	panels = Channel.fromPath(panel)
+} else if (params.panel_intervals) {
+	Channel.fromPath(panel_intervals)
+	.ifEmpty { exit 1; "Could not find the specified gene panel (--panel_intervals)" }
+	.set { panels }
+} else if (params.all_panels) {
+	panel_list = []
+	panel_names = params.genomes[params.assembly].panels.keySet()
+	panel_names.each {
+		interval = params.genomes[params.assembly].panels[it].intervals
+		panel_list << file(interval)
+	}
+	panels = Channel.fromList(panel_list)
+} else {
+	panels = Channel.empty()
 }
 
 // A single exon only covered in male samples - simple sex check
@@ -146,6 +170,14 @@ align_suffix = (params.cram == false) ? "bam" : "cram"
 
 // Location of applications used
 OUTDIR = file(params.outdir)
+
+// DeepVariant variables
+//params.fasta = params.genome ? params.genomes[ params.genome ].fasta : false
+model = "wes"
+params.fai = false
+params.fastagz = false
+params.gzfai = false
+params.gzi = false 
 
 // Available exome kits
 
@@ -183,8 +215,13 @@ summary['Current path'] = "$PWD"
 summary['Assembly'] = REF
 summary['Kit'] = TARGETS
 if (params.panel) {
-	summary['GenePanel'] = PANEL_NAME
+	summary['GenePanel'] = params.panel
+} else if (params.panel_intervals) {
+	summary['GenePanel'] = params.panel_intervals
+} else if (params.all_panels) {
+	summary['GenePanel'] = "All panels"
 }
+
 if (KILL) {
         summary['KillList'] = KILL
 }
@@ -372,14 +409,240 @@ process runSexCheck {
 
 // If we don't want to use the deduped BAM file, allow skipping it. 
 // We still run dedup for the quality stats
-if (params.no_dedup == false) {
-	BamToBSQR = MarkDuplicatesOutput
+if (params.no_dedup) {
+	MergedBamSkipDedup
+        .into { BamToBSQR; BamToDV }
 } else {
-	BamToBSQR = MergedBamSkipDedup
+	MarkDuplicatesOutput
+        .into { BamToBSQR; BamToDV }
 }
 
-// ------------------------------------------------------------------------------------------------------------
-//
+// ************************
+// Calling with DeepVariant
+// ************************
+if (params.deepvariant) {
+	//setup fasta channels
+	(fastaToIndexCh, fastaToGzCh, fastaToGzFaiCh, fastaToGziCh) = Channel.fromPath(REF).into(4)
+
+	if(params.bed){
+	bedToExamples = Channel
+	    .fromPath(params.bed)
+	    .ifEmpty { exit 1, "please specify --bed option (--bed bedfile)"}
+	} else {
+		process list_to_bed {
+
+                	input:
+	                file(targets) from targets_to_bed
+
+        	        output:
+                	file(bed) into bedToExamples
+
+	                script:
+        	        bed = targets.getBaseName() + ".bed"
+
+                	"""
+                        picard IntervalListToBed I=$targets O=$bed
+			"""
+		}
+	}
+
+	if(params.fai){
+	faiToExamples = Channel
+	    .fromPath(params.fai)
+	    .ifEmpty{exit 1, "Fai file not found: ${params.fai}"}
+	}
+
+	if(params.fastagz){
+	fastaGz = Channel
+	    .fromPath(params.fastagz)
+	    .ifEmpty{exit 1, "Fastagz file not found: ${params.fastagz}"}
+	    .into {fastaGzToExamples; fastaGzToVariants }
+	}
+
+	if(params.gzfai){
+	gzFai = Channel
+	    .fromPath(params.gzfai)
+	    .ifEmpty{exit 1, "gzfai file not found: ${params.gzfai}"}
+	    .into{gzFaiToExamples; gzFaiToVariants }
+	}
+
+	if(params.gzi){
+	gzi = Channel
+	    .fromPath(params.gzi)
+	    .ifEmpty{exit 1, "gzi file not found: ${params.gzi}"}
+	    .into {gziToExamples; gziToVariants}
+	}
+
+	if(!params.fai) {
+	  process preprocess_fai {
+	      tag "${fasta}.fai"
+	      publishDir "${params.outdir}/DV/"
+
+	      input:
+	      file(fasta) from fastaToIndexCh
+
+	      output:
+	      file("${fasta}.fai") into faiToExamples
+
+	      script:
+	      """
+	      samtools faidx $fasta
+	      """
+	  }
+	}
+
+	if(!params.fastagz) {
+	  process preprocess_fastagz {
+	      tag "${fasta}.gz"
+	      publishDir "${params.outdir}/DV/"
+
+	      input:
+	      file(fasta) from fastaToGzCh
+
+	      output:
+	      file("*.gz") into (tmpFastaGzCh, fastaGzToExamples, fastaGzToVariants)
+
+	      script:
+	      """
+	      bgzip -c ${fasta} > ${fasta}.gz
+	      """
+	  }
+	}
+
+	if(!params.gzfai) {
+	  process preprocess_gzfai {
+	    tag "${fasta}.gz.fai"
+	    publishDir "${params.outdir}/DV/"
+
+	    input:
+	    file(fasta) from fastaToGzFaiCh
+	    file(fastagz) from tmpFastaGzCh
+
+	    output:
+	    file("*.gz.fai") into (gzFaiToExamples, gzFaiToVariants)
+
+	    script:
+	    """
+	    samtools faidx $fastagz
+	    """
+	  }
+	}
+
+	if(!params.gzi){
+	  process preprocess_gzi {
+	    tag "${fasta}.gz.gzi"
+	    publishDir "${params.outdir}/DV/"
+
+	    input:
+	    file(fasta) from fastaToGziCh
+
+	    output:
+	    file("*.gz.gzi") into (gziToExamples, gziToVariants)
+
+	    script:
+	    """
+	    bgzip -c -i ${fasta} > ${fasta}.gz
+	    """
+	  }
+	}
+
+	/********************************************************************
+	  process make_examples
+	  Getting bam files and converting them to images ( named examples )
+	********************************************************************/
+
+	process DV_make_examples{
+
+	  label 'deepvariant'
+
+	  publishDir "${params.outdir}/make_examples", mode: 'copy',
+	  saveAs: {filename -> "logs/log"}
+
+	  input:
+	  file fai from faiToExamples.collect()
+	  file fastagz from fastaGzToExamples.collect()
+	  file gzfai from gzFaiToExamples.collect()
+	  file gzi from gziToExamples.collect()
+	  file bed from bedToExamples.collect()
+	  set val(indivID),val(sampleID),file(bam), file(bai) from BamToDV
+
+	  output:
+	  set val(indivID),val(sampleID),file("${bam}"),file('*_shardedExamples') into examples
+
+	  script:
+	  """
+	  unset TMPDIR
+	  mkdir logs
+	  mkdir ${bam.baseName}_shardedExamples
+	  dv_make_examples.py \
+	  --cores ${task.cpus} \
+	  --sample ${bam} \
+	  --ref ${fastagz} \
+	  --reads ${bam} \
+	  --regions ${bed} \
+	  --logdir logs \
+	  --examples ${bam.baseName}_shardedExamples
+	  """
+	}
+
+	/********************************************************************
+	  process call_variants
+	  Doing the variant calling based on the ML trained model.
+	********************************************************************/
+
+	process DV_call_variants{
+
+          label 'deepvariant'
+
+	  input:
+	  set val(indivID),val(sampleID),file(bam),file(shardedExamples) from examples
+
+	  output:
+	  set val(indivID),val(sampleID),file(bam),file('*_call_variants_output.tfrecord') into called_variants
+
+	  script:
+	  """
+	  dv_call_variants.py \
+	    --cores ${task.cpus} \
+	    --sample ${bam} \
+	    --outfile ${bam.baseName}_call_variants_output.tfrecord \
+	    --examples $shardedExamples \
+	    --model ${model}
+	  """
+	}
+
+	/********************************************************************
+	  process postprocess_variants
+	  Trasforming the variant calling output (tfrecord file) into a standard vcf file.
+	********************************************************************/
+
+	process DV_postprocess_variants{
+
+          label 'deepvariant'
+
+	  publishDir "${params.outdir}/${indivID}/${sampleID}/DeepVariant", mode: 'copy'
+
+	  input:
+	  file fastagz from fastaGzToVariants.collect()
+	  file gzfai from gzFaiToVariants.collect()
+	  file gzi from gziToVariants.collect()
+	  set val(indivID),val(sampleID),file(bam),file('call_variants_output.tfrecord') from called_variants
+
+	  output:
+	   set val("${bam}"),file("${bam}.vcf") into postout
+
+	  script:
+	  """
+	  dv_postprocess_variants.py \
+	  --ref ${fastagz} \
+	  --infile call_variants_output.tfrecord \
+	  --outfile "${bam}.vcf"
+	  """
+	}
+
+} // end Deepvariant
+
+// ------------------------------------------------------------------------------------------------------------	//
 // Perform base quality score recalibration (BQSR) including
 // 1) Generate a recalibration table
 // 2) Generate a new table after applying recalibration
@@ -391,10 +654,10 @@ if (params.no_dedup == false) {
 process runBaseRecalibrator {
 
 	// publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/BaseRecalibrator/", mode: 'copy'
-	    
+    
 	input:
 	set indivID, sampleID, dedup_bam, dedup_bai from BamToBSQR
-    
+   
 	output:
 	set indivID, sampleID, dedup_bam, file(recal_table) into runBaseRecalibratorOutput
 
@@ -1071,76 +1334,76 @@ process runMultiqcSample {
     """
 }
 
-if (params.panel) {
+panel_coverage_data = inputPanelCoverage.combine(panels)
 
-        process runPanelCoverage {
+process runPanelCoverage {
 
-                publishDir "${OUTDIR}//Summary/Panel/PanelCoverage", mode: "copy"
+	publishDir "${OUTDIR}//Summary/Panel/PanelCoverage", mode: "copy"
 
-                input:
-                set indivID,sampleID,file(bam),file(bai) from inputPanelCoverage
+        input:
+        set indivID,sampleID,file(bam),file(bai),file(panel) from panel_coverage_data
 
-                output:
-                set indivID,sampleID,file(coverage) into outputPanelCoverage
-		set indivID,sampleID,file(target_coverage_xls) into outputPanelTargetCoverage
-		file(target_coverage)
+        output:
+        set val(panel_name),file(coverage) into outputPanelCoverage
+	set indivID,sampleID,file(target_coverage_xls) into outputPanelTargetCoverage
+	file(target_coverage)
 
-                script:
-                panel_name = file(PANEL).getSimpleName()
-                coverage = indivID + "_" + sampleID + "." +  panel_name  + ".hs_metrics.txt"
-		target_coverage = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics.txt"
-		target_coverage_xls = indivID + "_" + sampleID + "." + panel_name + ".per_target.hs_metrics_mqc.xlsx"
+        script:
+        panel_name = panel.getSimpleName()
+        coverage = indivID + "_" + sampleID + "." +  panel_name  + ".hs_metrics.txt"
+	target_coverage = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics.txt"
+	target_coverage_xls = indivID + "_" + sampleID + "." + panel_name + ".per_target.hs_metrics_mqc.xlsx"
 
-		// optionally support a kill list of known bad exons
-		def options = ""
-		if (KILL) {
-			options = "--ban ${KILL}"
-		}
+	// optionally support a kill list of known bad exons
+	def options = ""
+	if (KILL) {
+		options = "--ban ${KILL}"
+	}
 
-                // do something here - get coverage and build an XLS sheet
-		// First we identify which analysed exons are actually part of the exome kit target definition. 
-                """
+        // do something here - get coverage and build an XLS sheet
+	// First we identify which analysed exons are actually part of the exome kit target definition. 
+        """
 
-	              picard -Xmx${task.memory.toGiga()}G IntervalListTools \
-			INPUT=$PANEL \
+		picard -Xmx${task.memory.toGiga()}G IntervalListTools \
+			INPUT=$panel \
 			SECOND_INPUT=$TARGETS \
 			ACTION=SUBTRACT \
 			OUTPUT=overlaps.interval_list
 
-                      picard -Xmx${task.memory.toGiga()}G CollectHsMetrics \
+                picard -Xmx${task.memory.toGiga()}G CollectHsMetrics \
                         INPUT=${bam} \
                         OUTPUT=${coverage} \
-                        TARGET_INTERVALS=${PANEL} \
-                        BAIT_INTERVALS=${PANEL} \
+                        TARGET_INTERVALS=${panel} \
+                        BAIT_INTERVALS=${panel} \
 			CLIP_OVERLAPPING_READS=false \
                         REFERENCE_SEQUENCE=${REF} \
                         TMP_DIR=tmp \
 			PER_TARGET_COVERAGE=$target_coverage
 
-			target_coverage2xls.pl $options --infile $target_coverage --min_cov $params.panel_coverage --skip overlaps.interval_list --outfile $target_coverage_xls
+		target_coverage2xls.pl $options --infile $target_coverage --min_cov $params.panel_coverage --skip overlaps.interval_list --outfile $target_coverage_xls
 
-                """
-        }
+        """
+}
 
-	process runMultiqcPanel {
+grouped_panels = outputPanelCoverage.groupTuple()
 
-		publishDir "${OUTDIR}/Summary/Panel", mode: "copy"
+process runMultiqcPanel {
 
-		input:
-		file('*') from outputPanelCoverage.collect()
+	publishDir "${OUTDIR}/Summary/Panel", mode: "copy"
 
-		output:
-		file("${panel_name}_multiqc.html") into panel_qc_report
+	input:
+	set val(panel_name),file('*') from grouped_panels
 
-		script:
-		panel_name = file(params.panel).getSimpleName()
-		"""
-			cp $params.logo . 
-			cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
-			multiqc -n ${panel_name}_multiqc *
-		"""
+	output:
+	file("${panel_name}_multiqc.html") into panel_qc_report
 
-	}
+	script:
+
+	"""
+		cp $params.logo . 
+		cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
+		multiqc -n ${panel_name}_multiqc *
+	"""
 }
 
 workflow.onComplete {

@@ -75,6 +75,12 @@ supports the following panels:
 
 Please note that this will also create additional run metrics, including a per-sample list of target exons that fall below a minimum sequence coverage. 
 
+### `--bed`
+A BED file that can be used by DeepVariant to define calling intervals. Default behavior is to use the target interval list and convert it to BED.
+
+### `--deepvariant`
+Additionally run Google DeepVariant for variant calling as an independent control to the GATK workflow. Note that DeepVariant runs per-sample and will not create a multi-sample VCF. 
+
 ### `--kill`
 For panel-based statistics, it is desirable to mark any exons that are known to underperform in exome sequencing - for example due to homology and
 resulting multimapping (MAPQ = 0). This options allows the user to provide a list of panel targets that are to be listed as "KNOWN BAD" when compiling the
