@@ -1,6 +1,6 @@
 # You can use this file to create a conda environment for this pipeline:
 #   conda env create -f environment.yml
-name: exome-seq-1.4
+name: exome-seq-1.5
 channels:
   - bioconda
   - conda-forge
