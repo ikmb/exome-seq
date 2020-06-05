@@ -129,13 +129,13 @@ PANEL COVERAGE - pick the correct panel for reporting
 */
 
 if (params.panel && params.all_panels || params.panel && params.panel_intervals || params.all_panels && params.panel_intervals) {
-	log.info "The options for panel stats are mutually exclusive! Will use the highest ranked choice (panel > panel_intervals > panels)"
+	log.info "The options for panel stats are mutually exclusive! Will use the highest ranked choice (panel > panel_intervals > all panels)"
 }
 if (params.panel) {
 	panel = params.genomes[params.assembly].panels[params.panel].intervals
 	panels = Channel.fromPath(panel)
 } else if (params.panel_intervals) {
-	Channel.fromPath(panel_intervals)
+	Channel.fromPath(params.panel_intervals)
 	.ifEmpty { exit 1; "Could not find the specified gene panel (--panel_intervals)" }
 	.set { panels }
 } else if (params.all_panels) {
