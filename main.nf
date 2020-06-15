@@ -441,7 +441,8 @@ if (params.deepvariant) {
         	        bed = targets.getBaseName() + ".bed"
 
                 	"""
-                        picard IntervalListToBed I=$targets O=$bed
+			picard IntervalListTools I=$targets O=targets.padded.interval_list PADDING=$params.interval_padding
+                        picard IntervalListToBed I=targets.padded.interval_list O=$bed
 			"""
 		}
 	}
