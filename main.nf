@@ -173,7 +173,7 @@ OUTDIR = file(params.outdir)
 
 // DeepVariant variables
 //params.fasta = params.genome ? params.genomes[ params.genome ].fasta : false
-model = "wes"
+model = params.dv_model
 params.fai = false
 params.fastagz = false
 params.gzfai = false
