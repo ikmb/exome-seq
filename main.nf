@@ -630,14 +630,16 @@ if (params.deepvariant) {
 	  set val(indivID),val(sampleID),file(bam),file('call_variants_output.tfrecord') from called_variants
 
 	  output:
-	   set val("${bam}"),file("${bam}.vcf") into postout
+	   set val("${bam}"),file(vcf) into postout
 
 	  script:
+	  vcf = bam.getBaseName() + ".deepvariant.vcf"
 	  """
 	  dv_postprocess_variants.py \
 	  --ref ${fastagz} \
 	  --infile call_variants_output.tfrecord \
-	  --outfile "${bam}.vcf"
+	  --outfile $vcf
+
 	  """
 	}
 
