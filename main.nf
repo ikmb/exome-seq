@@ -621,7 +621,7 @@ if (params.deepvariant) {
 
           label 'deepvariant'
 
-	  publishDir "${params.outdir}/${indivID}/${sampleID}/DeepVariant", mode: 'copy'
+	  //publishDir "${params.outdir}/${indivID}/${sampleID}/DeepVariant", mode: 'copy'
 
 	  input:
 	  file fastagz from fastaGzToVariants.collect()
@@ -631,6 +631,7 @@ if (params.deepvariant) {
 
 	  output:
 	   set val("${bam}"),file(vcf) into postout
+	   set val(indivID),val(sampleID),file(vcf) into dv_vcf
 
 	  script:
 	  vcf = bam.getBaseName() + ".deepvariant.vcf"
@@ -639,8 +640,29 @@ if (params.deepvariant) {
 	  --ref ${fastagz} \
 	  --infile call_variants_output.tfrecord \
 	  --outfile $vcf
-
 	  """
+	}
+
+	process DV_fix_vcf {
+
+		publishDir "${params.outdir}/${indivID}/${sampleID}/DeepVariant", mode: 'copy'
+
+		input:
+		set val(indivID),val(sampleID),file(vcf) from dv_vcf
+
+		output:
+		set file(vcf_fixed),file(vcf_fixed_tbi) 
+
+		script:
+		vcf_gz = vcf + ".gz"
+		vcf_fixed = vcf.getBaseName() + ".final.vcf.gz"
+		vcf_fixed_tbi = vcf_fixed + ".tbi"
+		"""
+			bgzip $vcf && tabix $vcf_gz
+			echo '##reference=${params.assembly}' > header.txt
+			bcftools annotate -h header.txt -o $vcf_fixed -O z $vcf_gz
+			tabix $vcf_fixed
+		"""
 	}
 
 } // end Deepvariant
