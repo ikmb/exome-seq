@@ -115,7 +115,7 @@ targets_to_bed = Channel.fromPath(TARGETS)
 
 if (params.kill) {
 	KILL = params.kill
-} else if (params.genomes[params.assembly].kits[params.kit].kill) {
+} else if (params.kit && params.genomes[params.assembly].kits[params.kit].kill) {
 	KILL = params.genomes[params.assembly].kits[params.kit].kill
 } else {
 	KILL = false
