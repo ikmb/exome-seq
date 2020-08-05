@@ -92,13 +92,17 @@ if (params.run_name == false) {
 // Currently, only hg19 has all the required reference files available
 params.assembly = "hg19"
 
-FASTA = params.fasta ?: file(params.genomes[ params.assembly ].fasta)
-FAI = params.fai ?: file(params.genomes[ params.assembly ].fai)
-FASTAGZ = params.fastagz ?: file(params.genomes[ params.assembly ].fastagz)
-GZFAI = params.gzfai ?: file(params.genomes[ params.assembly ].gzfai)
-GZI = params.gz ?: file(params.genomes[ params.assembly ].gzi)
-DICT = params.dict ?: file(params.genomes[ params.assembly ].dict)
-DBSNP = params.dbsnp ?: file(params.genomes[ params.assembly ].dbsnp )
+FASTA = file(params.genomes[ params.assembly ].fasta)
+FAI_F = file(params.genomes[ params.assembly ].fai)
+FASTAGZ_F = file(params.genomes[ params.assembly ].fastagz)
+GZFAI_F = file(params.genomes[ params.assembly ].gzfai)
+GZI_F = file(params.genomes[ params.assembly ].gzi)
+DICT = file(params.genomes[ params.assembly ].dict)
+DBSNP = file(params.genomes[ params.assembly ].dbsnp )
+
+println FASTA
+println FASTAGZ_F
+println FAI_F
 
 MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitochondrion
 
@@ -169,10 +173,6 @@ if(params.email == false) {
 	exit 1, "You must provide an Email address to which pipeline updates are send!"
 }
 
-if (params.no_dedup) {
-	println "Selected to skip duplicate marking. This is NOT recommended!"
-}
-
 // Check if the max_length argument is a number
 if (params.max_length) {
 	summary['maxReadLength'] = params.max_length
@@ -215,6 +215,7 @@ log.info "========================================="
 log.info "Exome-seq pipeline v${params.version}"
 log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
+log.info "Genome sequence:		${FASTA}"
 log.info "Command Line:			$workflow.commandLine"
 log.info "Run name: 			${run_name}"
 if (workflow.containerEngine) {
@@ -244,88 +245,24 @@ process list_to_bed {
         """
 }
 
-if(FAI){
-  faiToExamples = Channel
-    .fromPath(FAI)
-    .ifEmpty{exit 1, "Fai file not found: ${params.fai}"}
-} else {
-  process preprocess_fai {
+faiToExamples = Channel
+	.fromPath(FAI_F)
+	.ifEmpty{exit 1, "Fai file not found"}
 
-      input:
-      file(fasta) from fastaToIndexCh
+fastaGz = Channel
+	.fromPath(FASTAGZ_F)
+	.ifEmpty{exit 1, "Fastagz file not found"}
+	.into {fastaGzToExamples; fastaGzToVariants }
 
-      output:
-      file("${fasta}.fai") into faiToExamples
+gzFai = Channel
+	.fromPath(GZFAI_F)
+	.ifEmpty{exit 1, "gzfai file not found"}
+	.into{gzFaiToExamples; gzFaiToVariants }
 
-      script:
-      """
-      samtools faidx $fasta
-      """
-  }
-}
-
-if(FASTAGZ){
-  fastaGz = Channel
-    .fromPath(FASTAGZ)
-    .ifEmpty{exit 1, "Fastagz file not found: ${params.fastagz}"}
-    .into {fastaGzToExamples; fastaGzToVariants }
-} else {
-  process preprocess_fastagz {
-
-      input:
-      file(fasta) from fastaToGzCh
-
-      output:
-      file("*.gz") into (tmpFastaGzCh, fastaGzToExamples, fastaGzToVariants)
-
-      script:
-      """
-      bgzip -c ${fasta} > ${fasta}.gz
-      """
-  }
-}
-
-if(GZFAI){
-  gzFai = Channel
-    .fromPath(GZFAI)
-    .ifEmpty{exit 1, "gzfai file not found: ${params.gzfai}"}
-    .into{gzFaiToExamples; gzFaiToVariants }
-} else {
-  process preprocess_gzfai {
-
-    input:
-    file(fasta) from fastaToGzFaiCh
-    file(fastagz) from tmpFastaGzCh
-
-    output:
-    file("*.gz.fai") into (gzFaiToExamples, gzFaiToVariants)
-
-    script:
-    """
-    samtools faidx $fastagz
-    """
-  }
-
-if(GZI){
-  gzi = Channel
-    .fromPath(GZI)
-    .ifEmpty{exit 1, "gzi file not found: ${params.gzi}"}
-    .into {gziToExamples; gziToVariants}
-} else {
-  process preprocess_gzi {
-
-    input:
-    file(fasta) from fastaToGziCh
-
-    output:
-    file("*.gz.gzi") into (gziToExamples, gziToVariants)
-
-    script:
-    """
-    bgzip -c -i ${fasta} > ${fasta}.gz
-    """
-  }
-}
+gzi = Channel
+	.fromPath(GZI_F)
+	.ifEmpty{exit 1, "gzi file not found"}
+	.into {gziToExamples; gziToVariants}
 
 // Read sample file 
 Channel.from(inputFile)
@@ -373,13 +310,13 @@ process runBWA {
     
 	script:
 	outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.bam"	
-	sample_name = indivID + "_" + samppleID
+	sample_name = indivID + "_" + sampleID
     
 	"""
 		bwa mem -H $DICT -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${FASTA}\\tCN:${center}" \
 			-t ${task.cpus} \
 			${FASTA} $left $right \
-			| samtools fixmate -@ 4 -m - \
+			| samtools fixmate -@ 4 -m - - \
 			| samtools sort -@ 4 -O bam -o $outfile - 
 	"""	
 }
@@ -402,7 +339,7 @@ process mergeBamFiles_bySample {
 
 	if (aligned_bam_list.size() > 1 && aligned_bam_list.size() < 1000 ) {
 		"""
-			samtoools merge -@ 4 $merged_bam ${aligned_bam_list.join(' ')}
+			samtools merge -@ 4 $merged_bam ${aligned_bam_list.join(' ')}
 			samtools index $merged_bam
 		"""
 	} else {
@@ -423,7 +360,7 @@ process runMarkDuplicates {
         set indivID, sampleID, file(merged_bam),file(merged_bam_index) from mergedBamFile_by_Sample
 
         output:
-        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics
+        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage
 	set file(outfile_bam), file(outfile_bai) into BamForSexCheck
 	file(outfile_md5)
 	file(outfile_metrics) into DuplicatesOutput_QC
@@ -472,11 +409,13 @@ process runSexCheck {
 
 process runDeepvariant {
 
+	label 'deepvariant'
+
         publishDir "${params.outdir}/${indivID}/${sampleID}/DeepVariant", mode: 'copy'
 
         input:
         set indivID, sampleID, file(bam),file(bai) from BamMD
-        file(bed) from BedFile.collect()
+        file(bed) from bedToExamples.collect()
         file fai from faiToExamples.collect()
         file fastagz from fastaGzToExamples.collect()
         file gzfai from gzFaiToExamples.collect()
@@ -491,7 +430,10 @@ process runDeepvariant {
         gvcf = bam.getBaseName() + ".g.vcf.gz"
         vcf = bam.getBaseName() + ".vcf.gz"
 
+	println fastagz
+
         """
+		unset TMPDIR 
                 /opt/deepvariant/bin/run_deepvariant \
                 --model_type=WES \
                 --ref=$fastagz \
@@ -586,6 +528,8 @@ if (params.joint_calling) {
 
         }
 
+} else {
+	VcfInfo = Channel.empty()
 }
 
 // *********************
@@ -632,7 +576,7 @@ process runHybridCaptureMetrics {
     publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
     input:
-    set indivID, sampleID, file(bam), file(bai) from runPrintReadsOutput_for_HC_Metrics
+    set indivID, sampleID, file(bam), file(bai) from Bam_for_HC_Metrics
 
     output:
     file(outfile) into HybridCaptureMetricsOutput mode flatten

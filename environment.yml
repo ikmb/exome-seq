@@ -15,3 +15,5 @@ dependencies:
   - bcftools=1.9
   - htslib=1.9 
   - perl-excel-writer-xlsx
+  - r=3.5.1
+  - r-base=3.5.1
