@@ -90,7 +90,7 @@ if (params.run_name == false) {
 
 // This will eventually enable switching between multiple assembly versions
 // Currently, only hg19 has all the required reference files available
-params.assembly = "hg19"
+params.assembly = "GRCh38"
 
 FASTA = file(params.genomes[ params.assembly ].fasta)
 FAI_F = file(params.genomes[ params.assembly ].fai)
@@ -99,10 +99,6 @@ GZFAI_F = file(params.genomes[ params.assembly ].gzfai)
 GZI_F = file(params.genomes[ params.assembly ].gzi)
 DICT = file(params.genomes[ params.assembly ].dict)
 DBSNP = file(params.genomes[ params.assembly ].dbsnp )
-
-println FASTA
-println FASTAGZ_F
-println FAI_F
 
 MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitochondrion
 
@@ -215,7 +211,11 @@ log.info "========================================="
 log.info "Exome-seq pipeline v${params.version}"
 log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
-log.info "Genome sequence:		${FASTA}"
+log.info "Exome kit:			${params.kit}"
+if (params.panel) {
+	log.info "Panel(s):			${params.panel}"
+}
+log.info "-----------------------------------------"
 log.info "Command Line:			$workflow.commandLine"
 log.info "Run name: 			${run_name}"
 if (workflow.containerEngine) {
@@ -226,7 +226,6 @@ log.info "========================================="
 // ******************
 // Set up DV channels
 // ******************
-(fastaToIndexCh, fastaToGzCh, fastaToGzFaiCh, fastaToGziCh) = Channel.fromPath(FASTA).into(4)
 
 process list_to_bed {
 
@@ -234,7 +233,7 @@ process list_to_bed {
         file(targets) from targets_to_bed
 
         output:
-        file(bed) into bedToExamples
+        file(bed) into (bedToExamples, BedToMerge)
 
         script:
         bed = targets.getBaseName() + ".bed"
@@ -299,33 +298,45 @@ process runFastp {
 
 process runBWA {
 
-	scratch true
-	
 	input:
 	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, run_date, center,file(left),file(right) from inputBwa
     
 	output:
 	set indivID, sampleID, file(outfile) into runBWAOutput
-	val(sample_name) into SampleNames
     
 	script:
 	outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.bam"	
-	sample_name = indivID + "_" + sampleID
     
 	"""
 		bwa mem -H $DICT -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${FASTA}\\tCN:${center}" \
-			-t ${task.cpus} \
-			${FASTA} $left $right \
-			| samtools fixmate -@ 4 -m - - \
-			| samtools sort -@ 4 -O bam -o $outfile - 
+			-t ${task.cpus} ${FASTA} $left $right \
+			| samtools sort -n -@ 4 -m 3G -O bam -o $outfile - 
 	"""	
 }
 
-runBWAOutput_grouped_by_sample = runBWAOutput.groupTuple(by: [0,1])
+process runFixmate {
+
+	//scratch true
+
+	input:
+	set indivID, sampleID, file(bam) from runBWAOutput
+
+	output:
+	set indivID, sampleID, file(fixed_bam) into FixedBam
+
+	script:
+	fixed_bam = bam.getBaseName() + ".fm.bam"
+
+	"""
+		samtools fixmate -@2 -m $bam - | samtools sort -@2 -m 3G -O bam -o $fixed_bam -
+	"""
+}
+
+runBWAOutput_grouped_by_sample = FixedBam.groupTuple(by: [0,1])
 
 process mergeBamFiles_bySample {
 
-	scratch true
+	// scratch true
 
 	input:
         set indivID, sampleID, file(aligned_bam_list) from runBWAOutput_grouped_by_sample
@@ -334,7 +345,7 @@ process mergeBamFiles_bySample {
 	set indivID,sampleID,file(merged_bam),file(merged_bam_index) into mergedBamFile_by_Sample, MergedBamSkipDedup
 
 	script:
-	merged_bam = sampleID + ".merged.bam"
+	merged_bam = indivID + "_" + sampleID + ".merged.bam"
 	merged_bam_index = merged_bam + ".bai"
 
 	if (aligned_bam_list.size() > 1 && aligned_bam_list.size() < 1000 ) {
@@ -352,30 +363,28 @@ process mergeBamFiles_bySample {
 
 process runMarkDuplicates {
 
-        // publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/MarkDuplicates", mode: 'copy'
+        publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
 
-        scratch true
+      //  scratch true
 
         input:
         set indivID, sampleID, file(merged_bam),file(merged_bam_index) from mergedBamFile_by_Sample
 
         output:
-        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage
+        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, BamFB
 	set file(outfile_bam), file(outfile_bai) into BamForSexCheck
 	file(outfile_md5)
 	file(outfile_metrics) into DuplicatesOutput_QC
+        val(sample_name) into SampleNames
 
         script:
-	if (params.cram) {
-		outfile_bam = sampleID + ".dedup.cram"
-                outfile_bai = sampleID + ".dedup.cram.crai"
-                outfile_md5 = sampleID + ".dedup.cram.md5"
-	} else {
-	        outfile_bam = sampleID + ".dedup.bam"
-        	outfile_bai = sampleID + ".dedup.bam.bai"
-		outfile_md5 = sampleID + ".dedup.bam.md5"
-	}
-        outfile_metrics = sampleID + "_duplicate_metrics.txt"
+        outfile_bam = indivID + "_" + sampleID + ".dedup.bam"
+       	outfile_bai = indivID + "_" + sampleID + ".dedup.bam.bai"
+	outfile_md5 = indivID + "_" + sampleID + ".dedup.bam.md5"
+
+	sample_name = indivID + "_" + sampleID
+
+        outfile_metrics = indivID + "_" + sampleID + "_duplicate_metrics.txt"
 
 	"""
 		samtools markdup -@ ${task.cpus} $merged_bam $outfile_bam
@@ -401,6 +410,30 @@ process runSexCheck {
 	"""
 		parse_sry_coverage.pl --fasta $FASTA --region $SRY_REGION > $sex_check_yaml
 	"""	
+}
+
+//  ***********************
+// Run Freebayes
+// ************************
+
+process runFreebayesMT {
+	
+	label 'freebayes'
+
+	publishDir "${params.outdir}/${indivID}/${sampleID}/MT", mode: 'copy'
+
+	input:
+	set indivID, sampleID, file(bam),file(bai) from BamFB
+
+	output:
+	set indivID, sampleID, file(vcf)	
+
+	script:
+	vcf = indivID + "_" + sampleID + ".MT.vcf"
+
+	"""
+		freebayes -f $FASTA -r $MITOCHONDRION $bam > $vcf
+	"""
 }
 
 // ************************
@@ -430,8 +463,6 @@ process runDeepvariant {
         gvcf = bam.getBaseName() + ".g.vcf.gz"
         vcf = bam.getBaseName() + ".vcf.gz"
 
-	println fastagz
-
         """
 		unset TMPDIR 
                 /opt/deepvariant/bin/run_deepvariant \
@@ -448,8 +479,6 @@ process runDeepvariant {
 if (params.joint_calling) {
 	
 	process runMergeGvcf {
-
-                publishDir "${OUTDIR}/DeepVariant", mode: 'copy'
 
 		label 'glnexus'
 
@@ -476,37 +505,44 @@ if (params.joint_calling) {
 
         process annotateIDs {
 
+                publishDir "${OUTDIR}/DeepVariant", mode: 'copy'
+
                 input:
                 file (vcf) from MergedVCF
 
                 output:
                 file(vcf_annotated) into VcfAnnotated
+		file(vcf_annotated_index)
 
                 script:
                 vcf_annotated = vcf.getBaseName() + ".rsids.vcf.gz"
+		vcf_annotated_index = vcf_annotated + ".tbi"
 
                 """
                         tabix $vcf
-                        bcftools annotate -c ID -a $DPSNP -O z -o $vcf_annotated $vcf
+                        bcftools annotate -c ID -a $DBSNP -O z -o $vcf_annotated $vcf
+			tabix $vcf_annotated
                 """
         }
 
 	process VcfGetSample {
 
-		publishDir "${params.outdir}/${indivID}/${sampleID}/DeepVariant", mode: 'copy'
+		publishDir "${params.outdir}/DeepVariant", mode: 'copy'
 
                 input:
                 file(vcf) from VcfAnnotated
                 val(sample_name) from SampleNames
 
                 output:
-                file(vcf_sample) into VcfSample
+                set file(vcf_sample),file(vcf_sample_index) into VcfSample
 
                 script:
                 vcf_sample = sample_name + ".vcf.gz"
+		vcf_sample_index = vcf_sample + ".tbi"
 
                 """
-                        bcftools view -o $vcf_sample -O z -t ${task.cpus} -a -s $sample_name $vcf
+                        bcftools view -O z -o $vcf_sample -a -s $sample_name $vcf
+			tabix $vcf_sample
                 """
 
         }
@@ -514,7 +550,7 @@ if (params.joint_calling) {
         process VcfStats {
 
                 input:
-                file(vcf) from VcfSample
+                set file(vcf),file(tbi) from VcfSample
 
                 output:
                 file(vcf_stats) into VcfInfo
@@ -537,10 +573,9 @@ if (params.joint_calling) {
 // *********************
 
 process runCollectMultipleMetrics {
+
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
-	scratch true
-	    
 	input:
 	set indivID, sampleID, bam, bai from BamForMultipleMetrics
 
@@ -548,7 +583,7 @@ process runCollectMultipleMetrics {
 	file("${prefix}*") into CollectMultipleMetricsOutput mode flatten
 
 	script:       
-	prefix = sampleID + "."
+	prefix = indivID + "_" + sampleID + "."
 
 	"""
 		picard -Xmx5g CollectMultipleMetrics \
@@ -573,20 +608,20 @@ process runCollectMultipleMetrics {
 
 process runHybridCaptureMetrics {
 
-    publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
-    input:
-    set indivID, sampleID, file(bam), file(bai) from Bam_for_HC_Metrics
+	input:
+	set indivID, sampleID, file(bam), file(bai) from Bam_for_HC_Metrics
 
-    output:
-    file(outfile) into HybridCaptureMetricsOutput mode flatten
-    file(outfile_per_target) into HsMetricsPerTarget
+	output:
+	file(outfile) into HybridCaptureMetricsOutput mode flatten
+	file(outfile_per_target) into HsMetricsPerTarget
 
-    script:
-    outfile = sampleID + ".hybrid_selection_metrics.txt"
-    outfile_per_target = sampleID + ".hybrid_selection_per_target_metrics.txt"
+	script:
+	outfile = indivID + "_" + sampleID + ".hybrid_selection_metrics.txt"
+	outfile_per_target = indivID + "_" + sampleID + ".hybrid_selection_per_target_metrics.txt"
 
-    """
+	"""
         picard -Xmx${task.memory.toGiga()}G CollectHsMetrics \
                 INPUT=${bam} \
                 OUTPUT=${outfile} \
@@ -609,7 +644,7 @@ process runOxoGMetrics {
     file(outfile) into runOxoGMetricsOutput mode flatten
 
     script:
-    outfile = sampleID + ".OxoG_metrics.txt"
+    outfile = indivID + "_" + sampleID + ".OxoG_metrics.txt"
 
     """
 
@@ -645,7 +680,9 @@ process get_software_versions {
     echo $workflow.manifest.version &> v_ikmb_exoseq.txt
     echo $workflow.nextflow.version &> v_nextflow.txt
     fastp -v &> v_fastp.txt
+    echo "Deepvariant 0.10.0" &> v_deepvariant.txt
     samtools --version &> v_samtools.txt
+    bcftools --version &> v_bcftools.txt
     multiqc --version &> v_multiqc.txt
     parse_versions.pl >  $yaml_file
     """
