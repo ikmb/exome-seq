@@ -107,6 +107,12 @@ BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
 
 targets_to_bed = Channel.fromPath(TARGETS)
 
+Channel.from(file(TARGETS))
+	.into { TargetsToHS; TargetsToMetrics; TargetsToOxo }
+
+Channel.from(file(BAITS))
+	.into { BaitsToHS; BaitsToMetrics }
+
 if (params.kill) {
 	KILL = params.kill
 } else if (params.kit && params.genomes[params.assembly].kits[params.kit].kill) {
@@ -298,6 +304,8 @@ process runFastp {
 
 process runBWA {
 
+	scratch true	
+
 	input:
 	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, run_date, center,file(left),file(right) from inputBwa
     
@@ -316,7 +324,7 @@ process runBWA {
 
 process runFixmate {
 
-	//scratch true
+	scratch true
 
 	input:
 	set indivID, sampleID, file(bam) from runBWAOutput
@@ -336,7 +344,7 @@ runBWAOutput_grouped_by_sample = FixedBam.groupTuple(by: [0,1])
 
 process mergeBamFiles_bySample {
 
-	// scratch true
+	scratch true
 
 	input:
         set indivID, sampleID, file(aligned_bam_list) from runBWAOutput_grouped_by_sample
@@ -371,7 +379,7 @@ process runMarkDuplicates {
         set indivID, sampleID, file(merged_bam),file(merged_bam_index) from mergedBamFile_by_Sample
 
         output:
-        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, BamFB
+        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage
 	set file(outfile_bam), file(outfile_bai) into BamForSexCheck
 	file(outfile_md5)
 	file(outfile_metrics) into DuplicatesOutput_QC
@@ -412,30 +420,6 @@ process runSexCheck {
 	"""	
 }
 
-//  ***********************
-// Run Freebayes
-// ************************
-
-process runFreebayesMT {
-	
-	label 'freebayes'
-
-	publishDir "${params.outdir}/${indivID}/${sampleID}/MT", mode: 'copy'
-
-	input:
-	set indivID, sampleID, file(bam),file(bai) from BamFB
-
-	output:
-	set indivID, sampleID, file(vcf)	
-
-	script:
-	vcf = indivID + "_" + sampleID + ".MT.vcf"
-
-	"""
-		freebayes -f $FASTA -r $MITOCHONDRION $bam > $vcf
-	"""
-}
-
 // ************************
 // Run DeepVariant
 // ************************
@@ -464,7 +448,6 @@ process runDeepvariant {
         vcf = bam.getBaseName() + ".vcf.gz"
 
         """
-		unset TMPDIR 
                 /opt/deepvariant/bin/run_deepvariant \
                 --model_type=WES \
                 --ref=$fastagz \
@@ -578,6 +561,7 @@ process runCollectMultipleMetrics {
 
 	input:
 	set indivID, sampleID, bam, bai from BamForMultipleMetrics
+        file(baits) from BaitsToMetrics.collect()
 
 	output:
 	file("${prefix}*") into CollectMultipleMetricsOutput mode flatten
@@ -598,7 +582,7 @@ process runCollectMultipleMetrics {
 		INPUT=${bam} \
 		REFERENCE_SEQUENCE=${FASTA} \
 		DB_SNP=${DBSNP} \
-		INTERVALS=${BAITS} \
+		INTERVALS=${baits} \
 		ASSUME_SORTED=true \
 		QUIET=true \
 		OUTPUT=${prefix} \
@@ -612,6 +596,8 @@ process runHybridCaptureMetrics {
 
 	input:
 	set indivID, sampleID, file(bam), file(bai) from Bam_for_HC_Metrics
+	file(targets) from TargetsToHS.collect()
+	file(baits) from BaitsToHS.collect()
 
 	output:
 	file(outfile) into HybridCaptureMetricsOutput mode flatten
@@ -626,8 +612,8 @@ process runHybridCaptureMetrics {
                 INPUT=${bam} \
                 OUTPUT=${outfile} \
 		PER_TARGET_COVERAGE=${outfile_per_target} \
-                TARGET_INTERVALS=${TARGETS} \
-                BAIT_INTERVALS=${BAITS} \
+                TARGET_INTERVALS=${targets} \
+                BAIT_INTERVALS=${baits} \
                 REFERENCE_SEQUENCE=${FASTA} \
                 TMP_DIR=tmp
         """
@@ -639,6 +625,7 @@ process runOxoGMetrics {
 
     input:
     set indivID, sampleID, file(bam), file(bai) from runPrintReadsOutput_for_OxoG_Metrics
+    file(targets) from TargetsToOxo.collect()
 
     output:
     file(outfile) into runOxoGMetricsOutput mode flatten
@@ -652,7 +639,7 @@ process runOxoGMetrics {
                 INPUT=${bam} \
                 OUTPUT=${outfile} \
                 DB_SNP=${DBSNP} \
-                INTERVALS=${TARGETS} \
+                INTERVALS=${targets} \
                 REFERENCE_SEQUENCE=${FASTA} \
                 TMP_DIR=tmp
         """

@@ -2,7 +2,7 @@
 
 # Exome-seq Pipeline
 
-This pipeline offers a end-to-end workflow for exome analysis using the GATK4 toolchain
+This pipeline offers a end-to-end workflow for exome analysis using the DeepVariant toolchain
 
 - trimming with Fastp
 
