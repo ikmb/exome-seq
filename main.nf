@@ -33,9 +33,10 @@ helpMessage = """
 ===============================================================================
 IKMB Diagnostic Exome pipeline | version ${params.version}
 ===============================================================================
-Usage: nextflow -c /path/to/git/nextflow.config run /path/to/git/main.nf --assembly hg19_clinical --kit Nextera --samples Samples.csv
-This example will perform an exome analysis against the hg19 (with decoys) assembly, assuming that exome reads were generated with
-the Nextera kit and using the GATK4 best-practice workflow. 
+Usage: nextflow run ikmb/exome-seq --assembly GRCh38 --kit xGen_v2 --samples Samples.csv
+This example will perform an exome analysis against the ALT-free hg38 assembly, assuming that exome reads were generated with
+the IDT xGen v2 kit and using DeepVariant with GLNexus.
+
 Required parameters:
 --samples                      A sample list in CSV format (see website for formatting hints)
 --assembly                     Name of the reference assembly to use
