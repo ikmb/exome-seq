@@ -50,7 +50,7 @@ Optional parameters:
 --panel_intervals	       Run a custom gene panel in interval list format (must have a matching sequence dictionary!)
 --run_name 		       A descriptive name for this pipeline run
 --cram			       Whether to output the alignments in CRAM format (default: bam)
---interval_padding	       For GATK, include this number of nt upstream and downstream around the exome targets (default: 10)
+--interval_padding	       Include this number of nt upstream and downstream around the exome targets (default: 10)
 Expert options (usually not necessary to change!):
 --fasta                        A reference genome in FASTA format (set automatically if using --assembly)
 --dict                         A sequence dictionary matching --fasta (set automatically if using --assembly)
@@ -59,6 +59,7 @@ Expert options (usually not necessary to change!):
 --baits                        A interval_list bait file (set automatically if using the --kit option)
 --bed                          A list of calling intervals to be used by Deepvariant (default: exome kit targets will be converted to bed)
 --max_length                   Cut reads down to this length (optional, default 0 = no trimming)
+--min_mapq		       Minimum mapping quality to consider for general coverage analysis (default = 20)
 --kill                         A list of known bad exons in the genome build that are ignored for panel coverage statistics (see documentation for details)
 Output:
 --outdir                       Local directory to which all output is written (default: results)
@@ -201,7 +202,7 @@ if (params.panel) {
 } else if (params.all_panels) {
 	summary['GenePanel'] = "All panels"
 }
-
+summary['CommandLine'] = workflow.commandLine
 if (KILL) {
         summary['KillList'] = KILL
 }
@@ -221,7 +222,11 @@ log.info "Assembly version: 		${params.assembly}"
 log.info "Exome kit:			${params.kit}"
 if (params.panel) {
 	log.info "Panel(s):			${params.panel}"
-}
+} else if (params.panel_intervals) {
+	log.info "Panel(s):			custom"
+} else if (params.all_panels) {
+	log.info "Panel(s)			all"
+} 
 log.info "-----------------------------------------"
 log.info "Command Line:			$workflow.commandLine"
 log.info "Run name: 			${run_name}"
@@ -319,7 +324,7 @@ process runBWA {
 	"""
 		bwa mem -H $DICT -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${FASTA}\\tCN:${center}" \
 			-t ${task.cpus} ${FASTA} $left $right \
-			| samtools sort -n -@ 4 -m 3G -O bam -o $outfile - 
+			| samtools sort -n -@ 8 -m 3G -O bam -o $outfile - 
 	"""	
 }
 
@@ -440,7 +445,7 @@ process runDeepvariant {
         file gzi from gziToExamples.collect()
 
         output:
-        set indivID,sampleID,file(gvcf) into DvVCF
+        set indivID,sampleID,file(gvcf)
         file(gvcf) into MergeGVCF
         file(vcf)
 
@@ -525,7 +530,7 @@ if (params.joint_calling) {
 		vcf_sample_index = vcf_sample + ".tbi"
 
                 """
-                        bcftools view -O z -o $vcf_sample -a -s $sample_name $vcf
+                        bcftools view -a -U -e 'GT="0/0"' -O z -o $vcf_sample -a -s $sample_name $vcf
 			tabix $vcf_sample
                 """
 
@@ -602,7 +607,7 @@ process runHybridCaptureMetrics {
 
 	output:
 	file(outfile) into HybridCaptureMetricsOutput mode flatten
-	file(outfile_per_target) into HsMetricsPerTarget
+	file(outfile_per_target)
 
 	script:
 	outfile = indivID + "_" + sampleID + ".hybrid_selection_metrics.txt"
@@ -616,6 +621,7 @@ process runHybridCaptureMetrics {
                 TARGET_INTERVALS=${targets} \
                 BAIT_INTERVALS=${baits} \
                 REFERENCE_SEQUENCE=${FASTA} \
+		MINIMUM_MAPPING_QUALITY=$params.min_mapq \
                 TMP_DIR=tmp
         """
 }
@@ -658,7 +664,7 @@ process get_software_versions {
     publishDir "${OUTDIR}/Summary/versions", mode: 'copy'
 
     output:
-    file("v*.txt") into software_versions
+    file("v*.txt")
     file(yaml_file) into (software_versions_yaml_fastqc, software_versions_yaml_lib, software_versions_yaml_sample)
 
     script:
@@ -668,10 +674,11 @@ process get_software_versions {
     echo $workflow.manifest.version &> v_ikmb_exoseq.txt
     echo $workflow.nextflow.version &> v_nextflow.txt
     fastp -v &> v_fastp.txt
-    echo "Deepvariant 0.10.0" &> v_deepvariant.txt
+    echo "Deepvariant 1.0.0" &> v_deepvariant.txt
     samtools --version &> v_samtools.txt
     bcftools --version &> v_bcftools.txt
     multiqc --version &> v_multiqc.txt
+    bwa &> v_bwa.txt 2>&1 || true
     parse_versions.pl >  $yaml_file
     """
 }
@@ -688,7 +695,7 @@ process runMultiqcFastq {
     file('*') from software_versions_yaml_fastqc.collect()
     
     output:
-    file("fastp_multiqc*") into runMultiQCFastqOutput
+    file("fastp_multiqc*")
     	
     script:
 
@@ -711,7 +718,7 @@ process runMultiqcLibrary {
     file('*') from software_versions_yaml_lib.collect()
 
     output:
-    file("library_multiqc*") into runMultiQCLibraryOutput
+    file("library_multiqc*")
     	
     script:
 
@@ -765,7 +772,7 @@ process runPanelCoverage {
 
         output:
         set val(panel_name),file(coverage) into outputPanelCoverage
-	set indivID,sampleID,file(target_coverage_xls) into outputPanelTargetCoverage
+	set indivID,sampleID,file(target_coverage_xls)
 	file(target_coverage)
 
         script:
@@ -798,6 +805,7 @@ process runPanelCoverage {
 			CLIP_OVERLAPPING_READS=false \
                         REFERENCE_SEQUENCE=${FASTA} \
                         TMP_DIR=tmp \
+	                MINIMUM_MAPPING_QUALITY=$params.min_mapq \
 			PER_TARGET_COVERAGE=$target_coverage
 
 		target_coverage2xls.pl $options --infile $target_coverage --min_cov $params.panel_coverage --skip overlaps.interval_list --outfile $target_coverage_xls
@@ -815,7 +823,7 @@ process runMultiqcPanel {
 	set val(panel_name),file('*') from grouped_panels
 
 	output:
-	file("${panel_name}_multiqc.html") into panel_qc_report
+	file("${panel_name}_multiqc.html")
 
 	script:
 
