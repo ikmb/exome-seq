@@ -500,8 +500,7 @@ if (params.joint_calling) {
                 file (vcf) from MergedVCF
 
                 output:
-                file(vcf_annotated) into VcfAnnotated
-		file(vcf_annotated_index)
+                set file(vcf_annotated), file(vcf_annotated_index) into VcfAnnotated
 
                 script:
                 vcf_annotated = vcf.getBaseName() + ".rsids.vcf.gz"
@@ -518,8 +517,10 @@ if (params.joint_calling) {
 
 		publishDir "${params.outdir}/DeepVariant", mode: 'copy'
 
+		label 'gatk'
+
                 input:
-                file(vcf) from VcfAnnotated
+                set file(vcf),file(vcf_index) from VcfAnnotated
                 val(sample_name) from SampleNames
 
                 output:
@@ -530,8 +531,7 @@ if (params.joint_calling) {
 		vcf_sample_index = vcf_sample + ".tbi"
 
                 """
-                        bcftools view -a -U -e 'GT="0/0"' -O z -o $vcf_sample -a -s $sample_name $vcf
-			tabix $vcf_sample
+			gatk SelectVariants --remove-unused-alternates --exclude-non-variants -V $vcf -sn $sample_name -O $vcf_sample -OVI
                 """
 
         }
