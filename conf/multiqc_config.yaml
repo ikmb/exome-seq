@@ -7,6 +7,8 @@ custom_logo_url: "http://www.ikmb.uni-kiel.de"
 extra_fn_clean_exts:
     - _R1
     - _R2
+    - _duplicate_metrics.txt
+
 report_comment: >
     This report has been generated automatically by the IKMB Diagnostic Exome pipeline.
     For help interpreting the outputs, please see: https://github.com/ikmb/exome-seq
@@ -17,4 +19,5 @@ report_header_info:
 
 top_modules:
     - 'general_stats'
+    - 'picard'
     - 'picard_hsmetrics'

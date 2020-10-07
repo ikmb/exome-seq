@@ -44,7 +44,7 @@ my $header = qq(
 id: 'Coverage of the SRY gene'
 section_name: 'Sex check'
 plot_type: 'html'
-description: ' shows the coverage of the SRY gene to determine sex of the sample. Males will have a high coverage.'
+description: ' shows the coverage of the SRY gene to determine sex of the sample (must be included in the bait set to work!). Males will have a high coverage.'
 data: |\n
   <dl class="dl-horizontal">
 );

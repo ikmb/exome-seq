@@ -7,7 +7,7 @@ From:continuumio/anaconda
     VERSION 1.5
 
 %environment
-    PATH=/opt/conda/envs/exome-seq-1.5/bin:$PATH
+    PATH=/opt/conda/envs/exome-seq-2.0/bin:$PATH
     export PATH
 
 %files

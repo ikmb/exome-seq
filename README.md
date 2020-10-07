@@ -2,23 +2,17 @@
 
 # Exome-seq Pipeline
 
-This pipeline offers a end-to-end workflow for exome analysis using the GATK4 toolchain
+This pipeline offers a end-to-end workflow for exome analysis using the DeepVariant toolchain
 
 - trimming with Fastp
 
 - read alignment with BWA
 
-- duplicate marking using Picard MarkDuplicates
+- duplicate marking using Samtools
 
-- quality score recalibration
+- vcf/gvcf calling with Deepvariant
 
-- gvcf calling
-
-- joint variant calling
-
- - variant hard-filtering [default]
-
- - variant recalibration (SNPs and Indels) and filtering [optional, off by default and only recommended for >= 30 exomes]
+- joint variant calling with GLNexus
 
 The result will be a multi-sample VCF file as well as a list of VCF files for each sample.
 

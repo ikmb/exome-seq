@@ -86,6 +86,7 @@ foreach $line (<$fh>) {
 
 		next if (!$gene);
 
+		# We have a found a match, don't need to check the alternative names, if any
 		$skip = 1;
 
 		my $transcript = $gene->canonical_transcript;

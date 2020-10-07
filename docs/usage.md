@@ -8,6 +8,10 @@ If you are at the IKMB, the following will work:
 
 `nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com`
 
+If you need to run a specific "release" of the pipeline, you can do:
+
+`nextflow run ikmb/exome-seq -r 1.5 --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com`
+
 If you try to run the pipeline on another system, you will need to configure a profile (see the installation instructions):
 
 `nextflow run /path/to/main.nf --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com' -profile your_profile`
@@ -28,9 +32,9 @@ ruby bin/samplesheet_from_folder.rb -f /path/to/foler > Samplesheet.csv`
 ```
 
 ### `--assembly` 
-The following human genome assembly versions are supported on RZCluster (see resources.config on how this is set):
+The following human genome assembly versions are supported on MedCluster (see resources.config on how this is set):
 
-- GRCh37 (the 1000 genomes reference)
+- GRCh37 (the 1000 genomes reference with decoys)
 - GRCh38 (the current human reference assembly without ALT loci)
 - hg19 (another version of GRCh37, also referred to as the UCSC reference)
 
@@ -75,11 +79,16 @@ supports the following panels:
 
 Please note that this will also create additional run metrics, including a per-sample list of target exons that fall below a minimum sequence coverage. 
 
+### `--all_panels`
+This is a short-cut function to enable the production of statistics for all currently defined panels (for a given reference assembly!). Mutually exclusive with `--panel` and `--panel_intervals`. 
+
+### `--panel_intervals`
+This option allows the user to run non-defined panels. Must be in picard interval list format and match the sequence dictionary of the
+genome assembly to run against (use with care!!!). Usually, you would start with a target list in BED format and convert this into an interval list
+using the Picard Tools "BedToIntervalList" command.
+
 ### `--bed`
 A BED file that can be used by DeepVariant to define calling intervals. Default behavior is to use the target interval list and convert it to BED.
-
-### `--deepvariant`
-Additionally run Google DeepVariant for variant calling as an independent control to the GATK workflow. Note that DeepVariant runs per-sample and will not create a multi-sample VCF. 
 
 ### `--kill`
 For panel-based statistics, it is desirable to mark any exons that are known to underperform in exome sequencing - for example due to homology and
@@ -98,9 +107,6 @@ Skip the sending of a QC report. Default: false
 ### `--cram`
 Create CRAM instead of BAM files to save space. Note that CRAM files are slower to read by IGV. 
 
-### `--vqsr`
-Perform the variant score recalibration filtering workflow. This requires > 30 exomes to be analysed in parallel and is deactivated by default. 
-
 ### `--run_name`
 Give this run a meaningful name (like a LIMS or project ID)
 
@@ -113,25 +119,9 @@ Provide path to a genome sequence dictionary file (default: false, uses a pre-co
 ### `--dbsnp`
 Provide path to a dbSNP reference VCF file for variant filtering (default: false, uses a pre-configured reference)
 
-### `--g1k`
-Provide path to a 1000genomes reference VCF file for variant filtering (default: false, uses a pre-configured reference)
-
-### `--mills_indels`
-Provide path to a indel reference VCF file for variant filtering (default: false, uses a pre-configured reference)
-
-### `--omni`
-Provide path to a SNP reference VCF file for variant filtering (default: false, uses a pre-configured reference)
-
-### `--hapmap`
-Provide path to a SNP reference VCF file for variant filtering (default: false, uses a pre-configured reference)
-
 ## Debug / custom arguments
 
 ### `--panel_coverage`
 This option changes the cut-off for reporting lowly covered panel intervals (default: 10)
 
-### `--panel_intervals`
-This option allows the user to run non-defined panels. Must be in picard interval list format and match the sequence dictionary of the
-genome assembly to run against (use with care!!!). Usually, you would start with a target list in BED format and convert this into an interval list
-using the Picard Tools "BedToIntervalList" command.
 
