@@ -11,7 +11,7 @@ associated with that patient and therein the BAM files (and some statistical out
 
 * A folder "Summary" containing the QC reports for various levels of data (fastq files, libraries, samples and, optionally, panels)
 
-* A folder "Variants" containing the variant calls in VCF format, sorted by filtering procedure (HardFilter or VQSR)
+* A folder "DeepVariant" containing the variant calls in VCF format, sorted by filtering procedure (HardFilter or VQSR)
 
 ## QC reports
 

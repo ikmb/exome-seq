@@ -21,3 +21,5 @@ top_modules:
     - 'general_stats'
     - 'picard'
     - 'picard_hsmetrics'
+    - 'bcftools'
+    - 'sex_check'
