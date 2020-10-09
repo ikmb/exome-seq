@@ -481,7 +481,7 @@ if (params.joint_calling) {
                 file(merged_vcf) into MergedVCF
 
                 script:
-                merged_vcf = "deepvariant.merged.vcf.gz"
+                merged_vcf = "deepvariant.merged." + run_name + ".vcf.gz"
 
                 """
                         /usr/local/bin/glnexus_cli \
@@ -507,8 +507,9 @@ if (params.joint_calling) {
 		vcf_annotated_index = vcf_annotated + ".tbi"
 
                 """
+			echo "##reference=${params.assembly}" > header.txt
                         tabix $vcf
-                        bcftools annotate -c ID -a $DBSNP -O z -o $vcf_annotated $vcf
+                        bcftools annotate -h header.txt -c ID -a $DBSNP -O z -o $vcf_annotated $vcf
 			tabix $vcf_annotated
                 """
         }
@@ -675,6 +676,7 @@ process get_software_versions {
     echo $workflow.nextflow.version &> v_nextflow.txt
     fastp -v &> v_fastp.txt
     echo "Deepvariant 1.0.0" &> v_deepvariant.txt
+    echo "GLNexus 1.2.6" &> v_glnexus.txt
     samtools --version &> v_samtools.txt
     bcftools --version &> v_bcftools.txt
     multiqc --version &> v_multiqc.txt
