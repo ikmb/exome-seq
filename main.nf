@@ -11,7 +11,7 @@ using Google DeepVariant
 ### Homepage / git
 git@github.com:ikmb/exome-seq.git
 ### Implementation
-Implemented in Q1 2019
+Re-Implemented in Q3 2020
 
 This pipeline is based on the DeepVariant best-practices (where applicable).
  - trimming (FastP)
@@ -516,7 +516,7 @@ if (params.joint_calling) {
 
 	process VcfGetSample {
 
-		publishDir "${params.outdir}/DeepVariant", mode: 'copy'
+		//publishDir "${params.outdir}/DeepVariant", mode: 'copy'
 
 		label 'gatk'
 
@@ -525,7 +525,7 @@ if (params.joint_calling) {
                 val(sample_name) from SampleNames
 
                 output:
-                set file(vcf_sample),file(vcf_sample_index) into VcfSample
+                set file(vcf_sample),file(vcf_sample_index) into VcfSample, VcfReheader
 
                 script:
                 vcf_sample = sample_name + ".vcf.gz"
@@ -536,6 +536,29 @@ if (params.joint_calling) {
                 """
 
         }
+
+	process addRefHeader {
+
+                publishDir "${params.outdir}/DeepVariant", mode: 'copy'
+
+		input:
+		set file(vcf),file(tbi) from VcfReheader
+
+		output:
+		set file(vcf_r),file(tbi_r) 
+
+		script:
+
+		vcf_r = vcf.getBaseName() + ".final.vcf.gz"
+		tbi_r = vcf_r + ".tbi"
+
+		"""
+			echo "##reference=${params.assembly}" > header.txt
+			bcftools annotate -h header.txt -O z -o $vcf_r $vcf
+			tabix $vcf_r
+		"""
+
+	}
 
         process VcfStats {
 
