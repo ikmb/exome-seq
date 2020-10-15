@@ -107,6 +107,9 @@ MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitoch
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
 
+if (TARGETS==BAITS) {
+	exit 1, "Target and bait files must not have the same name to avoid file collisions!"
+}
 targets_to_bed = Channel.fromPath(TARGETS)
 
 Channel.from(file(TARGETS))
