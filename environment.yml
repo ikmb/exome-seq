@@ -17,3 +17,4 @@ dependencies:
   - perl-excel-writer-xlsx
   - r=3.5.1
   - r-base=3.5.1
+  - ensembl-vep=99.2
