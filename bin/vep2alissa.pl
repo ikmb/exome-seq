@@ -40,8 +40,9 @@ open (my $IN, '<', $infile) or die "FATAL: Can't open file: $infile for reading.
 
 my %structure;
 
+# VEP specific keys we wish to deconstruct and put into their stand-alone info field
 my %recover = ( "ada_score" => { "Type" => "Float", "Number" => "1"}, 
-		"rf_scores" => { "Type" => "Float", "Number" => "1"}, 
+		"rf_score" => { "Type" => "Float", "Number" => "1"}, 
 		"ExACpLI" => { "Type" => "Float", "Number" => "1"}, 
 		"GERP++_RS" => { "Type" => "Float", "Number" => "1"}, 
 		"LRT_score" => { "Type" => "Float", "Number" => "1"},
@@ -79,7 +80,7 @@ while (<$IN>) {
 			if (defined $structure{$r}) {
 				my $t = $recover{$r}{"Type"};
 				my $n = $recover{$r}{"Number"};
-				printf "#NFO=<ID=$r,Number=$n,Type=$t,Description=\"$r\">\n" ;
+				printf "#INFO=<ID=$r,Number=$n,Type=$t,Description=\"$r\">\n" ;
 			}
 		
 		}

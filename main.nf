@@ -204,7 +204,7 @@ if (params.vep) {
 
 	if (params.dbnsfp_db) {
 		dbNSFP_DB = file(params.dbnsfp_db)
-		if (!dbNSFP_DB.exist()) {
+		if (!dbNSFP_DB.exists()) {
 			exit 1, "Could not find the specified dbNSFP database..."
 		}
 	} else {
@@ -213,7 +213,7 @@ if (params.vep) {
 
 	if (params.dbscsnv_db) {
 		dbscSNV_DB = file(params.dbscsnv_db)
-		if ( !dbscSNV_DB.exist() ) {
+		if ( !dbscSNV_DB.exists() ) {
 			exit 1, "Could not find the specified dbscSNV database..."
 		}
 	} else {
@@ -263,6 +263,9 @@ if (params.panel) {
 	log.info "Panel(s):			custom"
 } else if (params.all_panels) {
 	log.info "Panel(s)			all"
+}
+if (params.vep) {
+	log.info "Run VEP			${params.vep}"
 } 
 log.info "-----------------------------------------"
 log.info "Command Line:			$workflow.commandLine"
@@ -578,7 +581,7 @@ if (params.joint_calling) {
 		params.vep
 
 		input:
-		file(vcf) from VcfToVep
+		set file(vcf),file(vcf_index) from VcfToVep
 
 		output:
 		file(vcf_vep)
