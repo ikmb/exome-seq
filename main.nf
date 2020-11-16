@@ -198,6 +198,10 @@ if (params.amplicon) {
 
 if (params.vep) {
 
+	if (params.assembly != "GRCh38") {
+		exit 1, "VEP is not currently set up to work with defunct assembly versions...please use GRCh38"
+	}
+
 	if (!params.vep_cache_dir || !params.vep_plugin_dir) {
 		exit 1, "Missing VEP cache and/or plugin directory..."
 	}
@@ -265,7 +269,7 @@ if (params.panel) {
 	log.info "Panel(s)			all"
 }
 if (params.vep) {
-	log.info "Run VEP			${params.vep}"
+	log.info "Run VEP				${params.vep}"
 } 
 log.info "-----------------------------------------"
 log.info "Command Line:			$workflow.commandLine"
@@ -350,7 +354,7 @@ process runFastp {
 
 process runBWA {
 
-	scratch true	
+	//scratch true	
 
 	input:
 	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, run_date, center,file(left),file(right) from inputBwa
