@@ -5,7 +5,7 @@
 Exome Pipeline
 ===============================
 
-This Pipeline performs one of two workflows to generate variant calls 
+This Pipeline performs variant calling
 using Google DeepVariant
 
 ### Homepage / git
@@ -43,7 +43,8 @@ Required parameters:
 --kit			       Name of the exome kit (available options: xGen, xGen_custom, xGen_v2, Nextera, Pan_cancer)
 --email 		       Email address to send reports to (enclosed in '')
 Optional parameters:
---joint_calling		       Perform joint calling of all samples 
+--joint_calling		       Perform joint calling of all samples (default: true)
+--amplicon		       This is a small amplicon-based analysis, skip duplicate marking and sex check
 --skip_multiqc		       Don't attached MultiQC report to the email. 
 --panel 		       Gene panel to check coverage of (valid options: cardio_dilatative, cardio_hypertrophic, cardio_non_compaction, eoIBD_25kb, imm_eoIBD_full, breast_cancer)
 --all_panels 		       Run all gene panels defined for this assembly (none if no panel is defined!)
@@ -51,6 +52,7 @@ Optional parameters:
 --run_name 		       A descriptive name for this pipeline run
 --cram			       Whether to output the alignments in CRAM format (default: bam)
 --interval_padding	       Include this number of nt upstream and downstream around the exome targets (default: 10)
+--vep			       Perform variant annotation with VEP (requires substantial local configuration work!)
 Expert options (usually not necessary to change!):
 --fasta                        A reference genome in FASTA format (set automatically if using --assembly)
 --dict                         A sequence dictionary matching --fasta (set automatically if using --assembly)
@@ -190,7 +192,39 @@ if (params.max_length) {
 	}
 }
 
-	
+if (params.amplicon) {
+	log.info "This is an amplicon run - no duplicate marking or sex-checking will be performed!"
+}
+
+if (params.vep) {
+
+	if (params.assembly != "GRCh38") {
+		exit 1, "VEP is not currently set up to work with defunct assembly versions...please use GRCh38"
+	}
+
+	if (!params.vep_cache_dir || !params.vep_plugin_dir) {
+		exit 1, "Missing VEP cache and/or plugin directory..."
+	}
+
+	if (params.dbnsfp_db) {
+		dbNSFP_DB = file(params.dbnsfp_db)
+		if (!dbNSFP_DB.exists()) {
+			exit 1, "Could not find the specified dbNSFP database..."
+		}
+	} else {
+		exit 1, "No dbNSFP database defined for this execution profile..."
+	}
+
+	if (params.dbscsnv_db) {
+		dbscSNV_DB = file(params.dbscsnv_db)
+		if ( !dbscSNV_DB.exists() ) {
+			exit 1, "Could not find the specified dbscSNV database..."
+		}
+	} else {
+		exit 1, "No dbscSNV database defined for this execution profile..."
+	}
+
+}	
 summary['runName'] = run_name
 summary['Samples'] = inputFile
 summary['Current home'] = "$HOME"
@@ -205,6 +239,7 @@ if (params.panel) {
 } else if (params.all_panels) {
 	summary['GenePanel'] = "All panels"
 }
+summary['AmpliconRun'] = params.amplicon
 summary['CommandLine'] = workflow.commandLine
 if (KILL) {
         summary['KillList'] = KILL
@@ -223,12 +258,18 @@ log.info "Exome-seq pipeline v${params.version}"
 log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
 log.info "Exome kit:			${params.kit}"
+if (params.amplicon) {
+	log.info "Amplicon run:			true"
+}
 if (params.panel) {
 	log.info "Panel(s):			${params.panel}"
 } else if (params.panel_intervals) {
 	log.info "Panel(s):			custom"
 } else if (params.all_panels) {
 	log.info "Panel(s)			all"
+}
+if (params.vep) {
+	log.info "Run VEP				${params.vep}"
 } 
 log.info "-----------------------------------------"
 log.info "Command Line:			$workflow.commandLine"
@@ -313,7 +354,7 @@ process runFastp {
 
 process runBWA {
 
-	scratch true	
+	//scratch true	
 
 	input:
 	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, run_date, center,file(left),file(right) from inputBwa
@@ -355,15 +396,20 @@ process mergeBamFiles_bySample {
 
 	scratch true
 
+	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy', enabled: params.amplicon
+
 	input:
         set indivID, sampleID, file(aligned_bam_list) from runBWAOutput_grouped_by_sample
 
 	output:
-	set indivID,sampleID,file(merged_bam),file(merged_bam_index) into mergedBamFile_by_Sample, MergedBamSkipDedup
+	set indivID,sampleID,file(merged_bam),file(merged_bam_index) into mergedBamFile_by_Sample 
+	set file(merged_bam),file(merged_bam_index)  into MergedBamSkipDedup
+        val(sample_name) into SampleNames
 
 	script:
 	merged_bam = indivID + "_" + sampleID + ".merged.bam"
 	merged_bam_index = merged_bam + ".bai"
+        sample_name = indivID + "_" + sampleID
 
 	if (aligned_bam_list.size() > 1 && aligned_bam_list.size() < 1000 ) {
 		"""
@@ -378,55 +424,69 @@ process mergeBamFiles_bySample {
 	}
 }
 
-process runMarkDuplicates {
+if (params.amplicon) {
 
-        publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
+	mergedBamFile_by_Sample
+	.into { BamMD; BamForMultipleMetrics; runHybridCaptureMetrics; runPrintReadsOutput_for_OxoG_Metrics; Bam_for_HC_Metrics; inputPanelCoverage }
 
-      //  scratch true
+	BamForSexCheck = MergedBamSkipDedup
 
-        input:
-        set indivID, sampleID, file(merged_bam),file(merged_bam_index) from mergedBamFile_by_Sample
+	DuplicatesOutput_QC = Channel.from(false)
 
-        output:
-        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage
-	set file(outfile_bam), file(outfile_bai) into BamForSexCheck
-	file(outfile_md5)
-	file(outfile_metrics) into DuplicatesOutput_QC
-        val(sample_name) into SampleNames
+	SexChecKYaml = Channel.from(false)
+	
+} else {
 
-        script:
-        outfile_bam = indivID + "_" + sampleID + ".dedup.bam"
-       	outfile_bai = indivID + "_" + sampleID + ".dedup.bam.bai"
-	outfile_md5 = indivID + "_" + sampleID + ".dedup.bam.md5"
+	process runMarkDuplicates {
 
-	sample_name = indivID + "_" + sampleID
+	        publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
 
-        outfile_metrics = indivID + "_" + sampleID + "_duplicate_metrics.txt"
+	      //  scratch true
 
-	"""
-		samtools markdup -@ ${task.cpus} $merged_bam $outfile_bam
-		samtools index $outfile_bam
-		samtools stats $outfile_bam > $outfile_metrics
-		md5sum $outfile_bam > $outfile_md5
-	"""
+        	input:
+	        set indivID, sampleID, file(merged_bam),file(merged_bam_index) from mergedBamFile_by_Sample
 
-}
+        	output:
+	        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage
+		set file(outfile_bam), file(outfile_bai) into BamForSexCheck
+		file(outfile_md5)
+		file(outfile_metrics) into DuplicatesOutput_QC
 
-// a simple sex check looking at coverage of the SRY gene
-process runSexCheck {
+	        script:
+        	outfile_bam = indivID + "_" + sampleID + ".dedup.bam"
+	       	outfile_bai = indivID + "_" + sampleID + ".dedup.bam.bai"
+		outfile_md5 = indivID + "_" + sampleID + ".dedup.bam.md5"
 
-	input:
-	file(bams) from BamForSexCheck.collect()
+		sample_name = indivID + "_" + sampleID
 
-	output:
-	file(sex_check_yaml) into SexChecKYaml
+        	outfile_metrics = indivID + "_" + sampleID + "_duplicate_metrics.txt"
 
-	script:
-	sex_check_yaml = "sex_check_mqc.yaml"
+		"""
+			samtools markdup -@ ${task.cpus} $merged_bam $outfile_bam
+			samtools index $outfile_bam
+			samtools stats $outfile_bam > $outfile_metrics
+			md5sum $outfile_bam > $outfile_md5
+		"""
 
-	"""
-		parse_sry_coverage.pl --fasta $FASTA --region $SRY_REGION > $sex_check_yaml
-	"""	
+	}
+
+	// a simple sex check looking at coverage of the SRY gene
+	process runSexCheck {
+
+		input:
+		file(bams) from BamForSexCheck.collect()
+
+		output:
+		file(sex_check_yaml) into SexChecKYaml
+
+		script:
+		sex_check_yaml = "sex_check_mqc.yaml"
+
+		"""
+			parse_sry_coverage.pl --fasta $FASTA --region $SRY_REGION > $sex_check_yaml
+		"""	
+	}
+
 }
 
 // ************************
@@ -503,7 +563,7 @@ if (params.joint_calling) {
                 file (vcf) from MergedVCF
 
                 output:
-                set file(vcf_annotated), file(vcf_annotated_index) into VcfAnnotated
+                set file(vcf_annotated), file(vcf_annotated_index) into VcfAnnotated, VcfToVep
 
                 script:
                 vcf_annotated = vcf.getBaseName() + ".rsids.vcf.gz"
@@ -516,6 +576,50 @@ if (params.joint_calling) {
 			tabix $vcf_annotated
                 """
         }
+
+	process runVep {
+
+		publishDir "${OUTDIR}/DeepVariant/VEP", mode: 'copy'
+
+		when:
+		params.vep
+
+		input:
+		set file(vcf),file(vcf_index) from VcfToVep
+
+		output:
+		file(vcf_vep)
+		file(vcf_alissa)
+
+		script:
+		vcf_vep = vcf.getBaseName() + ".vep.vcf"
+		vcf_alissa = vcf.getBaseName() + ".vep2alissa.vcf"
+
+		"""
+			vep --offline \
+				--cache \
+				--refseq \
+				--dir ${params.vep_cache_dir} \
+				--species homo_sapiens \
+				--assembly $params.assembly \
+				-i $vcf \
+				--format vcf \
+				-o $vcf_vep --dir_plugins ${params.vep_plugin_dir} \
+				--plugin dbNSFP,$dbNSFP_DB,${params.dbnsfp_fields} \
+				--plugin dbscSNV,$dbscSNV_DB \
+				--plugin ExACpLI \
+				--fasta $FASTA \
+				--fork 4 \
+				--vcf \
+				--per_gene \
+				--sift p \
+				--polyphen p \
+				--check_existing \
+				--canonical
+
+			vep2alissa.pl --infile $vcf_vep > $vcf_alissa
+		"""
+	}
 
 	process VcfGetSample {
 
@@ -669,7 +773,7 @@ process runOxoGMetrics {
 
     """
 
-         picard -Xmx${task.memory.toGiga()}G CollectOxoGMetrics \
+         picard -Xmx${task.memory.toGiga()-1}G CollectOxoGMetrics \
                 INPUT=${bam} \
                 OUTPUT=${outfile} \
                 DB_SNP=${DBSNP} \
@@ -753,7 +857,7 @@ process runMultiqcLibrary {
     """
     cp $params.logo .
     cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
-    multiqc -n library_multiqc *.txt *.yaml
+    multiqc -n library_multiqc *
     """
 }
 
