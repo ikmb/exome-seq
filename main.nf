@@ -5,7 +5,7 @@
 Exome Pipeline
 ===============================
 
-This Pipeline performs one of two workflows to generate variant calls 
+This Pipeline performs variant calling
 using Google DeepVariant
 
 ### Homepage / git
