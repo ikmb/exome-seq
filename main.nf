@@ -598,6 +598,7 @@ if (params.joint_calling) {
 		"""
 			vep --offline \
 				--cache \
+				--refseq \
 				--dir ${params.vep_cache_dir} \
 				--species homo_sapiens \
 				--assembly $params.assembly \
@@ -611,7 +612,6 @@ if (params.joint_calling) {
 				--fork 4 \
 				--vcf \
 				--per_gene \
-				--filter_common \
 				--sift p \
 				--polyphen p \
 				--check_existing \
