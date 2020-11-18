@@ -64,7 +64,7 @@ while (<$IN>) {
 
 		my @elements = split (/ / , $line);
 
-		printf $elements[-1] . "\n";
+		#printf $elements[-1] . "\n";
 
 		my @info = split /\|/ , @elements[-1];
 
@@ -80,7 +80,7 @@ while (<$IN>) {
 			if (defined $structure{$r}) {
 				my $t = $recover{$r}{"Type"};
 				my $n = $recover{$r}{"Number"};
-				printf "#INFO=<ID=$r,Number=$n,Type=$t,Description=\"$r\">\n" ;
+				printf "##INFO=<ID=$r,Number=$n,Type=$t,Description=\"$r\">\n" ;
 			}
 		
 		}
@@ -115,6 +115,7 @@ while (<$IN>) {
 				# VEP can and will list multiple sets if more than one transcript maps over this variant				
 				my @data_blocks = split("," , $v);
 
+				# We run VEP in a way that the first entry should be sufficient for our purpose
 				my @data = split(/\|/,@data_blocks[0]);
 				foreach my $r (keys %structure) {
 					my $pos = $structure{$r};
