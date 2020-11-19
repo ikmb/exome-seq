@@ -326,7 +326,7 @@ Channel.from(inputFile)
 
 process runFastp {
 
-	scratch true
+	scratch params.scratch
 
 	input:
 	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, center, date, fastqR1, fastqR2 from readPairsFastp
@@ -374,7 +374,7 @@ process runBWA {
 
 process runFixmate {
 
-	scratch true
+	scratch params.scratch
 
 	input:
 	set indivID, sampleID, file(bam) from runBWAOutput
@@ -394,7 +394,7 @@ runBWAOutput_grouped_by_sample = FixedBam.groupTuple(by: [0,1])
 
 process mergeBamFiles_bySample {
 
-	scratch true
+	scratch params.scratch
 
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy', enabled: params.amplicon
 
@@ -534,7 +534,7 @@ if (params.joint_calling) {
 
 		label 'glnexus'
 
-                scratch true
+                scratch params.scratch
 
                 input:
                 file(gvcfs) from MergeGVCF.collect()
