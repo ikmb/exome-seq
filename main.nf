@@ -224,6 +224,16 @@ if (params.vep) {
 		exit 1, "No dbscSNV database defined for this execution profile..."
 	}
 
+	if (params.cadd_snps && params.cadd_indels) {
+		CADD_SNPS = file(params.cadd_snps)
+		CADD_INDELS = file(params.cadd_indels)
+		if (!CADD_SNPS.exists() || !CADD_INDELS.exists() )
+			exit 1, "Missing CADD SNPs and/or Indel references..."
+		}
+	else {
+		exit 1, "CADD SNP and/or Indel reference files not defined for this execution profile..."
+	}
+
 }	
 summary['runName'] = run_name
 summary['Samples'] = inputFile
@@ -249,6 +259,12 @@ if (workflow.containerEngine) {
 }
 summary['References'] = [:]
 summary['References']['DBSNP'] = DBSNP
+if (params.vep) {
+	summary['References']['dbNSFP'] = params.dbnsfp_db
+	summary['References']['dbSCSNV'] = params.dbscsnv_db
+	summary['References']['CADD_SNPs'] = params.cadd_snps
+	summary['References']['CADD_Indels'] = params.cadd_indels
+}
 summary['IntervallPadding'] = params.interval_padding
 summary['SessionID'] = workflow.sessionId
 
@@ -326,7 +342,7 @@ Channel.from(inputFile)
 
 process runFastp {
 
-	scratch true
+	scratch params.scratch
 
 	input:
 	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, center, date, fastqR1, fastqR2 from readPairsFastp
@@ -374,7 +390,7 @@ process runBWA {
 
 process runFixmate {
 
-	scratch true
+	scratch params.scratch
 
 	input:
 	set indivID, sampleID, file(bam) from runBWAOutput
@@ -394,7 +410,7 @@ runBWAOutput_grouped_by_sample = FixedBam.groupTuple(by: [0,1])
 
 process mergeBamFiles_bySample {
 
-	scratch true
+	scratch params.scratch
 
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy', enabled: params.amplicon
 
@@ -534,7 +550,7 @@ if (params.joint_calling) {
 
 		label 'glnexus'
 
-                scratch true
+                scratch params.scratch
 
                 input:
                 file(gvcfs) from MergeGVCF.collect()
@@ -598,7 +614,6 @@ if (params.joint_calling) {
 		"""
 			vep --offline \
 				--cache \
-				--refseq \
 				--dir ${params.vep_cache_dir} \
 				--species homo_sapiens \
 				--assembly $params.assembly \
@@ -607,6 +622,7 @@ if (params.joint_calling) {
 				-o $vcf_vep --dir_plugins ${params.vep_plugin_dir} \
 				--plugin dbNSFP,$dbNSFP_DB,${params.dbnsfp_fields} \
 				--plugin dbscSNV,$dbscSNV_DB \
+				--plugin CADD,${params.cadd_snps},${params.cadd_indels} \
 				--plugin ExACpLI \
 				--fasta $FASTA \
 				--fork 4 \
