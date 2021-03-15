@@ -48,7 +48,7 @@ my %recover = ( "ada_score" => { "Type" => "Float", "Number" => "1"},
 		"LRT_score" => { "Type" => "Float", "Number" => "1"},
 		"CLIN_SIG" => { "Type" => "String", "Number" => "1"}, 
 		"PHENO" => { "Type" => "String", "Number" => 1},
-		"CADD_PHRED" => { "Type" => "Float", "Number" => 1},
+		"CADD_phred" => { "Type" => "Float", "Number" => 1},
 		"DANN_score" => { "Type" => "Float", "Number" => 1},
 		"M-CAP_pred" => { "Type" => "String", "Number" => 1},
 		"Existing_variation" => {"Type" => "String", "Number" => "1"}
