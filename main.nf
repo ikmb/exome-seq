@@ -632,6 +632,8 @@ if (params.joint_calling) {
 				--polyphen p \
 				--check_existing \
 				--canonical
+	
+			sed -i.bak 's/CADD_PHRED/CADD_phred/g' $vcf_vep
 
 			vep2alissa.pl --infile $vcf_vep > $vcf_alissa
 		"""
