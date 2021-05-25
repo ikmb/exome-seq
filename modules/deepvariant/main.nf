@@ -137,11 +137,11 @@ if (params.panel && params.all_panels || params.panel && params.panel_intervals 
 }
 if (params.panel) {
 	panel = params.genomes[params.assembly].panels[params.panel].intervals
-	panels = Channel.fromPath(panel)
+	Channel.fromPath(panel).into { panels; panels_to_bed }
 } else if (params.panel_intervals) {
 	Channel.fromPath(params.panel_intervals)
 	.ifEmpty { exit 1; "Could not find the specified gene panel (--panel_intervals)" }
-	.set { panels }
+	.into { panels; panels_to_bed }
 } else if (params.all_panels) {
 	panel_list = []
 	panel_names = params.genomes[params.assembly].panels.keySet()
@@ -149,9 +149,10 @@ if (params.panel) {
 		interval = params.genomes[params.assembly].panels[it].intervals
 		panel_list << file(interval)
 	}
-	panels = Channel.fromList(panel_list)
+	Channel.fromList(panel_list).into { panels; panels_to_bed }
 } else {
 	panels = Channel.empty()
+	panels_to_bed = Channel.empty()
 }
 
 // A single exon only covered in male samples - simple sex check
@@ -257,6 +258,9 @@ if (KILL) {
 if (workflow.containerEngine) {
 	summary['Container'] = "$workflow.containerEngine - $workflow.container"
 }
+if (params.glnexus) {
+	summary['GLNexusFilter'] = params.glnexus_filter
+}
 summary['References'] = [:]
 summary['References']['DBSNP'] = DBSNP
 if (params.vep) {
@@ -316,6 +320,27 @@ process list_to_bed {
         """
 }
 
+process panel_to_bed {
+
+	input:
+	file(intervals) from panels_to_bed
+
+	output:
+	file(bed) into panel_bed
+
+	script:
+	bed = intervals.getBaseName() + ".bed"
+
+	"""
+		picard IntervalListTools I=$intervals O=genes.padded.interval_list PADDING=$params.interval_padding
+                picard IntervalListToBed I=genes.padded.interval_list O=$bed
+	"""
+
+}
+
+fasta_to_fb = Channel
+	.fromPath(FASTA)
+	.ifEmpty{ exit 1, "Fasta file not found" }
 faiToExamples = Channel
 	.fromPath(FAI_F)
 	.ifEmpty{exit 1, "Fai file not found"}
@@ -340,6 +365,18 @@ Channel.from(inputFile)
        .splitCsv(sep: ';', header: true)
        .set {  readPairsFastp }
 
+
+if (params.dragen) {
+
+	dragen_calling(readPairsFastp)
+	vcf = dragen_calling.out.vcf
+
+} else {
+
+	deepvariant_calling(readPairsFastp)
+	vcf = deepvariant_calling.out.vcf
+
+}
 process runFastp {
 
 	scratch params.scratch
@@ -370,7 +407,7 @@ process runFastp {
 
 process runBWA {
 
-	//scratch true	
+	scratch params.scratch
 
 	input:
 	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, run_date, center,file(left),file(right) from inputBwa
@@ -463,7 +500,7 @@ if (params.amplicon) {
 	        set indivID, sampleID, file(merged_bam),file(merged_bam_index) from mergedBamFile_by_Sample
 
         	output:
-	        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage
+	        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_to_Fb
 		set file(outfile_bam), file(outfile_bai) into BamForSexCheck
 		file(outfile_md5)
 		file(outfile_metrics) into DuplicatesOutput_QC
@@ -526,11 +563,12 @@ process runDeepvariant {
         output:
         set indivID,sampleID,file(gvcf)
         file(gvcf) into MergeGVCF
-        file(vcf)
+	set file(vcf),file(tbi)
 
         script:
         gvcf = bam.getBaseName() + ".g.vcf.gz"
         vcf = bam.getBaseName() + ".vcf.gz"
+	tbi = vcf + ".tbi"
 
         """
                 /opt/deepvariant/bin/run_deepvariant \
@@ -545,30 +583,29 @@ process runDeepvariant {
 }
 
 if (params.joint_calling) {
+
 	
 	process runMergeGvcf {
-
 		label 'glnexus'
 
-                scratch params.scratch
+               	scratch params.scratch
 
                 input:
-                file(gvcfs) from MergeGVCF.collect()
-                file(bed) from BedToMerge.collect()
+       	        file(gvcfs) from MergeGVCF.collect()
+               	file(bed) from BedToMerge.collect()
 
                 output:
-                file(merged_vcf) into MergedVCF
+       	        file(merged_vcf) into MergedVCF
 
-                script:
-                merged_vcf = "deepvariant.merged." + run_name + ".vcf.gz"
+               	script:
+                merged_vcf = "deepvariant.joint_calling_glnexus." + run_name + ".vcf.gz"
 
-                """
-                        /usr/local/bin/glnexus_cli \
-                        --config ${params.glnexus_config} \
+       	        """
+               	        /usr/local/bin/glnexus_cli \
+                       	--config ${params.glnexus_filter} \
                         --bed $bed \
-                        $gvcfs | bcftools view - | bgzip -c > $merged_vcf
-
-                """
+       	                $gvcfs | bcftools view - | bgzip -c > $merged_vcf
+               	"""
         }
 
         process annotateIDs {
@@ -706,6 +743,38 @@ if (params.joint_calling) {
 	VcfInfo = Channel.empty()
 }
 
+bam_panel_caller = Bam_to_Fb.combine(panel_bed)
+
+process PanelCaller {
+
+	publishDir "${OUTDIR}/${indivID}/${sampleID}/PanelCalls", mode: 'copy'
+
+	label 'freebayes'
+
+	input:
+	set indivID, sampleID, file(bam),file(bai),file(bed) from bam_panel_caller
+	file(fasta) from fasta_to_fb.collect()
+
+	output:
+	file(vcf) into PanelVcf
+	file("README_PANEL_CALLS.txt")
+
+	script:
+	vcf = bam.getBaseName() + "." + bed.getBaseName() + ".vcf"
+
+	"""
+		cp $baseDir/assets/README_PANEL_CALLS.txt . 
+		freebayes \
+		-f $fasta \
+		--min-alternate-fraction 0.1 \
+	        --min-mapping-quality 0 \
+		-t $bed \
+		$bam > $vcf
+	"""
+
+}
+
+
 // *********************
 // Compute statistics for fastQ files, libraries and samples
 // *********************
@@ -823,8 +892,8 @@ process get_software_versions {
     echo $workflow.manifest.version &> v_ikmb_exoseq.txt
     echo $workflow.nextflow.version &> v_nextflow.txt
     fastp -v &> v_fastp.txt
-    echo "Deepvariant 1.1.0" &> v_deepvariant.txt
-    echo "GLNexus 1.3.1" &> v_glnexus.txt
+    echo "Deepvariant 1.0.0" &> v_deepvariant.txt
+    echo "GLNexus 1.2.6" &> v_glnexus.txt
     samtools --version &> v_samtools.txt
     bcftools --version &> v_bcftools.txt
     multiqc --version &> v_multiqc.txt
