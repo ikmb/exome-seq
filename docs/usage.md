@@ -16,7 +16,6 @@ If you try to run the pipeline on another system, you will need to configure a p
 
 `nextflow run /path/to/main.nf --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com' -profile your_profile`
 
-
 ## Mandatory arguments
 
 ### `--samples`
@@ -76,6 +75,7 @@ supports the following panels:
 - Gene Immundefekt intestinal (25kb panel) [IMM_IBD]
 - Breast cancer panel [ breast_cancer ]
 - Liver disease [ Liver ]
+- Intellectual disability [ Intellectual_disability ]
 
 Please note that this will also create additional run metrics, including a per-sample list of target exons that fall below a minimum sequence coverage. 
 
