@@ -128,6 +128,22 @@ if (params.kill) {
 	KILL = false
 }
 
+// CNVkit reference
+if (params.cnv) {
+
+	if ( params.genomes[params.assembly].kits[params.kit].containsKey("cnvkit") ) {
+		cnv_ref_file = params.genomes[params.assembly].kits[params.kit].cnvkit
+		Channel.fromPath(cnv_ref_file)
+			.ifEmpty { exit 1; "Could not find a CNVkit reference for this kit and assembly" }
+			.set { cnv_ref_gz }
+	} else {
+		exit 1, "Requested to run CNVkit but no CNV reference is defined for this assembly and exome kit."
+	}
+
+} else {
+	cnv_ref_gz = Channel.empty()
+}
+
 /*
 PANEL COVERAGE - pick the correct panel for reporting
 */
@@ -287,6 +303,7 @@ if (params.panel) {
 if (params.vep) {
 	log.info "Run VEP				${params.vep}"
 } 
+log.info "CNVkit				${params.cnv}"
 log.info "-----------------------------------------"
 log.info "Command Line:			$workflow.commandLine"
 log.info "Run name: 			${run_name}"
@@ -443,7 +460,7 @@ process mergeBamFiles_bySample {
 if (params.amplicon) {
 
 	mergedBamFile_by_Sample
-	.into { BamMD; BamForMultipleMetrics; runHybridCaptureMetrics; runPrintReadsOutput_for_OxoG_Metrics; Bam_for_HC_Metrics; inputPanelCoverage }
+	.into { BamMD; BamForMultipleMetrics; runHybridCaptureMetrics; runPrintReadsOutput_for_OxoG_Metrics; Bam_for_HC_Metrics; inputPanelCoverage ; Bam_for_Cnv}
 
 	BamForSexCheck = MergedBamSkipDedup
 
@@ -463,7 +480,7 @@ if (params.amplicon) {
 	        set indivID, sampleID, file(merged_bam),file(merged_bam_index) from mergedBamFile_by_Sample
 
         	output:
-	        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage
+	        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_for_Cnv
 		set file(outfile_bam), file(outfile_bai) into BamForSexCheck
 		file(outfile_md5)
 		file(outfile_metrics) into DuplicatesOutput_QC
@@ -526,7 +543,7 @@ process runDeepvariant {
         output:
         set indivID,sampleID,file(gvcf)
         file(gvcf) into MergeGVCF
-        file(vcf)
+        set indivID,sampleID,file(vcf) into Vcf_to_Cnv
 
         script:
         gvcf = bam.getBaseName() + ".g.vcf.gz"
@@ -706,6 +723,144 @@ if (params.joint_calling) {
 	VcfInfo = Channel.empty()
 }
 
+
+// *******************************************
+// Optional: CNVkit with pre-defined reference
+// *******************************************
+if (params.cnv) {
+
+	bam_with_vcf = Bam_for_Cnv.join(Vcf_to_Cnv, by: [0,1] )
+
+        process stage_cnv_reference {
+
+                executor 'local'
+
+                input:
+                file(ref_gz) from cnv_ref_gz
+
+                output:
+                file(ref_cnn) into cnv_ref
+
+                script:
+                ref_cnn = ref_gz.getBaseName()
+
+                """
+                        gunzip -c $ref_gz > $ref_cnn
+                """
+
+        }
+
+        process cnvkit_batch{
+
+                label 'cnvkit'
+
+                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
+
+                input:
+                set indivID, sampleID, file(bam),file(bai),file(vcf) from bam_with_vcf
+                file(cnn) from cnv_ref.collect()
+
+                output:
+                set indivID, sampleID,file(cnr),file(cns),file(vcf) into Cnv_to_seg
+
+                script:
+                cnr = bam.getBaseName() + ".cnr"
+                cns = bam.getBaseName() + ".cns"
+                """
+                        cnvkit.py batch -r $cnn -d out *.bam
+                        mv out/*.cns .
+                        mv out/*.cnr .
+                """
+
+        }
+
+        process cnvkit_segmetrics {
+                label 'cnvkit'
+
+                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
+
+                input:
+                set indivID, sampleID, file(cnr),file(cns),file(vcf) from Cnv_to_seg
+
+                output:
+                set indivID, sampleID,file(cnr),file(seg_cns),file(vcf) into Cnv_to_call
+
+                script:
+                seg_cns = cns.getBaseName() + ".segmetrics.cns"
+
+                """
+                        cnvkit.py segmetrics -s $cns $cnr --ci
+                """
+
+        }
+
+        process cnvkit_call {
+
+                label 'cnvkit'
+
+                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
+
+                input:
+                set indivID, sampleID, file(cnr),file(cns),file(vcf) from Cnv_to_call
+
+                output:
+                set indivID, sampleID,file(cnr),file(call_cns) into Cnv_to_gene, Cnv_to_break
+
+                script:
+                call_cns = cns.getBaseName() + ".call.cns"
+
+                """
+                        cnvkit.py call $cns -v $vcf --filter ci
+                """
+
+        }
+
+        process cnvkit_genemetrics {
+
+                label 'cnvkit'
+
+                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
+
+                input:
+                set indivID, sampleID, file(cnr),file(cns) from Cnv_to_gene
+
+                output:
+                file(metrics)
+
+                script:
+
+                metrics = cnr.getBaseName() + ".genemetrics.txt"
+
+                """
+                        cnvkit.py genemetrics -s $cns $cnr -t 0.2 > $metrics
+                """
+
+        }
+
+        process cnvkit_breaks {
+
+                label 'cnvkit'
+
+                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
+
+                input:
+                set indivID, sampleID, file(cnr),file(cns) from Cnv_to_break
+
+                output:
+                file(breaks)
+
+                script:
+
+                breaks = cnr.getBaseName() + ".breaks.txt"
+
+                """
+                        cnvkit.py breaks $cns $cnr > $breaks
+                """
+
+        }
+
+}
+
 // *********************
 // Compute statistics for fastQ files, libraries and samples
 // *********************
@@ -823,6 +978,7 @@ process get_software_versions {
     echo $workflow.manifest.version &> v_ikmb_exoseq.txt
     echo $workflow.nextflow.version &> v_nextflow.txt
     fastp -v &> v_fastp.txt
+    echo "CNVkit 0.9.9" &> v_cnvkit.txt
     echo "Deepvariant 1.1.0" &> v_deepvariant.txt
     echo "GLNexus 1.3.1" &> v_glnexus.txt
     samtools --version &> v_samtools.txt
