@@ -87,8 +87,11 @@ This option allows the user to run non-defined panels. Must be in picard interva
 genome assembly to run against (use with care!!!). Usually, you would start with a target list in BED format and convert this into an interval list
 using the Picard Tools "BedToIntervalList" command.
 
-### `--bed`
-A BED file that can be used by DeepVariant to define calling intervals. Default behavior is to use the target interval list and convert it to BED.
+### `--cnv`
+Enable CNV calling using CNVkit. This option requires a pre-configured CNVkit reference matching the kit and assembly used for capture and mapping, respectively. Currently, this is only available for GRCh38 and xGen_v2. 
+
+### `--vep`
+Run variant effect prediction on the final VCF file (assumes joint calling). This option requires a locally available EnsEMBL cache and some databases (see cluster profiles for examples). 
 
 ### `--kill`
 For panel-based statistics, it is desirable to mark any exons that are known to underperform in exome sequencing - for example due to homology and
@@ -124,4 +127,5 @@ Provide path to a dbSNP reference VCF file for variant filtering (default: false
 ### `--panel_coverage`
 This option changes the cut-off for reporting lowly covered panel intervals (default: 10)
 
-
+### `--cnv_ref`
+Option to pass a custom CNVkit reference (cnn.gz) to the pipeline. This reference must match both the exom kit and assembly used! File must be compressed with gzip. 

@@ -43,6 +43,7 @@ Required parameters:
 --kit			       Name of the exome kit (available options: xGen, xGen_custom, xGen_v2, Nextera, Pan_cancer)
 --email 		       Email address to send reports to (enclosed in '')
 Optional parameters:
+--cnv 			       Enable calling of copy number variants (for select assembly and kit combinations)
 --joint_calling		       Perform joint calling of all samples (default: true)
 --amplicon		       This is a small amplicon-based analysis, skip duplicate marking and sex check
 --skip_multiqc		       Don't attached MultiQC report to the email. 
@@ -131,11 +132,20 @@ if (params.kill) {
 // CNVkit reference
 if (params.cnv) {
 
-	if ( params.genomes[params.assembly].kits[params.kit].containsKey("cnvkit") ) {
+	if (params.cnv_ref) {
+
+		cnv_ref_file = file(params.cnv_ref).getName()
+
+		Channel.fromPath(params.cnv_ref)
+			.ifEmpty { exit 1; "Could not find the specified CNV reference" }
+			.set { cnv_ref_gz }
+
+	} else if ( params.genomes[params.assembly].kits[params.kit].containsKey("cnvkit") ) {
 		cnv_ref_file = params.genomes[params.assembly].kits[params.kit].cnvkit
 		Channel.fromPath(cnv_ref_file)
 			.ifEmpty { exit 1; "Could not find a CNVkit reference for this kit and assembly" }
 			.set { cnv_ref_gz }
+
 	} else {
 		exit 1, "Requested to run CNVkit but no CNV reference is defined for this assembly and exome kit."
 	}
@@ -269,6 +279,9 @@ summary['AmpliconRun'] = params.amplicon
 summary['CommandLine'] = workflow.commandLine
 if (KILL) {
         summary['KillList'] = KILL
+}
+if (params.cnv_ref || params.cnv) {
+	summary["CNVkit CNN"] = cnv_ref_file
 }
 if (workflow.containerEngine) {
 	summary['Container'] = "$workflow.containerEngine - $workflow.container"
@@ -729,8 +742,6 @@ if (params.joint_calling) {
 // *******************************************
 if (params.cnv) {
 
-	bam_with_vcf = Bam_for_Cnv.join(Vcf_to_Cnv, by: [0,1] )
-
         process stage_cnv_reference {
 
                 executor 'local'
@@ -754,14 +765,14 @@ if (params.cnv) {
 
                 label 'cnvkit'
 
-                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
+                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Processing", mode: 'copy'
 
                 input:
-                set indivID, sampleID, file(bam),file(bai),file(vcf) from bam_with_vcf
+                set indivID, sampleID, file(bam),file(bai) from Bam_for_Cnv
                 file(cnn) from cnv_ref.collect()
 
                 output:
-                set indivID, sampleID,file(cnr),file(cns),file(vcf) into Cnv_to_seg
+                set indivID, sampleID,file(cnr),file(cns) into Cnv_to_seg
 
                 script:
                 cnr = bam.getBaseName() + ".cnr"
@@ -777,13 +788,13 @@ if (params.cnv) {
         process cnvkit_segmetrics {
                 label 'cnvkit'
 
-                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
+                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Processing", mode: 'copy'
 
                 input:
-                set indivID, sampleID, file(cnr),file(cns),file(vcf) from Cnv_to_seg
+                set indivID, sampleID, file(cnr),file(cns) from Cnv_to_seg
 
                 output:
-                set indivID, sampleID,file(cnr),file(seg_cns),file(vcf) into Cnv_to_call
+                set indivID, sampleID,file(cnr),file(seg_cns) into Cnv_to_call
 
                 script:
                 seg_cns = cns.getBaseName() + ".segmetrics.cns"
@@ -794,23 +805,25 @@ if (params.cnv) {
 
         }
 
+	Cnv_call_vcf = Cnv_to_call.join(Vcf_to_Cnv, by: [0,1] )
+
         process cnvkit_call {
 
                 label 'cnvkit'
 
-                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
+                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Processing", mode: 'copy'
 
                 input:
-                set indivID, sampleID, file(cnr),file(cns),file(vcf) from Cnv_to_call
+                set indivID, sampleID, file(cnr),file(cns),file(vcf) from Cnv_call_vcf
 
                 output:
-                set indivID, sampleID,file(cnr),file(call_cns) into Cnv_to_gene, Cnv_to_break
+                set indivID, sampleID,file(cnr),file(call_cns) into Cnv_to_gene, Cnv_to_break, Cnv_to_export
 
                 script:
                 call_cns = cns.getBaseName() + ".call.cns"
 
                 """
-                        cnvkit.py call $cns -v $vcf --filter ci
+                        cnvkit.py call $cns --filter ci
                 """
 
         }
@@ -819,7 +832,7 @@ if (params.cnv) {
 
                 label 'cnvkit'
 
-                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
+                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Metrics", mode: 'copy'
 
                 input:
                 set indivID, sampleID, file(cnr),file(cns) from Cnv_to_gene
@@ -841,7 +854,7 @@ if (params.cnv) {
 
                 label 'cnvkit'
 
-                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
+                publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Metrics", mode: 'copy'
 
                 input:
                 set indivID, sampleID, file(cnr),file(cns) from Cnv_to_break
@@ -858,6 +871,29 @@ if (params.cnv) {
                 """
 
         }
+
+	process cnvkit_export {
+	
+		label 'cnvkit'
+
+		publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
+
+		input:
+		set indivID, sampleID,file(cnr),file(call_cns) from Cnv_to_export
+
+		output:
+		set file(bed),file(vcf) into CnvOut
+
+		script:
+		bed = call_cns.getBaseName() + ".bed"
+		vcf = call_cns.getBaseName() + ".vcf"
+
+		"""
+			cnvkit.py export bed $call_cns -o $bed
+			cnvkit.py export vcf $call_cns -i $sampleID -o $vcf
+		"""
+
+	}
 
 }
 
