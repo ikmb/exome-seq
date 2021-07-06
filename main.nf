@@ -64,6 +64,7 @@ Expert options (usually not necessary to change!):
 --max_length                   Cut reads down to this length (optional, default 0 = no trimming)
 --min_mapq		       Minimum mapping quality to consider for general coverage analysis (default = 20)
 --kill                         A list of known bad exons in the genome build that are ignored for panel coverage statistics (see documentation for details)
+--cnv_ref		       A CNVkit reference  (ccn.gz) that matches the assembly and kit used. Use with care. 
 Output:
 --outdir                       Local directory to which all output is written (default: results)
 """
@@ -894,6 +895,7 @@ if (params.cnv) {
 		"""
 
 	}
+
 
 }
 

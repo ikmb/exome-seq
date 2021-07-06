@@ -88,7 +88,7 @@ genome assembly to run against (use with care!!!). Usually, you would start with
 using the Picard Tools "BedToIntervalList" command.
 
 ### `--cnv`
-Enable CNV calling using CNVkit. This option requires a pre-configured CNVkit reference matching the kit and assembly used for capture and mapping, respectively. Currently, this is only available for GRCh38 and xGen_v2. 
+Enable CNV calling using CNVkit. This option requires a pre-configured CNVkit reference matching the kit and assembly used for capture and mapping, respectively. Currently, this is only available for GRCh38 and xGen_v2. Alternatively, an external reference can be provided using the developer option `--cnv_ref`.
 
 ### `--vep`
 Run variant effect prediction on the final VCF file (assumes joint calling). This option requires a locally available EnsEMBL cache and some databases (see cluster profiles for examples). 
