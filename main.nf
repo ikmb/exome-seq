@@ -818,7 +818,7 @@ if (params.cnv) {
                 set indivID, sampleID, file(cnr),file(cns),file(vcf) from Cnv_call_vcf
 
                 output:
-                set indivID, sampleID,file(cnr),file(call_cns) into Cnv_to_gene, Cnv_to_break, Cnv_to_export
+                set indivID, sampleID,file(cnr),file(call_cns) into Cnv_to_gene, Cnv_to_break, Cnv_to_export, Cnv_to_plot
 
                 script:
                 call_cns = cns.getBaseName() + ".call.cns"
@@ -896,7 +896,28 @@ if (params.cnv) {
 
 	}
 
+	process cnvkit_plots {
+	
+		label 'cnvkit'
 
+		publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Plots", mode: 'copy'
+
+		input:
+                set indivID, sampleID,file(cnr),file(call_cns) from Cnv_to_plot
+
+		output:
+		file(scatter)
+		file(diagram)
+
+		script:
+		scatter = call_cns.getBaseName() + ".scatter.pdf"
+		diagram = call_cns.getBaseName() + ".diagram.pdf"
+
+		"""
+			cnvkit.py scatter --y-min -4 --y-max 4 -o $scatter -s $call_cns $cnr
+			cnvkit.py diagram -o $diagram -s $call_cns $cnr 
+		"""
+	}
 }
 
 // *********************
