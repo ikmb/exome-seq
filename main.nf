@@ -514,7 +514,6 @@ if (params.amplicon) {
 			samtools stats $outfile_bam > $outfile_metrics
 			md5sum $outfile_bam > $outfile_md5
 		"""
-
 	}
 
 	// a simple sex check looking at coverage of the SRY gene

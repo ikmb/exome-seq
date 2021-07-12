@@ -11,9 +11,9 @@ dependencies:
   - picard=2.18.11
   - bwa=0.7.17
   - multiqc=1.9
-  - samtools=1.9
-  - bcftools=1.9
-  - htslib=1.9 
+  - samtools=1.13
+  - bcftools=1.13
+  - htslib=1.13
   - perl-excel-writer-xlsx
   - r=3.5.1
   - r-base=3.5.1
