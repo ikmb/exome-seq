@@ -10,7 +10,7 @@ dependencies:
   - fastp=0.20.1
   - picard=2.18.11
   - bwa=0.7.17
-  - multiqc=1.9
+  - multiqc=1.11
   - samtools=1.13
   - bcftools=1.13
   - htslib=1.13
