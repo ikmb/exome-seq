@@ -276,6 +276,7 @@ if (params.panel) {
 } else if (params.all_panels) {
 	summary['GenePanel'] = "All panels"
 }
+summary['Phasing'] = params.phase
 summary['AmpliconRun'] = params.amplicon
 summary['CommandLine'] = workflow.commandLine
 if (KILL) {
@@ -318,6 +319,7 @@ if (params.vep) {
 	log.info "Run VEP				${params.vep}"
 } 
 log.info "CNVkit				${params.cnv}"
+log.info "Phasing				${params.phase}"
 log.info "-----------------------------------------"
 log.info "Command Line:			$workflow.commandLine"
 log.info "Run name: 			${run_name}"
@@ -371,75 +373,34 @@ Channel.from(inputFile)
        .splitCsv(sep: ';', header: true)
        .set {  readPairsFastp }
 
-if (params.trimgalore) {
+process runFastp {
 
-	process trimGalore {
+	scratch params.scratch
 
-		label 'trimgalore'
+	input:
+	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, center, date, fastqR1, fastqR2 from readPairsFastp
 
-		input:
-		set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, center, date, fastqR1, fastqR2 from readPairsFastp
-
-    		output:
-		set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, date, center, file(left),file(right) into inputBwa
-        	file("*.{html,zip,txt}") into fastp_results
-    	
-		script:
-    		// Calculate number of --cores for TrimGalore based on value of task.cpus
-    		// See: https://github.com/FelixKrueger/TrimGalore/blob/master/Changelog.md#version-060-release-on-1-mar-2019
-    		// See: https://github.com/nf-core/atacseq/pull/65
-    		def cores = 1
-    		if (task.cpus) {
-      			cores = (task.cpus as int) - 4
-      			if (cores < 1) cores = 1
-      			if (cores > 4) cores = 4
-      		}
-		left = fastqR1.getBaseName() + "_R1_val_1.fq.gz"
-		right = fastqR2.getBaseName() + "_R2_val_2.fq.gz"
-    		"""
-    		trim_galore \
-         		--cores ${cores} \
-        		--paired \
-        		--fastqc \
-        		--gzip \
-			$fastqR1 $fastqR2
-    			mv *val_1_fastqc.html "${idSample}_${idRun}_R1.trimmed_fastqc.html"
-    			mv *val_2_fastqc.html "${idSample}_${idRun}_R2.trimmed_fastqc.html"
-    			mv *val_1_fastqc.zip "${idSample}_${idRun}_R1.trimmed_fastqc.zip"
-    			mv *val_2_fastqc.zip "${idSample}_${idRun}_R2.trimmed_fastqc.zip"
-    		"""
-	}
-
-} else {
-	process runFastp {
-
-		scratch params.scratch
-
-		input:
-		set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, center, date, fastqR1, fastqR2 from readPairsFastp
-
-		output:
-		set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, date, center, file(left),file(right) into inputBwa
-		set file(html),file(json) into fastp_results
+	output:
+	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, date, center, file(left),file(right) into inputBwa
+	set file(html),file(json) into fastp_results
 	
-		script:
+	script:
 
-		def options = ""
-		if (params.max_length != false) {
-			options += " -b ${params.max_length} -B ${params.max_length}"
-		}
-
-		left = file(fastqR1).getBaseName() + "_trimmed.fastq.gz"
-		right = file(fastqR2).getBaseName() + "_trimmed.fastq.gz"
-		json = file(fastqR1).getBaseName() + ".fastp.json"
-		html = file(fastqR1).getBaseName() + ".fastp.html"
-
-		"""
-			fastp $options --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right --detect_adapter_for_pe -w ${task.cpus} -j $json -h $html --length_required 35
-		"""
+	def options = ""
+	if (params.max_length != false) {
+		options += " -b ${params.max_length} -B ${params.max_length}"
 	}
 
+	left = file(fastqR1).getBaseName() + "_trimmed.fastq.gz"
+	right = file(fastqR2).getBaseName() + "_trimmed.fastq.gz"
+	json = file(fastqR1).getBaseName() + ".fastp.json"
+	html = file(fastqR1).getBaseName() + ".fastp.html"
+
+	"""
+		fastp $options --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right --detect_adapter_for_pe -w ${task.cpus} -j $json -h $html --length_required 35
+	"""
 }
+
 process runBWA {
 
 	//scratch true	
@@ -517,7 +478,7 @@ if (params.amplicon) {
 	mergedBamFile_by_Sample
 	.into { BamMD; BamForMultipleMetrics; runHybridCaptureMetrics; runPrintReadsOutput_for_OxoG_Metrics; Bam_for_HC_Metrics; inputPanelCoverage ; Bam_for_Cnv}
 
-	BamForSexCheck = MergedBamSkipDedup
+	MergedBamSkipDedup.into { BamForSexCheck; BamPhasing }
 
 	DuplicatesOutput_QC = Channel.from(false)
 
@@ -536,7 +497,7 @@ if (params.amplicon) {
 
         	output:
 	        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_for_Cnv
-		set file(outfile_bam), file(outfile_bai) into BamForSexCheck
+		set file(outfile_bam), file(outfile_bai) into (BamForSexCheck, BamPhasing )
 		file(outfile_md5)
 		file(outfile_metrics) into DuplicatesOutput_QC
 
@@ -555,6 +516,7 @@ if (params.amplicon) {
 			samtools stats $outfile_bam > $outfile_metrics
 			md5sum $outfile_bam > $outfile_md5
 		"""
+
 	}
 
 	// a simple sex check looking at coverage of the SRY gene
@@ -642,12 +604,40 @@ if (params.joint_calling) {
                 """
         }
 
+	if (params.phase) {
+		process whatshap {
+		
+			label 'whatshap'
+
+			publishDir "${OUTDIR}/DeepVariant/Phased", mode: 'copy'
+
+			input:
+			file (vcf) from MergedVCF
+			file('*') from BamPhasing.collect()
+
+			output:
+			file(phased_vcf) into PhasedVcf
+
+			script:
+			phased_vcf = vcf.getBaseName() + ".phased.vcf.gz"
+
+			"""
+				whatshap phase -o $phased_vcf --tag=PS --reference $FASTA $vcf *.bam
+			"""
+		
+
+		}
+
+	} else {
+		PhasedVcf = MergedVCF
+	}
+
         process annotateIDs {
 
                 publishDir "${OUTDIR}/DeepVariant", mode: 'copy'
 
                 input:
-                file (vcf) from MergedVCF
+                file (vcf) from PhasedVcf
 
                 output:
                 set file(vcf_annotated), file(vcf_annotated_index) into VcfAnnotated, VcfToVep
