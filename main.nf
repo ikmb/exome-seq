@@ -44,6 +44,7 @@ Required parameters:
 --email 		       Email address to send reports to (enclosed in '')
 Optional parameters:
 --cnv 			       Enable calling of copy number variants (for select assembly and kit combinations)
+--phase			       Perform phasing of the final call set. 
 --joint_calling		       Perform joint calling of all samples (default: true)
 --amplicon		       This is a small amplicon-based analysis, skip duplicate marking and sex check
 --skip_multiqc		       Don't attached MultiQC report to the email. 
@@ -116,8 +117,9 @@ if (TARGETS==BAITS) {
 }
 targets_to_bed = Channel.fromPath(TARGETS)
 
+
 Channel.from(file(TARGETS))
-	.into { TargetsToHS; TargetsToMetrics; TargetsToOxo }
+	.into { TargetsToHS; TargetsToMetrics; TargetsToOxo; TargetsToPanel }
 
 Channel.from(file(BAITS))
 	.into { BaitsToHS; BaitsToMetrics }
@@ -718,7 +720,10 @@ if (params.joint_calling) {
 		vcf_sample_index = vcf_sample + ".tbi"
 
                 """
-			gatk SelectVariants --remove-unused-alternates --exclude-non-variants -V $vcf -sn $sample_name -O $vcf_sample -OVI
+			gatk SelectVariants --remove-unused-alternates --exclude-non-variants -V $vcf -sn $sample_name -O variants.vcf.gz -OVI
+		        gatk LeftAlignAndTrimVariants -R $FASTA -V variants.vcf.gz -O $vcf_sample
+			rm variants.vcf.gz
+
                 """
 
         }
@@ -1164,6 +1169,7 @@ process runPanelCoverage {
 
         input:
         set indivID,sampleID,file(bam),file(bai),file(panel) from panel_coverage_data
+	file(targets) from TargetsToPanel.collect()
 
         output:
         set val(panel_name),file(coverage) into outputPanelCoverage
@@ -1188,7 +1194,7 @@ process runPanelCoverage {
 
 		picard -Xmx${task.memory.toGiga()}G IntervalListTools \
 			INPUT=$panel \
-			SECOND_INPUT=$TARGETS \
+			SECOND_INPUT=$targets \
 			ACTION=SUBTRACT \
 			OUTPUT=overlaps.interval_list
 
