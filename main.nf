@@ -1073,7 +1073,7 @@ process get_software_versions {
     echo $workflow.nextflow.version &> v_nextflow.txt
     fastp -v &> v_fastp.txt
     echo "CNVkit 0.9.9" &> v_cnvkit.txt
-    echo "Deepvariant 1.1.0" &> v_deepvariant.txt
+    echo "Deepvariant 1.2.0" &> v_deepvariant.txt
     echo "GLNexus 1.3.1" &> v_glnexus.txt
     samtools --version &> v_samtools.txt
     bcftools --version &> v_bcftools.txt
