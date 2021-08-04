@@ -44,6 +44,7 @@ Required parameters:
 --email 		       Email address to send reports to (enclosed in '')
 Optional parameters:
 --cnv 			       Enable calling of copy number variants (for select assembly and kit combinations)
+--phase			       Perform phasing of the final call set. 
 --joint_calling		       Perform joint calling of all samples (default: true)
 --amplicon		       This is a small amplicon-based analysis, skip duplicate marking and sex check
 --skip_multiqc		       Don't attached MultiQC report to the email. 
@@ -116,8 +117,9 @@ if (TARGETS==BAITS) {
 }
 targets_to_bed = Channel.fromPath(TARGETS)
 
+
 Channel.from(file(TARGETS))
-	.into { TargetsToHS; TargetsToMetrics; TargetsToOxo }
+	.into { TargetsToHS; TargetsToMetrics; TargetsToOxo; TargetsToPanel }
 
 Channel.from(file(BAITS))
 	.into { BaitsToHS; BaitsToMetrics }
@@ -276,6 +278,7 @@ if (params.panel) {
 } else if (params.all_panels) {
 	summary['GenePanel'] = "All panels"
 }
+summary['Phasing'] = params.phase
 summary['AmpliconRun'] = params.amplicon
 summary['CommandLine'] = workflow.commandLine
 if (KILL) {
@@ -318,6 +321,7 @@ if (params.vep) {
 	log.info "Run VEP				${params.vep}"
 } 
 log.info "CNVkit				${params.cnv}"
+log.info "Phasing				${params.phase}"
 log.info "-----------------------------------------"
 log.info "Command Line:			$workflow.commandLine"
 log.info "Run name: 			${run_name}"
@@ -476,7 +480,7 @@ if (params.amplicon) {
 	mergedBamFile_by_Sample
 	.into { BamMD; BamForMultipleMetrics; runHybridCaptureMetrics; runPrintReadsOutput_for_OxoG_Metrics; Bam_for_HC_Metrics; inputPanelCoverage ; Bam_for_Cnv}
 
-	BamForSexCheck = MergedBamSkipDedup
+	MergedBamSkipDedup.into { BamForSexCheck; BamPhasing }
 
 	DuplicatesOutput_QC = Channel.from(false)
 
@@ -495,7 +499,7 @@ if (params.amplicon) {
 
         	output:
 	        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_for_Cnv
-		set file(outfile_bam), file(outfile_bai) into BamForSexCheck
+		set file(outfile_bam), file(outfile_bai) into (BamForSexCheck, BamPhasing )
 		file(outfile_md5)
 		file(outfile_metrics) into DuplicatesOutput_QC
 
@@ -602,12 +606,40 @@ if (params.joint_calling) {
                 """
         }
 
+	if (params.phase) {
+		process whatshap {
+		
+			label 'whatshap'
+
+			publishDir "${OUTDIR}/DeepVariant/Phased", mode: 'copy'
+
+			input:
+			file (vcf) from MergedVCF
+			file('*') from BamPhasing.collect()
+
+			output:
+			file(phased_vcf) into PhasedVcf
+
+			script:
+			phased_vcf = vcf.getBaseName() + ".phased.vcf.gz"
+
+			"""
+				whatshap phase -o $phased_vcf --tag=PS --reference $FASTA $vcf *.bam
+			"""
+		
+
+		}
+
+	} else {
+		PhasedVcf = MergedVCF
+	}
+
         process annotateIDs {
 
                 publishDir "${OUTDIR}/DeepVariant", mode: 'copy'
 
                 input:
-                file (vcf) from MergedVCF
+                file (vcf) from PhasedVcf
 
                 output:
                 set file(vcf_annotated), file(vcf_annotated_index) into VcfAnnotated, VcfToVep
@@ -688,7 +720,10 @@ if (params.joint_calling) {
 		vcf_sample_index = vcf_sample + ".tbi"
 
                 """
-			gatk SelectVariants --remove-unused-alternates --exclude-non-variants -V $vcf -sn $sample_name -O $vcf_sample -OVI
+			gatk SelectVariants --remove-unused-alternates --exclude-non-variants -V $vcf -sn $sample_name -O variants.vcf.gz -OVI
+		        gatk LeftAlignAndTrimVariants -R $FASTA -V variants.vcf.gz -O $vcf_sample
+			rm variants.vcf.gz
+
                 """
 
         }
@@ -1038,7 +1073,7 @@ process get_software_versions {
     echo $workflow.nextflow.version &> v_nextflow.txt
     fastp -v &> v_fastp.txt
     echo "CNVkit 0.9.9" &> v_cnvkit.txt
-    echo "Deepvariant 1.1.0" &> v_deepvariant.txt
+    echo "Deepvariant 1.2.0" &> v_deepvariant.txt
     echo "GLNexus 1.3.1" &> v_glnexus.txt
     samtools --version &> v_samtools.txt
     bcftools --version &> v_bcftools.txt
@@ -1134,6 +1169,7 @@ process runPanelCoverage {
 
         input:
         set indivID,sampleID,file(bam),file(bai),file(panel) from panel_coverage_data
+	file(targets) from TargetsToPanel.collect()
 
         output:
         set val(panel_name),file(coverage) into outputPanelCoverage
@@ -1158,7 +1194,7 @@ process runPanelCoverage {
 
 		picard -Xmx${task.memory.toGiga()}G IntervalListTools \
 			INPUT=$panel \
-			SECOND_INPUT=$TARGETS \
+			SECOND_INPUT=$targets \
 			ACTION=SUBTRACT \
 			OUTPUT=overlaps.interval_list
 
