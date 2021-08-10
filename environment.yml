@@ -1,20 +1,17 @@
 # You can use this file to create a conda environment for this pipeline:
 #   conda env create -f environment.yml
-name: exome-seq-2.1
+name: exome-seq-2.2
 channels:
   - bioconda
   - conda-forge
   - defaults
 dependencies:
   - fastqc=0.11.8
-  - fastp=0.20.1
+  - bioconda::fastp=0.20.1
   - picard=2.18.11
-  - bwa=0.7.17
-  - multiqc=1.9
-  - samtools=1.9
-  - bcftools=1.9
-  - htslib=1.9 
+  - bioconda::bwa-mem2=2.2.1
+  - bioconda::multiqc=1.11
+  - bioconda::samtools=1.13
+  - bioconda::bcftools=1.13
+  - bioconda::htslib=1.13
   - perl-excel-writer-xlsx
-  - r=3.5.1
-  - r-base=3.5.1
-  - ensembl-vep=99.2

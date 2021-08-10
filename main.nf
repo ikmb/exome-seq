@@ -106,6 +106,7 @@ GZFAI_F = file(params.genomes[ params.assembly ].gzfai)
 GZI_F = file(params.genomes[ params.assembly ].gzi)
 DICT = file(params.genomes[ params.assembly ].dict)
 DBSNP = file(params.genomes[ params.assembly ].dbsnp )
+BWA2_INDEX = file(params.genomes[ params.assembly ].bwa2_index)
 
 MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitochondrion
 
@@ -417,7 +418,7 @@ process runBWA {
 	outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.bam"	
     
 	"""
-		bwa mem -H $DICT -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${FASTA}\\tCN:${center}" \
+		bwa-mem2 mem -K 1000000 -H $DICT -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${FASTA}\\tCN:${center}" \
 			-t ${task.cpus} ${FASTA} $left $right \
 			| samtools sort -n -@ 8 -m 3G -O bam -o $outfile - 
 	"""	
@@ -657,6 +658,8 @@ if (params.joint_calling) {
         }
 
 	process runVep {
+
+		label 'vep'
 
 		publishDir "${OUTDIR}/DeepVariant/VEP", mode: 'copy'
 
