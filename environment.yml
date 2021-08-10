@@ -8,7 +8,7 @@ channels:
 dependencies:
   - fastqc=0.11.8
   - bioconda::fastp=0.20.1
-  - picard=2.18.11
+  - bioconda::picard=2.18.11
   - bioconda::bwa-mem2=2.2.1
   - bioconda::multiqc=1.11
   - bioconda::samtools=1.13
