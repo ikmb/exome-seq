@@ -106,8 +106,7 @@ GZFAI_F = file(params.genomes[ params.assembly ].gzfai)
 GZI_F = file(params.genomes[ params.assembly ].gzi)
 DICT = file(params.genomes[ params.assembly ].dict)
 DBSNP = file(params.genomes[ params.assembly ].dbsnp )
-
-MITOCHONDRION = params.mitochondrion ?: params.genomes[ params.assembly ].mitochondrion
+BWA2_INDEX = file(params.genomes[ params.assembly ].bwa2_index)
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
@@ -320,7 +319,7 @@ if (params.panel) {
 if (params.vep) {
 	log.info "Run VEP				${params.vep}"
 } 
-log.info "CNVkit				${params.cnv}"
+log.info "CNVCalling			${params.cnv}"
 log.info "Phasing				${params.phase}"
 log.info "-----------------------------------------"
 log.info "Command Line:			$workflow.commandLine"
@@ -334,7 +333,10 @@ log.info "========================================="
 // Set up DV channels
 // ******************
 
+// Deepvariant needs a BED file, convert
 process list_to_bed {
+
+	executor 'local' 
 
 	input:
         file(targets) from targets_to_bed
@@ -375,7 +377,8 @@ Channel.from(inputFile)
        .splitCsv(sep: ';', header: true)
        .set {  readPairsFastp }
 
-process runFastp {
+// Read trimming
+process trim {
 
 	scratch params.scratch
 
@@ -399,11 +402,12 @@ process runFastp {
 	html = file(fastqR1).getBaseName() + ".fastp.html"
 
 	"""
-		fastp $options --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right --detect_adapter_for_pe -w ${task.cpus} -j $json -h $html --length_required 35
+		fastp -c $options --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right --detect_adapter_for_pe -w ${task.cpus} -j $json -h $html --length_required 35
 	"""
 }
 
-process runBWA {
+// alignment
+process align {
 
 	//scratch true	
 
@@ -411,76 +415,75 @@ process runBWA {
 	set indivID, sampleID, libraryID, rgID, platform_unit, platform, platform_model, run_date, center,file(left),file(right) from inputBwa
     
 	output:
-	set indivID, sampleID, file(outfile) into runBWAOutput
+	set indivID, sampleID, file(outfile) into FixedBam
     
 	script:
-	outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.bam"	
+	outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.fm.bam"	
     
 	"""
-		bwa mem -H $DICT -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${FASTA}\\tCN:${center}" \
-			-t ${task.cpus} ${FASTA} $left $right \
-			| samtools sort -n -@ 8 -m 3G -O bam -o $outfile - 
+		bwa-mem2 mem -K 1000000 -H $DICT -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${FASTA}\\tCN:${center}" \
+			-t ${task.cpus} ${BWA2_INDEX} $left $right \
+			| samtools fixmate -@ ${task.cpus} -m - - \
+			| samtools sort -@ ${task.cpus} -m 3G -O bam -o $outfile - 
 	"""	
 }
 
-process runFixmate {
+// Samples may run on one or more lanes; combine based on keys
+FixedBam
+	.groupTuple(by: [0,1])
+	.into { bams_for_merging;  bams_singleton }
+
+// If sample has multiple bam files, merge
+process merge_multi_lane {
 
 	scratch params.scratch
 
 	input:
-	set indivID, sampleID, file(bam) from runBWAOutput
+        set indivID, sampleID, file(aligned_bam_list) from bams_for_merging.filter { i,s,b -> b.size() > 1 && b.size() < 1000 }
 
 	output:
-	set indivID, sampleID, file(fixed_bam) into FixedBam
-
-	script:
-	fixed_bam = bam.getBaseName() + ".fm.bam"
-
-	"""
-		samtools fixmate -@2 -m $bam - | samtools sort -@2 -m 3G -O bam -o $fixed_bam -
-	"""
-}
-
-runBWAOutput_grouped_by_sample = FixedBam.groupTuple(by: [0,1])
-
-process mergeBamFiles_bySample {
-
-	scratch params.scratch
-
-	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy', enabled: params.amplicon
-
-	input:
-        set indivID, sampleID, file(aligned_bam_list) from runBWAOutput_grouped_by_sample
-
-	output:
-	set indivID,sampleID,file(merged_bam),file(merged_bam_index) into mergedBamFile_by_Sample 
-	set file(merged_bam),file(merged_bam_index)  into MergedBamSkipDedup
-        val(sample_name) into SampleNames
+	set indivID,sampleID,file(merged_bam) into merged_bams
 
 	script:
 	merged_bam = indivID + "_" + sampleID + ".merged.bam"
 	merged_bam_index = merged_bam + ".bai"
         sample_name = indivID + "_" + sampleID
 
-	if (aligned_bam_list.size() > 1 && aligned_bam_list.size() < 1000 ) {
-		"""
+	"""
 			samtools merge -@ 4 $merged_bam ${aligned_bam_list.join(' ')}
-			samtools index $merged_bam
-		"""
-	} else {
-		"""
-			cp $aligned_bam_list $merged_bam
-        	        samtools index $merged_bam
-		"""
-	}
+	"""
 }
 
+// combine merged bam files with singleton bams 
+all_bams = merged_bams.concat(bams_singleton.filter { i,s,b -> b.size() < 2 || b.size() > 1000 } )
+
+// index the lot
+process bam_index {
+
+	scratch params.scratch
+
+	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy', enabled: params.amplicon
+
+	input:
+        set indivID, sampleID, file(bam) from all_bams
+
+	output:
+	set indivID, sampleID, file(bam) into bam_indexed
+
+	script:
+	bam_index = bam.getName() + ".bai"
+
+	"""
+		samtools index $bam
+	"""
+
+}
+
+// if this is amplicon data, don't do deduping
 if (params.amplicon) {
 
-	mergedBamFile_by_Sample
-	.into { BamMD; BamForMultipleMetrics; runHybridCaptureMetrics; runPrintReadsOutput_for_OxoG_Metrics; Bam_for_HC_Metrics; inputPanelCoverage ; Bam_for_Cnv}
-
-	MergedBamSkipDedup.into { BamForSexCheck; BamPhasing }
+	bam_indexed
+	.into { BamMD; BamForMultipleMetrics; runHybridCaptureMetrics; runPrintReadsOutput_for_OxoG_Metrics; Bam_for_HC_Metrics; inputPanelCoverage ; Bam_for_Cnv; BamForSexCheck ; BamPhasing}
 
 	DuplicatesOutput_QC = Channel.from(false)
 
@@ -488,14 +491,14 @@ if (params.amplicon) {
 	
 } else {
 
-	process runMarkDuplicates {
+	process dedup {
 
 	        publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
 
 	      //  scratch true
 
         	input:
-	        set indivID, sampleID, file(merged_bam),file(merged_bam_index) from mergedBamFile_by_Sample
+	        set indivID, sampleID, file(merged_bam),file(merged_bam_index) from bam_indexed
 
         	output:
 	        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_for_Cnv
@@ -522,7 +525,7 @@ if (params.amplicon) {
 	}
 
 	// a simple sex check looking at coverage of the SRY gene
-	process runSexCheck {
+	process sex_check {
 
 		input:
 		file(bams) from BamForSexCheck.collect()
@@ -544,7 +547,7 @@ if (params.amplicon) {
 // Run DeepVariant
 // ************************
 
-process runDeepvariant {
+process deepvariant {
 
 	label 'deepvariant'
 
@@ -562,10 +565,12 @@ process runDeepvariant {
         set indivID,sampleID,file(gvcf)
         file(gvcf) into MergeGVCF
         set indivID,sampleID,file(vcf) into Vcf_to_Cnv
+	val(sample_name) into SampleNames
 
         script:
         gvcf = bam.getBaseName() + ".g.vcf.gz"
         vcf = bam.getBaseName() + ".vcf.gz"
+	sample_name = indivID + "_" + sampleID
 
         """
                 /opt/deepvariant/bin/run_deepvariant \
@@ -581,7 +586,7 @@ process runDeepvariant {
 
 if (params.joint_calling) {
 	
-	process runMergeGvcf {
+	process merge_gvcf {
 
 		label 'glnexus'
 
@@ -656,7 +661,9 @@ if (params.joint_calling) {
                 """
         }
 
-	process runVep {
+	process vep {
+
+		label 'vep'
 
 		publishDir "${OUTDIR}/DeepVariant/VEP", mode: 'copy'
 
@@ -702,7 +709,7 @@ if (params.joint_calling) {
 		"""
 	}
 
-	process VcfGetSample {
+	process vcf_get_sample {
 
 		//publishDir "${params.outdir}/DeepVariant", mode: 'copy'
 
@@ -728,7 +735,7 @@ if (params.joint_calling) {
 
         }
 
-	process addRefHeader {
+	process vcf_add_header {
 
                 publishDir "${params.outdir}/DeepVariant", mode: 'copy'
 
@@ -751,7 +758,7 @@ if (params.joint_calling) {
 
 	}
 
-        process VcfStats {
+        process vcf_stats {
 
                 input:
                 set file(vcf),file(tbi) from VcfSample
@@ -959,7 +966,7 @@ if (params.cnv) {
 // Compute statistics for fastQ files, libraries and samples
 // *********************
 
-process runCollectMultipleMetrics {
+process multi_metrics {
 
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
@@ -994,7 +1001,7 @@ process runCollectMultipleMetrics {
 	"""
 }	
 
-process runHybridCaptureMetrics {
+process hybrid_capture_metrics {
 
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
@@ -1024,7 +1031,7 @@ process runHybridCaptureMetrics {
         """
 }
 
-process runOxoGMetrics {
+process oxo_metrics {
 
     publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
@@ -1078,12 +1085,12 @@ process get_software_versions {
     samtools --version &> v_samtools.txt
     bcftools --version &> v_bcftools.txt
     multiqc --version &> v_multiqc.txt
-    bwa &> v_bwa.txt 2>&1 || true
+    bwa-mem2 &> v_bwa.txt 2>&1 || true
     parse_versions.pl >  $yaml_file
     """
 }
 
-process runMultiqcFastq {
+process multiqc_fastq {
 
     publishDir "${OUTDIR}/Summary/Fastq", mode: 'copy'
 
@@ -1106,7 +1113,7 @@ process runMultiqcFastq {
     """
 }
 
-process runMultiqcLibrary {
+process multiqc_library {
 
     publishDir "${OUTDIR}/Summary/Library", mode: 'copy'
 
@@ -1129,7 +1136,7 @@ process runMultiqcLibrary {
     """
 }
 
-process runMultiqcSample {
+process multiqc_sample {
 
     publishDir "${OUTDIR}/Summary/Sample", mode: 'copy'
 
@@ -1163,7 +1170,7 @@ process runMultiqcSample {
 
 panel_coverage_data = inputPanelCoverage.combine(panels)
 
-process runPanelCoverage {
+process panel_coverage {
 
 	publishDir "${OUTDIR}//Summary/Panel/PanelCoverage", mode: "copy"
 
@@ -1216,7 +1223,7 @@ process runPanelCoverage {
 
 grouped_panels = outputPanelCoverage.groupTuple()
 
-process runMultiqcPanel {
+process multiqc_panel {
 
 	publishDir "${OUTDIR}/Summary/Panel", mode: "copy"
 
