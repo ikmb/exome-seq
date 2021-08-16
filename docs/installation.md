@@ -36,14 +36,31 @@ This would add a new profile, called `your_profile` which uses (and expects) con
 
 `your_cluster.config` Specifies which sort of resource manager to use and where to find the GATK resource bundle on your cluster file system (see below).
 
-## GATK resource bundle
+## Reference genome and other resources
 
-This pipeline uses GATK for variant calling and as such it requires a fairly large number of specific reference files, including a genome assembly and specifically matched variant references for annotation and filtering as well as exome kit definitions. 
+The pipeline currently expects a number of files to exist on your system; we will consider including some functionality to build these on the flye if there is interest. Otherwise, the following applies:
 
-The by far easiest way to ensure that all these files are available is to download the GATK [resource bundle](https://software.broadinstitute.org/gatk/download/bundle) to your local cluster. 
-Nextflow also understands S3 buckets as file locations, if that fits your use case better. 
+1) all references are located under one common path on your shared file system, indicated by the variable `params.gatk_bundle_path` (this is a left-over from when we still used GATK). 
 
-Once downloaded, you will have to decompress the genome assembly and ensure that the required BWA index files are present (they should be included). The root directory, i.e. the one directory containing the various genome assembly sub folders, must then be added into your site-specific config file `your_cluster.config` using:
+2) Under the common path, each assembly has one folder, being one or more of:
 
-`gatk_bundle_path = "/path/to/resource_bundle/" `
+* hg19
+* b37
+* hg38
+* hg38_no_alt
+
+Each folder will contain a genome assembly in fasta format (check resources.config for details) and a list of dbSNP variants in VCF format. One way to get these two things is the GATK resource bundle - but note that `hg38_no_alt` is 
+a custom creation, so is not included with the GATK bundle. To recreate it, simply download the ALT free GRCh38 assembly from NCBI and index it as described below. You can take the dbSNP file for hg38 from GATK, but need to re-header it with the sequence dictionary of your custom hg38 without ALT assembly.
+
+For DeepVariant to work, the assembly has to be indexed in multiple ways:
+
+fasta.fai `samtools faidx genome.fasta`
+fasta.gz `bgzip -c -i genome.fasta`
+fasta.gz.gzi
+fasta.gz.fai `samtools faidx genome.fasta.gz`
+
+Finally, the assembly-specific folder will contain a sub-folder called bwa2, containing (again) the (sym-linked) genome sequence and all the bwa2 relevant indices (created with `bwa index genome.fasta`).
+
+Granted, the config is a bit clunky since it is more or less hard-coded for our systems, requiring you to make a number of custom adjustments on your end. If there is interest, we will consider making this a bit more flexible. 
+
 

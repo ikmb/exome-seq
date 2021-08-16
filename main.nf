@@ -442,7 +442,7 @@ process merge_multi_lane {
         set indivID, sampleID, file(aligned_bam_list) from bams_for_merging.filter { i,s,b -> b.size() > 1 && b.size() < 1000 }
 
 	output:
-	set indivID,sampleID,file(merged_bam),file(merged_bam_index) into merged_bams
+	set indivID,sampleID,file(merged_bam) into merged_bams
 
 	script:
 	merged_bam = indivID + "_" + sampleID + ".merged.bam"
