@@ -468,7 +468,7 @@ process bam_index {
         set indivID, sampleID, file(bam) from all_bams
 
 	output:
-	set indivID, sampleID, file(bam) into bam_indexed
+	set indivID, sampleID, file(bam),file(bam_index) into bam_indexed
 
 	script:
 	bam_index = bam.getName() + ".bai"
