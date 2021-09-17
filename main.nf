@@ -564,7 +564,7 @@ process deepvariant {
         output:
         set indivID,sampleID,file(gvcf)
         file(gvcf) into MergeGVCF
-        set indivID,sampleID,file(vcf) into Vcf_to_Cnv
+        set indivID,sampleID,file(vcf) into Vcf_to_Cnv, Sample_to_Vep
 	val(sample_name) into SampleNames
 
         script:
@@ -581,6 +581,54 @@ process deepvariant {
                 --output_gvcf=$gvcf \
                 --regions=$bed \
                 --num_shards=${task.cpus}
+        """
+}
+
+process vep_per_sample {
+
+	publishDir "${params.outdir}/${indivID}/${sampleID}/VEP", mode: 'copy'
+
+	label 'vep'
+
+	input:
+	set val(indivID),val(sampleID),file(vcf) from Sample_to_Vep
+
+	output:
+	file(vcf_vep_sample)
+	file(vcf_alissa_sample)
+
+        when:
+        params.vep
+
+        script:
+        vcf_vep_sample = vcf.getBaseName() + ".vep.vcf"
+        vcf_alissa_sample = vcf.getBaseName() + ".vep2alissa.vcf"
+
+        """
+	vep --offline \
+        	--cache \
+                --dir ${params.vep_cache_dir} \
+                --species homo_sapiens \
+                --assembly $params.assembly \
+                -i $vcf \
+                --format vcf \
+                -o $vcf_vep --dir_plugins ${params.vep_plugin_dir} \
+                --plugin dbNSFP,$dbNSFP_DB,${params.dbnsfp_fields} \
+                --plugin dbscSNV,$dbscSNV_DB \
+                --plugin CADD,${params.cadd_snps},${params.cadd_indels} \
+                --plugin ExACpLI \
+                --fasta $FASTA \
+                --fork ${task.cpus} \
+                --vcf \
+                --per_gene \
+                --sift p \
+                --polyphen p \
+                --check_existing \
+                --canonical
+
+                sed -i.bak 's/CADD_PHRED/CADD_phred/g' $vcf_vep
+
+                vep2alissa.pl --infile $vcf_vep > $vcf_alissa
         """
 }
 

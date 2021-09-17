@@ -26,7 +26,7 @@ The result will be a multi-sample VCF file as well as a list of VCF files for ea
 
 ## Benchmarking
 
-Benchmarking of release 3.0  against genome-in-a-bottle 
+Benchmarking of release 3.0  against genome-in-a-bottle NA12878
 
 IDT xGEN, in-house:
 
