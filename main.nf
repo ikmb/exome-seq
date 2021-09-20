@@ -564,7 +564,7 @@ process deepvariant {
         output:
         set indivID,sampleID,file(gvcf)
         file(gvcf) into MergeGVCF
-        set indivID,sampleID,file(vcf) into Vcf_to_Cnv, Sample_to_Vep
+        set val(indivID),val(sampleID),file(vcf) into Vcf_to_Cnv, Sample_to_Vep
 	val(sample_name) into SampleNames
 
         script:
@@ -612,7 +612,7 @@ process vep_per_sample {
                 --assembly $params.assembly \
                 -i $vcf \
                 --format vcf \
-                -o $vcf_vep --dir_plugins ${params.vep_plugin_dir} \
+                -o $vcf_vep_sample --dir_plugins ${params.vep_plugin_dir} \
                 --plugin dbNSFP,$dbNSFP_DB,${params.dbnsfp_fields} \
                 --plugin dbscSNV,$dbscSNV_DB \
                 --plugin CADD,${params.cadd_snps},${params.cadd_indels} \
@@ -626,9 +626,9 @@ process vep_per_sample {
                 --check_existing \
                 --canonical
 
-                sed -i.bak 's/CADD_PHRED/CADD_phred/g' $vcf_vep
+                sed -i.bak 's/CADD_PHRED/CADD_phred/g' $vcf_vep_sample
 
-                vep2alissa.pl --infile $vcf_vep > $vcf_alissa
+                vep2alissa.pl --infile $vcf_vep_sample > $vcf_alissa_sample
         """
 }
 
