@@ -1196,6 +1196,7 @@ process get_software_versions {
     echo "CNVkit 0.9.9" &> v_cnvkit.txt
     echo "Deepvariant 1.2.0" &> v_deepvariant.txt
     echo "GLNexus 1.3.1" &> v_glnexus.txt
+    echo "ExpansionHunter 4.0.2" &> v_expansionhunter.txt
     samtools --version &> v_samtools.txt
     bcftools --version &> v_bcftools.txt
     multiqc --version &> v_multiqc.txt

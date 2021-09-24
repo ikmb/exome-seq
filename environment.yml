@@ -15,4 +15,4 @@ dependencies:
   - bioconda::bcftools=1.13
   - bioconda::htslib=1.13
   - perl-excel-writer-xlsx
-  - perl-json-parse
+  - bioconda::perl-json-parse=0.55
