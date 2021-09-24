@@ -51,7 +51,12 @@ my %recover = ( "ada_score" => { "Type" => "Float", "Number" => "1"},
 		"CADD_phred" => { "Type" => "Float", "Number" => 1},
 		"DANN_score" => { "Type" => "Float", "Number" => 1},
 		"M-CAP_pred" => { "Type" => "String", "Number" => 1},
-		"Existing_variation" => {"Type" => "String", "Number" => "1"}
+		"Existing_variation" => {"Type" => "String", "Number" => "1"},
+		"five_prime_UTR_variant_annotation" => {"Type" => "String", "Number" => "1"},
+		"five_prime_UTR_variant_consequence" => {"Type" => "String", "Number" => "1"},
+		"existing_InFrame_oORFs" => {"Type" => "String", "Number" => "1"},
+		"existing_OutOfFrame_oORFs" => {"Type" => "String", "Number" => "1"},
+		"existing_uORFs" => {"Type" => "String", "Number" => "1"},
 	);
 
 while (<$IN>) {

@@ -44,6 +44,7 @@ Required parameters:
 --email 		       Email address to send reports to (enclosed in '')
 Optional parameters:
 --cnv 			       Enable calling of copy number variants (for select assembly and kit combinations)
+--expansion_hunter	       Run ExpansionHunter
 --phase			       Perform phasing of the final call set. 
 --joint_calling		       Perform joint calling of all samples (default: true)
 --amplicon		       This is a small amplicon-based analysis, skip duplicate marking and sex check
@@ -190,6 +191,15 @@ if (!SRY_REGION.exists() ) {
 	exit 1, "Could not find the bed file for SRY check!"
 }
 
+if (params.expansion_hunter) {
+	ecatalog = file(params.genomes[params.assembly].expansion_catalog)
+	Channel.fromPath(ecatalog)
+	.ifEmpty { exit 1, "Could not find a matching ExpansionHunter catalog for this assembly" }
+	.set { expansion_catalog }
+} else {
+	expansion_catalog = Channel.empty()
+}
+
 // Whether to produce BAM output instead of CRAM
 params.cram = false
 align_suffix = (params.cram == false) ? "bam" : "cram"
@@ -277,6 +287,7 @@ if (params.panel) {
 } else if (params.all_panels) {
 	summary['GenePanel'] = "All panels"
 }
+summary['ExpansionAnalysis'] = params.expansion_hunter
 summary['Phasing'] = params.phase
 summary['AmpliconRun'] = params.amplicon
 summary['CommandLine'] = workflow.commandLine
@@ -321,6 +332,7 @@ if (params.vep) {
 } 
 log.info "CNVCalling			${params.cnv}"
 log.info "Phasing				${params.phase}"
+log.info "Find expansions			${params.expansion_hunter}"
 log.info "-----------------------------------------"
 log.info "Command Line:			$workflow.commandLine"
 log.info "Run name: 			${run_name}"
@@ -483,7 +495,7 @@ process bam_index {
 if (params.amplicon) {
 
 	bam_indexed
-	.into { BamMD; BamForMultipleMetrics; runHybridCaptureMetrics; runPrintReadsOutput_for_OxoG_Metrics; Bam_for_HC_Metrics; inputPanelCoverage ; Bam_for_Cnv; BamForSexCheck ; BamPhasing}
+	.into { BamMD; BamForMultipleMetrics; runHybridCaptureMetrics; runPrintReadsOutput_for_OxoG_Metrics; Bam_for_HC_Metrics; inputPanelCoverage ; Bam_for_Cnv; BamForSexCheck ; BamPhasing ; Bam_for_Expansion}
 
 	DuplicatesOutput_QC = Channel.from(false)
 
@@ -501,7 +513,7 @@ if (params.amplicon) {
 	        set indivID, sampleID, file(merged_bam),file(merged_bam_index) from bam_indexed
 
         	output:
-	        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_for_Cnv
+	        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_for_Cnv, Bam_for_Expansion
 		set file(outfile_bam), file(outfile_bai) into (BamForSexCheck, BamPhasing )
 		file(outfile_md5)
 		file(outfile_metrics) into DuplicatesOutput_QC
@@ -542,6 +554,58 @@ if (params.amplicon) {
 	}
 
 }
+
+// ************************
+// Run ExpansionHunter
+// ************************
+
+if (params.expansion_hunter) {
+	process expansion_hunter {
+
+		label 'expansion_hunter'
+
+		publishDir "${params.outdir}/${indivID}/${sampleID}/ExpansionHunter", mode: 'copy'
+
+		input:
+		set indivID, sampleID, file(bam),file(bai) from Bam_for_Expansion
+		file(catalog) from expansion_catalog.collect()
+
+		output:
+		set indivID, sampleID,file(expansion_report) into ExpansionJson
+		file(expansion_vcf)
+
+		script:
+		expansion_report = indivID + "_" + sampleID + ".expansion_report.json"
+		expansion_vcf = indivID + "_" + sampleID + ".expansion_report.vcf"
+		prefix = indivID + "_" + sampleID + ".expansion_report"
+
+		"""
+			ExpansionHunter --reads $bam --reference $FASTA --variant-catalog $catalog --output-prefix $prefix
+		"""
+
+	}
+
+	process  expansions2xls {
+
+		publishDir "${params.outdir}/${indivID}/${sampleID}/ExpansionHunter", mode: 'copy'
+
+		input:
+		set indivID, sampleID,file(report) from ExpansionJson
+
+		output:
+		file(expansion_xls)
+
+		script:
+
+		expansion_xls = report.getBaseName() + ".xlsx"
+
+		"""
+			expansions2xls.pl --infile $report --outfile $expansion_xls
+		"""
+
+	}
+
+} 
 
 // ************************
 // Run DeepVariant
@@ -617,6 +681,7 @@ process vep_per_sample {
                 --plugin dbscSNV,$dbscSNV_DB \
                 --plugin CADD,${params.cadd_snps},${params.cadd_indels} \
                 --plugin ExACpLI \
+		--plugin UTRannotator \
                 --fasta $FASTA \
                 --fork ${task.cpus} \
                 --vcf \
@@ -742,6 +807,7 @@ if (params.joint_calling) {
 				--plugin dbscSNV,$dbscSNV_DB \
 				--plugin CADD,${params.cadd_snps},${params.cadd_indels} \
 				--plugin ExACpLI \
+				--plugin UTRannotator \
 				--fasta $FASTA \
 				--fork 4 \
 				--vcf \
@@ -1130,6 +1196,7 @@ process get_software_versions {
     echo "CNVkit 0.9.9" &> v_cnvkit.txt
     echo "Deepvariant 1.2.0" &> v_deepvariant.txt
     echo "GLNexus 1.3.1" &> v_glnexus.txt
+    echo "ExpansionHunter 4.0.2" &> v_expansionhunter.txt
     samtools --version &> v_samtools.txt
     bcftools --version &> v_bcftools.txt
     multiqc --version &> v_multiqc.txt
