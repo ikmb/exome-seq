@@ -3,7 +3,7 @@
 use strict;
 use Getopt::Long;
 use Excel::Writer::XLSX;
-use JSON::Parse 'read_json';
+use JSON::Parse 'json_file_to_perl';
 
 
 my $usage = qq{
@@ -51,7 +51,7 @@ my $worksheet = $workbook->add_worksheet();
 
 my $row = 0;
 
-my $json = read_json($infile);
+my $json = json_file_to_perl($infile);
 
 my $loci = $json->{'LocusResults'};
 
