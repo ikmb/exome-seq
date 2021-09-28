@@ -43,6 +43,7 @@ Required parameters:
 --kit			       Name of the exome kit (available options: xGen, xGen_custom, xGen_v2, Nextera, Pan_cancer)
 --email 		       Email address to send reports to (enclosed in '')
 Optional parameters:
+--bwa2			       Use BWA2 instead of BWA1
 --cnv 			       Enable calling of copy number variants (for select assembly and kit combinations)
 --expansion_hunter	       Run ExpansionHunter
 --phase			       Perform phasing of the final call set. 
@@ -107,7 +108,11 @@ GZFAI_F = file(params.genomes[ params.assembly ].gzfai)
 GZI_F = file(params.genomes[ params.assembly ].gzi)
 DICT = file(params.genomes[ params.assembly ].dict)
 DBSNP = file(params.genomes[ params.assembly ].dbsnp )
-BWA2_INDEX = file(params.genomes[ params.assembly ].bwa2_index)
+if (params.bwa2) {
+	BWA_INDEX = file(params.genomes[ params.assembly ].bwa2_index)
+} else {
+	BWA_INDEX = file(params.genomes[ params.assembly ].fasta)
+}
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
@@ -431,10 +436,16 @@ process align {
     
 	script:
 	outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.fm.bam"	
-    
+
+	def aligner = "bwa"
+	def options = ""
+	if (params.bwa2) {
+		aligner = "bwa-mem2"
+		options = "-K 1000000"
+	}
 	"""
-		bwa-mem2 mem -K 1000000 -H $DICT -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${FASTA}\\tCN:${center}" \
-			-t ${task.cpus} ${BWA2_INDEX} $left $right \
+		$aligner mem $options -H $DICT -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${FASTA}\\tCN:${center}" \
+			-t ${task.cpus} ${BWA_INDEX} $left $right \
 			| samtools fixmate -@ ${task.cpus} -m - - \
 			| samtools sort -@ ${task.cpus} -m 3G -O bam -o $outfile - 
 	"""	

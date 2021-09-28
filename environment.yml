@@ -10,6 +10,7 @@ dependencies:
   - bioconda::fastp=0.20.1
   - bioconda::picard=2.18.11
   - bioconda::bwa-mem2=2.2.1
+  --bioconda::bwa=0.7.17
   - bioconda::multiqc=1.11
   - bioconda::samtools=1.13
   - bioconda::bcftools=1.13
