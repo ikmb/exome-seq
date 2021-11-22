@@ -258,6 +258,12 @@ if (params.vep) {
 		exit 1, "No dbNSFP database defined for this execution profile..."
 	}
 
+	if (params.revel) {
+		REVEL_DB = file(params.revel)
+		if ( !REVEL_DB.exists() ) {
+			exit 1, "Missing REVEL database"
+		}
+	}
 	if (params.dbscsnv_db) {
 		dbscSNV_DB = file(params.dbscsnv_db)
 		if ( !dbscSNV_DB.exists() ) {
@@ -284,6 +290,11 @@ summary['Current home'] = "$HOME"
 summary['Current user'] = "$USER"
 summary['Current path'] = "$PWD"
 summary['Assembly'] = FASTA
+if (params.bwa2) {
+	summary['ALIGNER'] = "bwa-mem2"
+} else {
+	summary['ALIGNER'] = "bwa"
+}
 summary['Kit'] = TARGETS
 if (params.panel) {
 	summary['GenePanel'] = params.panel
@@ -292,6 +303,7 @@ if (params.panel) {
 } else if (params.all_panels) {
 	summary['GenePanel'] = "All panels"
 }
+summary['JointCalling'] = params.joint_calling
 summary['ExpansionAnalysis'] = params.expansion_hunter
 summary['Phasing'] = params.phase
 summary['AmpliconRun'] = params.amplicon
@@ -321,6 +333,11 @@ log.info "========================================="
 log.info "Exome-seq pipeline v${params.version}"
 log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
+if (params.bwa2) {
+	log.info "Read aligner:			BWA2"
+} else {
+	log.info "Read aligner:			BWA"
+}
 log.info "Exome kit:			${params.kit}"
 if (params.amplicon) {
 	log.info "Amplicon run:			true"
@@ -335,6 +352,7 @@ if (params.panel) {
 if (params.vep) {
 	log.info "Run VEP				${params.vep}"
 } 
+log.info "Joint Calling			${params.joint_calling}"
 log.info "CNVCalling			${params.cnv}"
 log.info "Phasing				${params.phase}"
 log.info "Find expansions			${params.expansion_hunter}"
@@ -639,6 +657,7 @@ process deepvariant {
         output:
         set indivID,sampleID,file(gvcf)
         file(gvcf) into MergeGVCF
+	file(vcf) into MergeVCF
         set val(indivID),val(sampleID),file(vcf) into Vcf_to_Cnv, Sample_to_Vep
 	val(sample_name) into SampleNames
 
@@ -693,6 +712,7 @@ process vep_per_sample {
                 --plugin CADD,${params.cadd_snps},${params.cadd_indels} \
                 --plugin ExACpLI \
 		--plugin UTRannotator \
+		--plugin REVEL,${params.revel} \
                 --fasta $FASTA \
                 --fork ${task.cpus} \
                 --vcf \
@@ -724,7 +744,7 @@ if (params.joint_calling) {
                 file(merged_vcf) into MergedVCF
 
                 script:
-                merged_vcf = "deepvariant.merged." + run_name + ".vcf.gz"
+                merged_vcf = "deepvariant.joint_merged." + run_name + ".vcf.gz"
 
                 """
                         /usr/local/bin/glnexus_cli \
@@ -735,173 +755,186 @@ if (params.joint_calling) {
                 """
         }
 
-	if (params.phase) {
-		process whatshap {
-		
-			label 'whatshap'
+} else {
 
-			publishDir "${OUTDIR}/DeepVariant/Phased", mode: 'copy'
-
-			input:
-			file (vcf) from MergedVCF
-			file('*') from BamPhasing.collect()
-
-			output:
-			file(phased_vcf) into PhasedVcf
-
-			script:
-			phased_vcf = vcf.getBaseName() + ".phased.vcf.gz"
-
-			"""
-				whatshap phase -o $phased_vcf --tag=PS --reference $FASTA $vcf *.bam
-			"""
-		
-
-		}
-
-	} else {
-		PhasedVcf = MergedVCF
-	}
-
-        process annotateIDs {
-
-                publishDir "${OUTDIR}/DeepVariant", mode: 'copy'
-
-                input:
-                file (vcf) from PhasedVcf
-
-                output:
-                set file(vcf_annotated), file(vcf_annotated_index) into VcfAnnotated, VcfToVep
-
-                script:
-                vcf_annotated = vcf.getBaseName() + ".rsids.vcf.gz"
-		vcf_annotated_index = vcf_annotated + ".tbi"
-
-                """
-			echo "##reference=${params.assembly}" > header.txt
-                        tabix $vcf
-                        bcftools annotate -h header.txt -c ID -a $DBSNP -O z -o $vcf_annotated $vcf
-			tabix $vcf_annotated
-                """
-        }
-
-	process vep {
-
-		label 'vep'
-
-		publishDir "${OUTDIR}/DeepVariant/VEP", mode: 'copy'
-
-		when:
-		params.vep
+	process merge_vcf {
 
 		input:
-		set file(vcf),file(vcf_index) from VcfToVep
+		file(vcfs) from MergeVCF.collect()
 
 		output:
-		file(vcf_vep)
-		file(vcf_alissa)
+		file(merged_vcf) into MergedVCF
 
 		script:
-		vcf_vep = vcf.getBaseName() + ".vep.vcf"
-		vcf_alissa = vcf.getBaseName() + ".vep2alissa.vcf"
+		merged_vcf = "deepvariant.flat_merged." + run_name + ".vcf.gz"
 
 		"""
-			vep --offline \
-				--cache \
-				--dir ${params.vep_cache_dir} \
-				--species homo_sapiens \
-				--assembly $params.assembly \
-				-i $vcf \
-				--format vcf \
-				-o $vcf_vep --dir_plugins ${params.vep_plugin_dir} \
-				--plugin dbNSFP,$dbNSFP_DB,${params.dbnsfp_fields} \
-				--plugin dbscSNV,$dbscSNV_DB \
-				--plugin CADD,${params.cadd_snps},${params.cadd_indels} \
-				--plugin ExACpLI \
-				--plugin UTRannotator \
-				--fasta $FASTA \
-				--fork 4 \
-				--vcf \
-				--per_gene \
-				--sift p \
-				--polyphen p \
-				--check_existing \
-				--canonical
-	
-			sed -i.bak 's/CADD_PHRED/CADD_phred/g' $vcf_vep
-
-			vep2alissa.pl --infile $vcf_vep > $vcf_alissa
+			for i in \$(echo *.vcf.gz); do tabix \$i ; done;
+			bcftools merge --threads ${task.cpus} -o $merged_vcf -O z *.vcf.gz 
 		"""
 	}
+}
 
-	process vcf_get_sample {
+if (params.phase) {
+	process whatshap {
+		
+		label 'whatshap'
 
-		//publishDir "${params.outdir}/DeepVariant", mode: 'copy'
-
-		label 'gatk'
-
-                input:
-                set file(vcf),file(vcf_index) from VcfAnnotated
-                val(sample_name) from SampleNames
-
-                output:
-                set file(vcf_sample),file(vcf_sample_index) into VcfSample, VcfReheader
-
-                script:
-                vcf_sample = sample_name + ".vcf.gz"
-		vcf_sample_index = vcf_sample + ".tbi"
-
-                """
-			gatk SelectVariants --remove-unused-alternates --exclude-non-variants -V $vcf -sn $sample_name -O variants.vcf.gz -OVI
-		        gatk LeftAlignAndTrimVariants -R $FASTA -V variants.vcf.gz -O $vcf_sample
-			rm variants.vcf.gz
-
-                """
-
-        }
-
-	process vcf_add_header {
-
-                publishDir "${params.outdir}/DeepVariant", mode: 'copy'
+		publishDir "${OUTDIR}/DeepVariant/Phased", mode: 'copy'
 
 		input:
-		set file(vcf),file(tbi) from VcfReheader
+		file (vcf) from MergedVCF
+		file('*') from BamPhasing.collect()
 
 		output:
-		set file(vcf_r),file(tbi_r) 
+		file(phased_vcf) into PhasedVcf
 
 		script:
-
-		vcf_r = vcf.getBaseName() + ".final.vcf.gz"
-		tbi_r = vcf_r + ".tbi"
+		phased_vcf = vcf.getBaseName() + ".phased.vcf.gz"
 
 		"""
-			echo "##reference=${params.assembly}" > header.txt
-			bcftools annotate -h header.txt -O z -o $vcf_r $vcf
-			tabix $vcf_r
+			whatshap phase -o $phased_vcf --tag=PS --reference $FASTA $vcf *.bam
 		"""
-
+		
 	}
-
-        process vcf_stats {
-
-                input:
-                set file(vcf),file(tbi) from VcfSample
-
-                output:
-                file(vcf_stats) into VcfInfo
-
-                script:
-                vcf_stats = vcf.getBaseName() + ".stats"
-
-                """
-                        bcftools stats $vcf > $vcf_stats
-                """
-
-        }
 
 } else {
-	VcfInfo = Channel.empty()
+		PhasedVcf = MergedVCF
+}
+
+process annotateIDs {
+
+	publishDir "${OUTDIR}/DeepVariant", mode: 'copy'
+
+        input:
+        file (vcf) from PhasedVcf
+
+        output:
+        set file(vcf_annotated), file(vcf_annotated_index) into VcfAnnotated, VcfToVep
+
+        script:
+        vcf_annotated = vcf.getBaseName() + ".rsids.vcf.gz"
+	vcf_annotated_index = vcf_annotated + ".tbi"
+
+        """
+		echo "##reference=${params.assembly}" > header.txt
+                tabix $vcf
+                bcftools annotate -h header.txt -c ID -a $DBSNP -O z -o $vcf_annotated $vcf
+		tabix $vcf_annotated
+        """
+}
+
+process vep {
+
+	label 'vep'
+
+	publishDir "${OUTDIR}/DeepVariant/VEP", mode: 'copy'
+
+	when:
+	params.vep
+
+	input:
+	set file(vcf),file(vcf_index) from VcfToVep
+
+	output:
+	file(vcf_vep)
+	file(vcf_alissa)
+
+	script:
+	vcf_vep = vcf.getBaseName() + ".vep.vcf"
+	vcf_alissa = vcf.getBaseName() + ".vep2alissa.vcf"
+
+	"""
+		vep --offline \
+			--cache \
+			--dir ${params.vep_cache_dir} \
+			--species homo_sapiens \
+			--assembly $params.assembly \
+			-i $vcf \
+			--format vcf \
+			-o $vcf_vep --dir_plugins ${params.vep_plugin_dir} \
+			--plugin dbNSFP,$dbNSFP_DB,${params.dbnsfp_fields} \
+			--plugin dbscSNV,$dbscSNV_DB \
+			--plugin CADD,${params.cadd_snps},${params.cadd_indels} \
+			--plugin ExACpLI \
+			--plugin UTRannotator \
+			--fasta $FASTA \
+			--fork 4 \
+			--vcf \
+			--per_gene \
+			--sift p \
+			--polyphen p \
+			--check_existing \
+			--canonical
+	
+		sed -i.bak 's/CADD_PHRED/CADD_phred/g' $vcf_vep
+		vep2alissa.pl --infile $vcf_vep > $vcf_alissa
+	"""
+}
+
+process vcf_get_sample {
+
+	//publishDir "${params.outdir}/DeepVariant", mode: 'copy'
+
+	label 'gatk'
+
+        input:
+        set file(vcf),file(vcf_index) from VcfAnnotated
+        val(sample_name) from SampleNames
+
+        output:
+        set file(vcf_sample),file(vcf_sample_index) into VcfSample, VcfReheader
+
+        script:
+        vcf_sample = sample_name + ".vcf.gz"
+	vcf_sample_index = vcf_sample + ".tbi"
+
+        """
+		gatk SelectVariants --remove-unused-alternates --exclude-non-variants -V $vcf -sn $sample_name -O variants.vcf.gz -OVI
+	        gatk LeftAlignAndTrimVariants -R $FASTA -V variants.vcf.gz -O $vcf_sample
+		rm variants.vcf.gz
+
+        """
+
+}
+
+process vcf_add_header {
+
+	publishDir "${params.outdir}/DeepVariant", mode: 'copy'
+	input:
+	set file(vcf),file(tbi) from VcfReheader
+
+	output:
+	set file(vcf_r),file(tbi_r) 
+
+	script:
+
+	vcf_r = vcf.getBaseName() + ".final.vcf.gz"
+	tbi_r = vcf_r + ".tbi"
+
+	"""
+		echo "##reference=${params.assembly}" > header.txt
+		bcftools annotate -h header.txt -O z -o $vcf_r $vcf
+		tabix $vcf_r
+	"""
+
+}
+
+process vcf_stats {
+
+	input:
+        set file(vcf),file(tbi) from VcfSample
+
+        output:
+        file(vcf_stats) into VcfInfo
+
+        script:
+        vcf_stats = vcf.getBaseName() + ".stats"
+
+        """
+        	bcftools stats $vcf > $vcf_stats
+        """
+
 }
 
 
@@ -1205,7 +1238,7 @@ process get_software_versions {
     echo $workflow.nextflow.version &> v_nextflow.txt
     fastp -v &> v_fastp.txt
     echo "CNVkit 0.9.9" &> v_cnvkit.txt
-    echo "Deepvariant 1.2.0" &> v_deepvariant.txt
+    echo "Deepvariant 1.1.0" &> v_deepvariant.txt
     echo "GLNexus 1.3.1" &> v_glnexus.txt
     echo "ExpansionHunter 4.0.2" &> v_expansionhunter.txt
     samtools --version &> v_samtools.txt
