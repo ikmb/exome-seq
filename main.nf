@@ -1177,6 +1177,8 @@ if (params.cnv) {
 // *********************
 
 process multi_metrics {
+	
+	label 'picard'
 
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
@@ -1213,6 +1215,8 @@ process multi_metrics {
 
 process hybrid_capture_metrics {
 
+	label 'picard'
+
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
 	input:
@@ -1242,6 +1246,9 @@ process hybrid_capture_metrics {
 }
 
 process oxo_metrics {
+
+
+	label 'picard'
 
     publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
@@ -1382,6 +1389,8 @@ process multiqc_sample {
 panel_coverage_data = inputPanelCoverage.combine(panels)
 
 process panel_coverage {
+
+	label 'picard'
 
 	publishDir "${OUTDIR}//Summary/Panel/PanelCoverage", mode: "copy"
 
