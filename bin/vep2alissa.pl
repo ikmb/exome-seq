@@ -57,6 +57,8 @@ my %recover = ( "ada_score" => { "Type" => "Float", "Number" => "1"},
 		"existing_InFrame_oORFs" => {"Type" => "String", "Number" => "1"},
 		"existing_OutOfFrame_oORFs" => {"Type" => "String", "Number" => "1"},
 		"existing_uORFs" => {"Type" => "String", "Number" => "1"},
+		"Mastermind_MMID3" => { "Type" => "String", "Number" => "1"},
+		"REVEL" => { "Type" => "Float", "Number" => "1" },
 	);
 
 while (<$IN>) {

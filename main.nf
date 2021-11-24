@@ -124,10 +124,10 @@ targets_to_bed = Channel.fromPath(TARGETS)
 
 
 Channel.from(file(TARGETS))
-	.into { TargetsToHS; TargetsToMetrics; TargetsToOxo; TargetsToPanel }
+	.into { TargetsToHS; TargetsToMetrics; TargetsToOxo; TargetsToPanel; TargetsToAnti }
 
 Channel.from(file(BAITS))
-	.into { BaitsToHS; BaitsToMetrics }
+	.into { BaitsToHS; BaitsToMetrics; BaitsToCnv }
 
 if (params.kill) {
 	KILL = params.kill
@@ -258,8 +258,8 @@ if (params.vep) {
 		exit 1, "No dbNSFP database defined for this execution profile..."
 	}
 
-	if (params.revel) {
-		REVEL_DB = file(params.revel)
+	if (params.vep_revel) {
+		REVEL_DB = file(params.vep_revel)
 		if ( !REVEL_DB.exists() ) {
 			exit 1, "Missing REVEL database"
 		}
@@ -510,6 +510,7 @@ process bam_index {
 
 	output:
 	set indivID, sampleID, file(bam),file(bam_index) into bam_indexed
+	set file(bam),file(bam_index) into cnv_ref_bams
 
 	script:
 	bam_index = bam.getName() + ".bai"
@@ -543,7 +544,7 @@ if (params.amplicon) {
 
         	output:
 	        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_for_Cnv, Bam_for_Expansion
-		set file(outfile_bam), file(outfile_bai) into (BamForSexCheck, BamPhasing )
+		set file(outfile_bam), file(outfile_bai) into (BamForSexCheck, BamPhasing, cnv_bam_autobin )
 		file(outfile_md5)
 		file(outfile_metrics) into DuplicatesOutput_QC
 
@@ -712,7 +713,8 @@ process vep_per_sample {
                 --plugin CADD,${params.cadd_snps},${params.cadd_indels} \
                 --plugin ExACpLI \
 		--plugin UTRannotator \
-		--plugin REVEL,${params.revel} \
+		--plugin REVEL,${params.vep_revel} \
+		--plugin Mastermind,${params.vep_mastermind}\
                 --fasta $FASTA \
                 --fork ${task.cpus} \
                 --vcf \
@@ -858,6 +860,9 @@ process vep {
 			--plugin CADD,${params.cadd_snps},${params.cadd_indels} \
 			--plugin ExACpLI \
 			--plugin UTRannotator \
+			--plugin REVEL,${params.vep_revel} \
+			--plugin GeneSplicer,${params.vep_genesplicer},/work_ifs/ikmb_repository/software/genesplicer/GeneSplicer/human,context=200,tmpdir=/tmp \
+			--plugin Mastermind,${params.vep_mastermind} \
 			--fasta $FASTA \
 			--fork 4 \
 			--vcf \
@@ -924,7 +929,7 @@ process vcf_stats {
 
 	input:
         set file(vcf),file(tbi) from VcfSample
-
+	
         output:
         file(vcf_stats) into VcfInfo
 
@@ -939,30 +944,34 @@ process vcf_stats {
 
 
 // *******************************************
-// Optional: CNVkit with pre-defined reference
+// Optional: CNVkit with on-the-fly reference
 // *******************************************
 if (params.cnv) {
 
-        process stage_cnv_reference {
+	process cnvkit_autobin {
 
-                executor 'local'
+		label 'cnvkit'
 
-                input:
-                file(ref_gz) from cnv_ref_gz
+		publishDir "${params.outdir}/CnvKit/Ref", mode: 'copy'
 
-                output:
-                file(ref_cnn) into cnv_ref
+		input:
+		file(baits) from TargetsToAnti.collect()
+		file('*') from cnv_bam_autobin.collect()
 
-                script:
-                ref_cnn = ref_gz.getBaseName()
+		output:
+		set file(targets),file(antitargets) into cnv_anti, cnv_anti_process
 
-                """
-                        gunzip -c $ref_gz > $ref_cnn
-                """
+		script:
+		targets = baits.getBaseName() + ".target.bed"
+		antitargets = baits.getBaseName() + ".antitarget.bed"
 
-        }
+		"""
+			cnvkit.py access $FASTA -o access.bed
+			cnvkit.py autobin -t $baits -g access.bed *.bam	
+		"""		
+	}
 
-        process cnvkit_batch{
+	process cnvkit_coverage {
 
                 label 'cnvkit'
 
@@ -970,32 +979,75 @@ if (params.cnv) {
 
                 input:
                 set indivID, sampleID, file(bam),file(bai) from Bam_for_Cnv
-                file(cnn) from cnv_ref.collect()
+		set file(targets),file(antitargets) from cnv_anti.collect()
 
                 output:
-                set indivID, sampleID,file(cnr),file(cns) into Cnv_to_seg
-
+                set file(cnn),file(cnn_anti) into cnv_coverage
+		set indivID, sampleID, file(cnn),file(cnn_anti) into cnv_coverage_sample
+		
                 script:
-                cnr = bam.getBaseName() + ".cnr"
-                cns = bam.getBaseName() + ".cns"
+		cnn = bam.getBaseName() + ".targetcoverage.cnn"
+		cnn_anti = bam.getBaseName() + ".antitargetcoverage.cnn"
+
                 """
-                        cnvkit.py batch -r $cnn -d out *.bam
-                        mv out/*.cns .
-                        mv out/*.cnr .
+                        cnvkit.py coverage $bam $targets -o $cnn
+			cnvkit.py coverage $bam $antitargets -o $cnn_anti
                 """
 
         }
 
+	process cnvkit_reference {
+
+		label 'cnvkit'
+
+		publishDir "${params.outdir}/CnvKit", mode: 'copy'
+
+		input:
+		file('*') from cnv_coverage.collect()
+
+		output:
+		file(cnn) into cnv_ref
+
+		script:
+		cnn = "cnvkit_ref_" + run_name + ".cnn"
+
+		"""
+			cnvkit.py reference *targetcoverage.cnn --fasta $FASTA -o $cnn
+		"""
+	}
+
+	process cnvkit_process {
+
+		label 'cnvkit'
+
+		input:
+		set indivID, sampleID, file(cnn),file(cnn_anti) from cnv_coverage_sample
+		file(ref) from cnv_ref.collect()
+
+		output:
+		set indivID, sampleID, file(cnr),file(cns) into cnv_to_seg
+
+		script:
+		cns = cnn.getBaseName() + ".cns"
+		cnr = cnn.getBaseName() + ".cnr"
+		"""
+			cnvkit.py fix $cnn $cnn_anti $ref -o $cnr
+			cnvkit.py segment $cnr -o $cns
+		"""
+
+	}
+
         process cnvkit_segmetrics {
+ 
                 label 'cnvkit'
 
                 publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Processing", mode: 'copy'
 
                 input:
-                set indivID, sampleID, file(cnr),file(cns) from Cnv_to_seg
+                set indivID, sampleID, file(cnr),file(cns) from cnv_to_seg
 
                 output:
-                set indivID, sampleID,file(cnr),file(seg_cns) into Cnv_to_call
+                set indivID, sampleID,file(cnr),file(seg_cns) into cnv_to_call
 
                 script:
                 seg_cns = cns.getBaseName() + ".segmetrics.cns"
@@ -1006,7 +1058,7 @@ if (params.cnv) {
 
         }
 
-	Cnv_call_vcf = Cnv_to_call.join(Vcf_to_Cnv, by: [0,1] )
+	cnv_call_vcf = cnv_to_call.join(Vcf_to_Cnv, by: [0,1] )
 
         process cnvkit_call {
 
@@ -1015,16 +1067,16 @@ if (params.cnv) {
                 publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Processing", mode: 'copy'
 
                 input:
-                set indivID, sampleID, file(cnr),file(cns),file(vcf) from Cnv_call_vcf
+                set indivID, sampleID, file(cnr),file(cns),file(vcf) from cnv_call_vcf
 
                 output:
-                set indivID, sampleID,file(cnr),file(call_cns) into Cnv_to_gene, Cnv_to_break, Cnv_to_export, Cnv_to_plot
+                set indivID, sampleID,file(cnr),file(call_cns) into cnv_to_gene, cnv_to_break, cnv_to_export, cnv_to_plot
 
                 script:
                 call_cns = cns.getBaseName() + ".call.cns"
 
                 """
-                        cnvkit.py call $cns --filter ci
+			cnvkit.py call $cns --filter ci
                 """
 
         }
@@ -1036,7 +1088,7 @@ if (params.cnv) {
                 publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Metrics", mode: 'copy'
 
                 input:
-                set indivID, sampleID, file(cnr),file(cns) from Cnv_to_gene
+                set indivID, sampleID, file(cnr),file(cns) from cnv_to_gene
 
                 output:
                 file(metrics)
@@ -1058,7 +1110,7 @@ if (params.cnv) {
                 publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Metrics", mode: 'copy'
 
                 input:
-                set indivID, sampleID, file(cnr),file(cns) from Cnv_to_break
+                set indivID, sampleID, file(cnr),file(cns) from cnv_to_break
 
                 output:
                 file(breaks)
@@ -1080,7 +1132,7 @@ if (params.cnv) {
 		publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
 
 		input:
-		set indivID, sampleID,file(cnr),file(call_cns) from Cnv_to_export
+		set indivID, sampleID,file(cnr),file(call_cns) from cnv_to_export
 
 		output:
 		set file(bed),file(vcf) into CnvOut
@@ -1103,7 +1155,7 @@ if (params.cnv) {
 		publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Plots", mode: 'copy'
 
 		input:
-                set indivID, sampleID,file(cnr),file(call_cns) from Cnv_to_plot
+                set indivID, sampleID,file(cnr),file(call_cns) from cnv_to_plot
 
 		output:
 		file(scatter)
