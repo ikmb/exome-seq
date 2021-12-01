@@ -137,31 +137,6 @@ if (params.kill) {
 	KILL = false
 }
 
-// CNVkit reference
-if (params.cnv) {
-
-	if (params.cnv_ref) {
-
-		cnv_ref_file = file(params.cnv_ref).getName()
-
-		Channel.fromPath(params.cnv_ref)
-			.ifEmpty { exit 1; "Could not find the specified CNV reference" }
-			.set { cnv_ref_gz }
-
-	} else if ( params.genomes[params.assembly].kits[params.kit].containsKey("cnvkit") ) {
-		cnv_ref_file = params.genomes[params.assembly].kits[params.kit].cnvkit
-		Channel.fromPath(cnv_ref_file)
-			.ifEmpty { exit 1; "Could not find a CNVkit reference for this kit and assembly" }
-			.set { cnv_ref_gz }
-
-	} else {
-		exit 1, "Requested to run CNVkit but no CNV reference is defined for this assembly and exome kit."
-	}
-
-} else {
-	cnv_ref_gz = Channel.empty()
-}
-
 /*
 PANEL COVERAGE - pick the correct panel for reporting
 */
@@ -258,12 +233,6 @@ if (params.vep) {
 		exit 1, "No dbNSFP database defined for this execution profile..."
 	}
 
-	if (params.vep_revel) {
-		REVEL_DB = file(params.vep_revel)
-		if ( !REVEL_DB.exists() ) {
-			exit 1, "Missing REVEL database"
-		}
-	}
 	if (params.dbscsnv_db) {
 		dbscSNV_DB = file(params.dbscsnv_db)
 		if ( !dbscSNV_DB.exists() ) {
@@ -310,9 +279,6 @@ summary['AmpliconRun'] = params.amplicon
 summary['CommandLine'] = workflow.commandLine
 if (KILL) {
         summary['KillList'] = KILL
-}
-if (params.cnv_ref || params.cnv) {
-	summary["CNVkit CNN"] = cnv_ref_file
 }
 if (workflow.containerEngine) {
 	summary['Container'] = "$workflow.containerEngine - $workflow.container"
@@ -713,8 +679,8 @@ process vep_per_sample {
                 --plugin CADD,${params.cadd_snps},${params.cadd_indels} \
                 --plugin ExACpLI \
 		--plugin UTRannotator \
-		--plugin REVEL,${params.vep_revel} \
 		--plugin Mastermind,${params.vep_mastermind}\
+		--plugin SpliceAI,${params.spliceai_fields} \
                 --fasta $FASTA \
                 --fork ${task.cpus} \
                 --vcf \
@@ -841,6 +807,7 @@ process vep {
 	output:
 	file(vcf_vep)
 	file(vcf_alissa)
+	file('*.html')
 
 	script:
 	vcf_vep = vcf.getBaseName() + ".vep.vcf"
@@ -860,9 +827,8 @@ process vep {
 			--plugin CADD,${params.cadd_snps},${params.cadd_indels} \
 			--plugin ExACpLI \
 			--plugin UTRannotator \
-			--plugin REVEL,${params.vep_revel} \
-			--plugin GeneSplicer,${params.vep_genesplicer},/work_ifs/ikmb_repository/software/genesplicer/GeneSplicer/human,context=200,tmpdir=/tmp \
 			--plugin Mastermind,${params.vep_mastermind} \
+			--plugin SpliceAI,${params.spliceai_fields} \
 			--fasta $FASTA \
 			--fork 4 \
 			--vcf \
@@ -948,6 +914,7 @@ process vcf_stats {
 // *******************************************
 if (params.cnv) {
 
+	// autobin to get reference coverages
 	process cnvkit_autobin {
 
 		label 'cnvkit'
@@ -971,6 +938,7 @@ if (params.cnv) {
 		"""		
 	}
 
+	// get per sample coverage for targets and antitargets
 	process cnvkit_coverage {
 
                 label 'cnvkit'
@@ -996,6 +964,7 @@ if (params.cnv) {
 
         }
 
+	// build a reference from the individual coverages
 	process cnvkit_reference {
 
 		label 'cnvkit'
@@ -1016,6 +985,7 @@ if (params.cnv) {
 		"""
 	}
 
+	// correct biases and stuff
 	process cnvkit_process {
 
 		label 'cnvkit'
@@ -1037,6 +1007,7 @@ if (params.cnv) {
 
 	}
 
+	// Segmetrics
         process cnvkit_segmetrics {
  
                 label 'cnvkit'
@@ -1060,6 +1031,7 @@ if (params.cnv) {
 
 	cnv_call_vcf = cnv_to_call.join(Vcf_to_Cnv, by: [0,1] )
 
+	// Attach confidence interfals
         process cnvkit_call {
 
                 label 'cnvkit'
@@ -1080,7 +1052,7 @@ if (params.cnv) {
                 """
 
         }
-
+	// Metrics per gene
         process cnvkit_genemetrics {
 
                 label 'cnvkit'
@@ -1103,6 +1075,7 @@ if (params.cnv) {
 
         }
 
+	// find putative breaks
         process cnvkit_breaks {
 
                 label 'cnvkit'
@@ -1125,6 +1098,7 @@ if (params.cnv) {
 
         }
 
+	// make useful output formats
 	process cnvkit_export {
 	
 		label 'cnvkit'
@@ -1148,6 +1122,7 @@ if (params.cnv) {
 
 	}
 
+	// make pretty pictures
 	process cnvkit_plots {
 	
 		label 'cnvkit'

@@ -59,6 +59,7 @@ my %recover = ( "ada_score" => { "Type" => "Float", "Number" => "1"},
 		"existing_uORFs" => {"Type" => "String", "Number" => "1"},
 		"Mastermind_MMID3" => { "Type" => "String", "Number" => "1"},
 		"REVEL" => { "Type" => "Float", "Number" => "1" },
+		"SpliceAI_pred" => { "Type" => "String", "Number" => "1"}
 	);
 
 while (<$IN>) {
