@@ -16,3 +16,5 @@ dependencies:
   - bioconda::htslib=1.14
   - bioconda::perl-excel-writer-xlsx
   - bioconda::perl-json-parse=0.55
+  - bioconda::picard=2.18.11
+

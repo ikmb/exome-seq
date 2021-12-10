@@ -1367,8 +1367,6 @@ panel_coverage_data = inputPanelCoverage.combine(panels)
 
 process panel_coverage {
 
-	label 'picard'
-
 	publishDir "${OUTDIR}//Summary/Panel/PanelCoverage", mode: "copy"
 
         input:
