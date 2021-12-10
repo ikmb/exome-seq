@@ -338,6 +338,7 @@ log.info "========================================="
 process list_to_bed {
 
 	executor 'local' 
+	label 'picard'
 
 	input:
         file(targets) from targets_to_bed
@@ -641,7 +642,8 @@ process deepvariant {
                 --output_vcf=$vcf \
                 --output_gvcf=$gvcf \
                 --regions=$bed \
-                --num_shards=${task.cpus}
+                --num_shards=${task.cpus} \
+		--make_examples_extra_args="normalize_reads=true"
         """
 }
 
@@ -1272,7 +1274,7 @@ process get_software_versions {
     echo $workflow.nextflow.version &> v_nextflow.txt
     fastp -v &> v_fastp.txt
     echo "CNVkit 0.9.9" &> v_cnvkit.txt
-    echo "Deepvariant 1.1.0" &> v_deepvariant.txt
+    echo "Deepvariant 1.3.0" &> v_deepvariant.txt
     echo "GLNexus 1.3.1" &> v_glnexus.txt
     echo "ExpansionHunter 4.0.2" &> v_expansionhunter.txt
     samtools --version &> v_samtools.txt
