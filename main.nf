@@ -643,7 +643,6 @@ process deepvariant {
                 --output_gvcf=$gvcf \
                 --regions=$bed \
                 --num_shards=${task.cpus} \
-		--make_examples_extra_args="normalize_reads=true"
         """
 }
 
