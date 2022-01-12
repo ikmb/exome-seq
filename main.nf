@@ -48,7 +48,6 @@ Optional parameters:
 --expansion_hunter	       Run ExpansionHunter
 --phase			       Perform phasing of the final call set. 
 --joint_calling		       Perform joint calling of all samples (default: true)
---amplicon		       This is a small amplicon-based analysis, skip duplicate marking and sex check
 --skip_multiqc		       Don't attached MultiQC report to the email. 
 --panel 		       Gene panel to check coverage of (valid options: cardio_dilatative, cardio_hypertrophic, cardio_non_compaction, eoIBD_25kb, imm_eoIBD_full, breast_cancer)
 --all_panels 		       Run all gene panels defined for this assembly (none if no panel is defined!)
@@ -210,10 +209,6 @@ if (params.max_length) {
 	}
 }
 
-if (params.amplicon) {
-	log.info "This is an amplicon run - no duplicate marking or sex-checking will be performed!"
-}
-
 if (params.vep) {
 
 	if (params.assembly != "GRCh38") {
@@ -275,7 +270,6 @@ if (params.panel) {
 summary['JointCalling'] = params.joint_calling
 summary['ExpansionAnalysis'] = params.expansion_hunter
 summary['Phasing'] = params.phase
-summary['AmpliconRun'] = params.amplicon
 summary['CommandLine'] = workflow.commandLine
 if (KILL) {
         summary['KillList'] = KILL
@@ -305,9 +299,6 @@ if (params.bwa2) {
 	log.info "Read aligner:			BWA"
 }
 log.info "Exome kit:			${params.kit}"
-if (params.amplicon) {
-	log.info "Amplicon run:			true"
-}
 if (params.panel) {
 	log.info "Panel(s):			${params.panel}"
 } else if (params.panel_intervals) {
@@ -470,7 +461,7 @@ process bam_index {
 
 	scratch params.scratch
 
-	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy', enabled: params.amplicon
+	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
 
 	input:
         set indivID, sampleID, file(bam) from all_bams
@@ -488,68 +479,53 @@ process bam_index {
 
 }
 
-// if this is amplicon data, don't do deduping
-if (params.amplicon) {
+process dedup {
 
-	bam_indexed
-	.into { BamMD; BamForMultipleMetrics; runHybridCaptureMetrics; runPrintReadsOutput_for_OxoG_Metrics; Bam_for_HC_Metrics; inputPanelCoverage ; Bam_for_Cnv; BamForSexCheck ; BamPhasing ; Bam_for_Expansion}
+        publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
 
-	DuplicatesOutput_QC = Channel.from(false)
+      //  scratch true
 
-	SexChecKYaml = Channel.from(false)
-	
-} else {
+       	input:
+        set indivID, sampleID, file(merged_bam),file(merged_bam_index) from bam_indexed
 
-	process dedup {
+       	output:
+        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_for_Cnv, Bam_for_Expansion
+	set file(outfile_bam), file(outfile_bai) into (BamForSexCheck, BamPhasing, cnv_bam_autobin )
+	file(outfile_md5)
+	file(outfile_metrics) into DuplicatesOutput_QC
 
-	        publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
+        script:
+       	outfile_bam = indivID + "_" + sampleID + ".dedup.bam"
+       	outfile_bai = indivID + "_" + sampleID + ".dedup.bam.bai"
+	outfile_md5 = indivID + "_" + sampleID + ".dedup.bam.md5"
 
-	      //  scratch true
+	sample_name = indivID + "_" + sampleID
+       	outfile_metrics = indivID + "_" + sampleID + "_duplicate_metrics.txt"
 
-        	input:
-	        set indivID, sampleID, file(merged_bam),file(merged_bam_index) from bam_indexed
+	"""
+		samtools markdup -@ ${task.cpus} $merged_bam $outfile_bam
+		samtools index $outfile_bam
+		samtools stats $outfile_bam > $outfile_metrics
+		md5sum $outfile_bam > $outfile_md5
+	"""
 
-        	output:
-	        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_for_Cnv, Bam_for_Expansion
-		set file(outfile_bam), file(outfile_bai) into (BamForSexCheck, BamPhasing, cnv_bam_autobin )
-		file(outfile_md5)
-		file(outfile_metrics) into DuplicatesOutput_QC
+}
 
-	        script:
-        	outfile_bam = indivID + "_" + sampleID + ".dedup.bam"
-	       	outfile_bai = indivID + "_" + sampleID + ".dedup.bam.bai"
-		outfile_md5 = indivID + "_" + sampleID + ".dedup.bam.md5"
+// a simple sex check looking at coverage of the SRY gene
+process sex_check {
 
-		sample_name = indivID + "_" + sampleID
+	input:
+	file(bams) from BamForSexCheck.collect()
 
-        	outfile_metrics = indivID + "_" + sampleID + "_duplicate_metrics.txt"
+	output:
+	file(sex_check_yaml) into SexChecKYaml
 
-		"""
-			samtools markdup -@ ${task.cpus} $merged_bam $outfile_bam
-			samtools index $outfile_bam
-			samtools stats $outfile_bam > $outfile_metrics
-			md5sum $outfile_bam > $outfile_md5
-		"""
+	script:
+	sex_check_yaml = "sex_check_mqc.yaml"
 
-	}
-
-	// a simple sex check looking at coverage of the SRY gene
-	process sex_check {
-
-		input:
-		file(bams) from BamForSexCheck.collect()
-
-		output:
-		file(sex_check_yaml) into SexChecKYaml
-
-		script:
-		sex_check_yaml = "sex_check_mqc.yaml"
-
-		"""
-			parse_sry_coverage.pl --fasta $FASTA --region $SRY_REGION > $sex_check_yaml
-		"""	
-	}
-
+	"""
+		parse_sry_coverage.pl --fasta $FASTA --region $SRY_REGION > $sex_check_yaml
+	"""	
 }
 
 // ************************
@@ -831,7 +807,7 @@ process vep {
 			--plugin Mastermind,${params.vep_mastermind} \
 			--plugin SpliceAI,${params.spliceai_fields} \
 			--fasta $FASTA \
-			--fork 4 \
+			--fork ${task.cpus} \
 			--vcf \
 			--per_gene \
 			--sift p \
