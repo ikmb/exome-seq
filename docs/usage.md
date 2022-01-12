@@ -91,7 +91,10 @@ using the Picard Tools "BedToIntervalList" command.
 Enable CNV calling using CNVkit. This option requires a pre-configured CNVkit reference matching the kit and assembly used for capture and mapping, respectively. Currently, this is only available for GRCh38 and xGen_v2. Alternatively, an external reference can be provided using the developer option `--cnv_ref`.
 
 ### `--vep`
-Run variant effect prediction on the final VCF file (assumes joint calling). This option requires a locally available EnsEMBL cache and some databases (see cluster profiles for examples). 
+Run variant effect prediction on the final VCF file(s). This option requires a locally available EnsEMBL cache and some databases (see cluster profiles for examples). 
+
+## `--joint_calling` [ true (default) | false ]
+Run joint calling on the samples rather than simply merging them down into one final VCF without generating sample-overarching genotyping for all possible sites. 
 
 ### `--kill`
 For panel-based statistics, it is desirable to mark any exons that are known to underperform in exome sequencing - for example due to homology and

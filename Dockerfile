@@ -4,6 +4,6 @@ LABEL authors="Marc Hoeppner" \
 
 COPY environment.yml /
 RUN conda env create -f /environment.yml && conda clean -a
-ENV PATH /opt/conda/envs/exome-seq-3.1/bin:$PATH
+ENV PATH /opt/conda/envs/exome-seq-3.2/bin:$PATH
 
-RUN apt-get -y update && apt-get -y install r-base
+RUN apt-get -y update && apt-get -y install make wget

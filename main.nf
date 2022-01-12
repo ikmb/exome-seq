@@ -43,11 +43,11 @@ Required parameters:
 --kit			       Name of the exome kit (available options: xGen, xGen_custom, xGen_v2, Nextera, Pan_cancer)
 --email 		       Email address to send reports to (enclosed in '')
 Optional parameters:
+--bwa2			       Use BWA2 instead of BWA1
 --cnv 			       Enable calling of copy number variants (for select assembly and kit combinations)
 --expansion_hunter	       Run ExpansionHunter
 --phase			       Perform phasing of the final call set. 
 --joint_calling		       Perform joint calling of all samples (default: true)
---amplicon		       This is a small amplicon-based analysis, skip duplicate marking and sex check
 --skip_multiqc		       Don't attached MultiQC report to the email. 
 --panel 		       Gene panel to check coverage of (valid options: cardio_dilatative, cardio_hypertrophic, cardio_non_compaction, eoIBD_25kb, imm_eoIBD_full, breast_cancer)
 --all_panels 		       Run all gene panels defined for this assembly (none if no panel is defined!)
@@ -107,7 +107,11 @@ GZFAI_F = file(params.genomes[ params.assembly ].gzfai)
 GZI_F = file(params.genomes[ params.assembly ].gzi)
 DICT = file(params.genomes[ params.assembly ].dict)
 DBSNP = file(params.genomes[ params.assembly ].dbsnp )
-BWA2_INDEX = file(params.genomes[ params.assembly ].bwa2_index)
+if (params.bwa2) {
+	BWA_INDEX = file(params.genomes[ params.assembly ].bwa2_index)
+} else {
+	BWA_INDEX = file(params.genomes[ params.assembly ].fasta)
+}
 
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
@@ -119,10 +123,10 @@ targets_to_bed = Channel.fromPath(TARGETS)
 
 
 Channel.from(file(TARGETS))
-	.into { TargetsToHS; TargetsToMetrics; TargetsToOxo; TargetsToPanel }
+	.into { TargetsToHS; TargetsToMetrics; TargetsToOxo; TargetsToPanel; TargetsToAnti }
 
 Channel.from(file(BAITS))
-	.into { BaitsToHS; BaitsToMetrics }
+	.into { BaitsToHS; BaitsToMetrics; BaitsToCnv }
 
 if (params.kill) {
 	KILL = params.kill
@@ -130,31 +134,6 @@ if (params.kill) {
 	KILL = params.genomes[params.assembly].kits[params.kit].kill
 } else {
 	KILL = false
-}
-
-// CNVkit reference
-if (params.cnv) {
-
-	if (params.cnv_ref) {
-
-		cnv_ref_file = file(params.cnv_ref).getName()
-
-		Channel.fromPath(params.cnv_ref)
-			.ifEmpty { exit 1; "Could not find the specified CNV reference" }
-			.set { cnv_ref_gz }
-
-	} else if ( params.genomes[params.assembly].kits[params.kit].containsKey("cnvkit") ) {
-		cnv_ref_file = params.genomes[params.assembly].kits[params.kit].cnvkit
-		Channel.fromPath(cnv_ref_file)
-			.ifEmpty { exit 1; "Could not find a CNVkit reference for this kit and assembly" }
-			.set { cnv_ref_gz }
-
-	} else {
-		exit 1, "Requested to run CNVkit but no CNV reference is defined for this assembly and exome kit."
-	}
-
-} else {
-	cnv_ref_gz = Channel.empty()
 }
 
 /*
@@ -230,10 +209,6 @@ if (params.max_length) {
 	}
 }
 
-if (params.amplicon) {
-	log.info "This is an amplicon run - no duplicate marking or sex-checking will be performed!"
-}
-
 if (params.vep) {
 
 	if (params.assembly != "GRCh38") {
@@ -279,6 +254,11 @@ summary['Current home'] = "$HOME"
 summary['Current user'] = "$USER"
 summary['Current path'] = "$PWD"
 summary['Assembly'] = FASTA
+if (params.bwa2) {
+	summary['ALIGNER'] = "bwa-mem2"
+} else {
+	summary['ALIGNER'] = "bwa"
+}
 summary['Kit'] = TARGETS
 if (params.panel) {
 	summary['GenePanel'] = params.panel
@@ -287,15 +267,12 @@ if (params.panel) {
 } else if (params.all_panels) {
 	summary['GenePanel'] = "All panels"
 }
+summary['JointCalling'] = params.joint_calling
 summary['ExpansionAnalysis'] = params.expansion_hunter
 summary['Phasing'] = params.phase
-summary['AmpliconRun'] = params.amplicon
 summary['CommandLine'] = workflow.commandLine
 if (KILL) {
         summary['KillList'] = KILL
-}
-if (params.cnv_ref || params.cnv) {
-	summary["CNVkit CNN"] = cnv_ref_file
 }
 if (workflow.containerEngine) {
 	summary['Container'] = "$workflow.containerEngine - $workflow.container"
@@ -316,10 +293,12 @@ log.info "========================================="
 log.info "Exome-seq pipeline v${params.version}"
 log.info "Nextflow Version:		$workflow.nextflow.version"
 log.info "Assembly version: 		${params.assembly}"
-log.info "Exome kit:			${params.kit}"
-if (params.amplicon) {
-	log.info "Amplicon run:			true"
+if (params.bwa2) {
+	log.info "Read aligner:			BWA2"
+} else {
+	log.info "Read aligner:			BWA"
 }
+log.info "Exome kit:			${params.kit}"
 if (params.panel) {
 	log.info "Panel(s):			${params.panel}"
 } else if (params.panel_intervals) {
@@ -330,6 +309,7 @@ if (params.panel) {
 if (params.vep) {
 	log.info "Run VEP				${params.vep}"
 } 
+log.info "Joint Calling			${params.joint_calling}"
 log.info "CNVCalling			${params.cnv}"
 log.info "Phasing				${params.phase}"
 log.info "Find expansions			${params.expansion_hunter}"
@@ -349,6 +329,7 @@ log.info "========================================="
 process list_to_bed {
 
 	executor 'local' 
+	label 'picard'
 
 	input:
         file(targets) from targets_to_bed
@@ -431,10 +412,16 @@ process align {
     
 	script:
 	outfile = sampleID + "_" + libraryID + "_" + rgID + ".aligned.fm.bam"	
-    
+
+	def aligner = "bwa"
+	def options = ""
+	if (params.bwa2) {
+		aligner = "bwa-mem2"
+		options = "-K 1000000"
+	}
 	"""
-		bwa-mem2 mem -K 1000000 -H $DICT -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${FASTA}\\tCN:${center}" \
-			-t ${task.cpus} ${BWA2_INDEX} $left $right \
+		$aligner mem $options -H $DICT -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${FASTA}\\tCN:${center}" \
+			-t ${task.cpus} ${BWA_INDEX} $left $right \
 			| samtools fixmate -@ ${task.cpus} -m - - \
 			| samtools sort -@ ${task.cpus} -m 3G -O bam -o $outfile - 
 	"""	
@@ -474,13 +461,14 @@ process bam_index {
 
 	scratch params.scratch
 
-	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy', enabled: params.amplicon
+	publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
 
 	input:
         set indivID, sampleID, file(bam) from all_bams
 
 	output:
 	set indivID, sampleID, file(bam),file(bam_index) into bam_indexed
+	set file(bam),file(bam_index) into cnv_ref_bams
 
 	script:
 	bam_index = bam.getName() + ".bai"
@@ -491,68 +479,53 @@ process bam_index {
 
 }
 
-// if this is amplicon data, don't do deduping
-if (params.amplicon) {
+process dedup {
 
-	bam_indexed
-	.into { BamMD; BamForMultipleMetrics; runHybridCaptureMetrics; runPrintReadsOutput_for_OxoG_Metrics; Bam_for_HC_Metrics; inputPanelCoverage ; Bam_for_Cnv; BamForSexCheck ; BamPhasing ; Bam_for_Expansion}
+        publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
 
-	DuplicatesOutput_QC = Channel.from(false)
+      //  scratch true
 
-	SexChecKYaml = Channel.from(false)
-	
-} else {
+       	input:
+        set indivID, sampleID, file(merged_bam),file(merged_bam_index) from bam_indexed
 
-	process dedup {
+       	output:
+        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_for_Cnv, Bam_for_Expansion
+	set file(outfile_bam), file(outfile_bai) into (BamForSexCheck, BamPhasing, cnv_bam_autobin )
+	file(outfile_md5)
+	file(outfile_metrics) into DuplicatesOutput_QC
 
-	        publishDir "${OUTDIR}/${indivID}/${sampleID}/", mode: 'copy'
+        script:
+       	outfile_bam = indivID + "_" + sampleID + ".dedup.bam"
+       	outfile_bai = indivID + "_" + sampleID + ".dedup.bam.bai"
+	outfile_md5 = indivID + "_" + sampleID + ".dedup.bam.md5"
 
-	      //  scratch true
+	sample_name = indivID + "_" + sampleID
+       	outfile_metrics = indivID + "_" + sampleID + "_duplicate_metrics.txt"
 
-        	input:
-	        set indivID, sampleID, file(merged_bam),file(merged_bam_index) from bam_indexed
+	"""
+		samtools markdup -@ ${task.cpus} $merged_bam $outfile_bam
+		samtools index $outfile_bam
+		samtools stats $outfile_bam > $outfile_metrics
+		md5sum $outfile_bam > $outfile_md5
+	"""
 
-        	output:
-	        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_for_Cnv, Bam_for_Expansion
-		set file(outfile_bam), file(outfile_bai) into (BamForSexCheck, BamPhasing )
-		file(outfile_md5)
-		file(outfile_metrics) into DuplicatesOutput_QC
+}
 
-	        script:
-        	outfile_bam = indivID + "_" + sampleID + ".dedup.bam"
-	       	outfile_bai = indivID + "_" + sampleID + ".dedup.bam.bai"
-		outfile_md5 = indivID + "_" + sampleID + ".dedup.bam.md5"
+// a simple sex check looking at coverage of the SRY gene
+process sex_check {
 
-		sample_name = indivID + "_" + sampleID
+	input:
+	file(bams) from BamForSexCheck.collect()
 
-        	outfile_metrics = indivID + "_" + sampleID + "_duplicate_metrics.txt"
+	output:
+	file(sex_check_yaml) into SexChecKYaml
 
-		"""
-			samtools markdup -@ ${task.cpus} $merged_bam $outfile_bam
-			samtools index $outfile_bam
-			samtools stats $outfile_bam > $outfile_metrics
-			md5sum $outfile_bam > $outfile_md5
-		"""
+	script:
+	sex_check_yaml = "sex_check_mqc.yaml"
 
-	}
-
-	// a simple sex check looking at coverage of the SRY gene
-	process sex_check {
-
-		input:
-		file(bams) from BamForSexCheck.collect()
-
-		output:
-		file(sex_check_yaml) into SexChecKYaml
-
-		script:
-		sex_check_yaml = "sex_check_mqc.yaml"
-
-		"""
-			parse_sry_coverage.pl --fasta $FASTA --region $SRY_REGION > $sex_check_yaml
-		"""	
-	}
-
+	"""
+		parse_sry_coverage.pl --fasta $FASTA --region $SRY_REGION > $sex_check_yaml
+	"""	
 }
 
 // ************************
@@ -628,6 +601,7 @@ process deepvariant {
         output:
         set indivID,sampleID,file(gvcf)
         file(gvcf) into MergeGVCF
+	file(vcf) into MergeVCF
         set val(indivID),val(sampleID),file(vcf) into Vcf_to_Cnv, Sample_to_Vep
 	val(sample_name) into SampleNames
 
@@ -644,7 +618,7 @@ process deepvariant {
                 --output_vcf=$vcf \
                 --output_gvcf=$gvcf \
                 --regions=$bed \
-                --num_shards=${task.cpus}
+                --num_shards=${task.cpus} \
         """
 }
 
@@ -682,6 +656,8 @@ process vep_per_sample {
                 --plugin CADD,${params.cadd_snps},${params.cadd_indels} \
                 --plugin ExACpLI \
 		--plugin UTRannotator \
+		--plugin Mastermind,${params.vep_mastermind}\
+		--plugin SpliceAI,${params.spliceai_fields} \
                 --fasta $FASTA \
                 --fork ${task.cpus} \
                 --vcf \
@@ -713,7 +689,7 @@ if (params.joint_calling) {
                 file(merged_vcf) into MergedVCF
 
                 script:
-                merged_vcf = "deepvariant.merged." + run_name + ".vcf.gz"
+                merged_vcf = "deepvariant.joint_merged." + run_name + ".vcf.gz"
 
                 """
                         /usr/local/bin/glnexus_cli \
@@ -724,201 +700,223 @@ if (params.joint_calling) {
                 """
         }
 
-	if (params.phase) {
-		process whatshap {
-		
-			label 'whatshap'
+} else {
 
-			publishDir "${OUTDIR}/DeepVariant/Phased", mode: 'copy'
-
-			input:
-			file (vcf) from MergedVCF
-			file('*') from BamPhasing.collect()
-
-			output:
-			file(phased_vcf) into PhasedVcf
-
-			script:
-			phased_vcf = vcf.getBaseName() + ".phased.vcf.gz"
-
-			"""
-				whatshap phase -o $phased_vcf --tag=PS --reference $FASTA $vcf *.bam
-			"""
-		
-
-		}
-
-	} else {
-		PhasedVcf = MergedVCF
-	}
-
-        process annotateIDs {
-
-                publishDir "${OUTDIR}/DeepVariant", mode: 'copy'
-
-                input:
-                file (vcf) from PhasedVcf
-
-                output:
-                set file(vcf_annotated), file(vcf_annotated_index) into VcfAnnotated, VcfToVep
-
-                script:
-                vcf_annotated = vcf.getBaseName() + ".rsids.vcf.gz"
-		vcf_annotated_index = vcf_annotated + ".tbi"
-
-                """
-			echo "##reference=${params.assembly}" > header.txt
-                        tabix $vcf
-                        bcftools annotate -h header.txt -c ID -a $DBSNP -O z -o $vcf_annotated $vcf
-			tabix $vcf_annotated
-                """
-        }
-
-	process vep {
-
-		label 'vep'
-
-		publishDir "${OUTDIR}/DeepVariant/VEP", mode: 'copy'
-
-		when:
-		params.vep
+	process merge_vcf {
 
 		input:
-		set file(vcf),file(vcf_index) from VcfToVep
+		file(vcfs) from MergeVCF.collect()
 
 		output:
-		file(vcf_vep)
-		file(vcf_alissa)
+		file(merged_vcf) into MergedVCF
 
 		script:
-		vcf_vep = vcf.getBaseName() + ".vep.vcf"
-		vcf_alissa = vcf.getBaseName() + ".vep2alissa.vcf"
+		merged_vcf = "deepvariant.flat_merged." + run_name + ".vcf.gz"
 
 		"""
-			vep --offline \
-				--cache \
-				--dir ${params.vep_cache_dir} \
-				--species homo_sapiens \
-				--assembly $params.assembly \
-				-i $vcf \
-				--format vcf \
-				-o $vcf_vep --dir_plugins ${params.vep_plugin_dir} \
-				--plugin dbNSFP,$dbNSFP_DB,${params.dbnsfp_fields} \
-				--plugin dbscSNV,$dbscSNV_DB \
-				--plugin CADD,${params.cadd_snps},${params.cadd_indels} \
-				--plugin ExACpLI \
-				--plugin UTRannotator \
-				--fasta $FASTA \
-				--fork 4 \
-				--vcf \
-				--per_gene \
-				--sift p \
-				--polyphen p \
-				--check_existing \
-				--canonical
-	
-			sed -i.bak 's/CADD_PHRED/CADD_phred/g' $vcf_vep
-
-			vep2alissa.pl --infile $vcf_vep > $vcf_alissa
+			for i in \$(echo *.vcf.gz); do tabix \$i ; done;
+			bcftools merge --threads ${task.cpus} -o $merged_vcf -O z *.vcf.gz 
 		"""
 	}
+}
 
-	process vcf_get_sample {
+if (params.phase) {
+	process whatshap {
+		
+		label 'whatshap'
 
-		//publishDir "${params.outdir}/DeepVariant", mode: 'copy'
-
-		label 'gatk'
-
-                input:
-                set file(vcf),file(vcf_index) from VcfAnnotated
-                val(sample_name) from SampleNames
-
-                output:
-                set file(vcf_sample),file(vcf_sample_index) into VcfSample, VcfReheader
-
-                script:
-                vcf_sample = sample_name + ".vcf.gz"
-		vcf_sample_index = vcf_sample + ".tbi"
-
-                """
-			gatk SelectVariants --remove-unused-alternates --exclude-non-variants -V $vcf -sn $sample_name -O variants.vcf.gz -OVI
-		        gatk LeftAlignAndTrimVariants -R $FASTA -V variants.vcf.gz -O $vcf_sample
-			rm variants.vcf.gz
-
-                """
-
-        }
-
-	process vcf_add_header {
-
-                publishDir "${params.outdir}/DeepVariant", mode: 'copy'
+		publishDir "${OUTDIR}/DeepVariant/Phased", mode: 'copy'
 
 		input:
-		set file(vcf),file(tbi) from VcfReheader
+		file (vcf) from MergedVCF
+		file('*') from BamPhasing.collect()
 
 		output:
-		set file(vcf_r),file(tbi_r) 
+		file(phased_vcf) into PhasedVcf
 
 		script:
-
-		vcf_r = vcf.getBaseName() + ".final.vcf.gz"
-		tbi_r = vcf_r + ".tbi"
+		phased_vcf = vcf.getBaseName() + ".phased.vcf.gz"
 
 		"""
-			echo "##reference=${params.assembly}" > header.txt
-			bcftools annotate -h header.txt -O z -o $vcf_r $vcf
-			tabix $vcf_r
+			whatshap phase -o $phased_vcf --tag=PS --reference $FASTA $vcf *.bam
 		"""
-
+		
 	}
-
-        process vcf_stats {
-
-                input:
-                set file(vcf),file(tbi) from VcfSample
-
-                output:
-                file(vcf_stats) into VcfInfo
-
-                script:
-                vcf_stats = vcf.getBaseName() + ".stats"
-
-                """
-                        bcftools stats $vcf > $vcf_stats
-                """
-
-        }
 
 } else {
-	VcfInfo = Channel.empty()
+		PhasedVcf = MergedVCF
+}
+
+process annotateIDs {
+
+	publishDir "${OUTDIR}/DeepVariant", mode: 'copy'
+
+        input:
+        file (vcf) from PhasedVcf
+
+        output:
+        set file(vcf_annotated), file(vcf_annotated_index) into VcfAnnotated, VcfToVep
+
+        script:
+        vcf_annotated = vcf.getBaseName() + ".rsids.vcf.gz"
+	vcf_annotated_index = vcf_annotated + ".tbi"
+
+        """
+		echo "##reference=${params.assembly}" > header.txt
+                tabix $vcf
+                bcftools annotate -h header.txt -c ID -a $DBSNP -O z -o $vcf_annotated $vcf
+		tabix $vcf_annotated
+        """
+}
+
+process vep {
+
+	label 'vep'
+
+	publishDir "${OUTDIR}/DeepVariant/VEP", mode: 'copy'
+
+	when:
+	params.vep
+
+	input:
+	set file(vcf),file(vcf_index) from VcfToVep
+
+	output:
+	file(vcf_vep)
+	file(vcf_alissa)
+	file('*.html')
+
+	script:
+	vcf_vep = vcf.getBaseName() + ".vep.vcf"
+	vcf_alissa = vcf.getBaseName() + ".vep2alissa.vcf"
+
+	"""
+		vep --offline \
+			--cache \
+			--dir ${params.vep_cache_dir} \
+			--species homo_sapiens \
+			--assembly $params.assembly \
+			-i $vcf \
+			--format vcf \
+			-o $vcf_vep --dir_plugins ${params.vep_plugin_dir} \
+			--plugin dbNSFP,$dbNSFP_DB,${params.dbnsfp_fields} \
+			--plugin dbscSNV,$dbscSNV_DB \
+			--plugin CADD,${params.cadd_snps},${params.cadd_indels} \
+			--plugin ExACpLI \
+			--plugin UTRannotator \
+			--plugin Mastermind,${params.vep_mastermind} \
+			--plugin SpliceAI,${params.spliceai_fields} \
+			--fasta $FASTA \
+			--fork ${task.cpus} \
+			--vcf \
+			--per_gene \
+			--sift p \
+			--polyphen p \
+			--check_existing \
+			--canonical
+	
+		sed -i.bak 's/CADD_PHRED/CADD_phred/g' $vcf_vep
+		vep2alissa.pl --infile $vcf_vep > $vcf_alissa
+	"""
+}
+
+process vcf_get_sample {
+
+	//publishDir "${params.outdir}/DeepVariant", mode: 'copy'
+
+	label 'gatk'
+
+        input:
+        set file(vcf),file(vcf_index) from VcfAnnotated
+        val(sample_name) from SampleNames
+
+        output:
+        set file(vcf_sample),file(vcf_sample_index) into VcfSample, VcfReheader
+
+        script:
+        vcf_sample = sample_name + ".vcf.gz"
+	vcf_sample_index = vcf_sample + ".tbi"
+
+        """
+		gatk SelectVariants --remove-unused-alternates --exclude-non-variants -V $vcf -sn $sample_name -O variants.vcf.gz -OVI
+	        gatk LeftAlignAndTrimVariants -R $FASTA -V variants.vcf.gz -O $vcf_sample
+		rm variants.vcf.gz
+
+        """
+
+}
+
+process vcf_add_header {
+
+	publishDir "${params.outdir}/DeepVariant", mode: 'copy'
+	input:
+	set file(vcf),file(tbi) from VcfReheader
+
+	output:
+	set file(vcf_r),file(tbi_r) 
+
+	script:
+
+	vcf_r = vcf.getBaseName() + ".final.vcf.gz"
+	tbi_r = vcf_r + ".tbi"
+
+	"""
+		echo "##reference=${params.assembly}" > header.txt
+		bcftools annotate -h header.txt -O z -o $vcf_r $vcf
+		tabix $vcf_r
+	"""
+
+}
+
+process vcf_stats {
+
+	input:
+        set file(vcf),file(tbi) from VcfSample
+	
+        output:
+        file(vcf_stats) into VcfInfo
+
+        script:
+        vcf_stats = vcf.getBaseName() + ".stats"
+
+        """
+        	bcftools stats $vcf > $vcf_stats
+        """
+
 }
 
 
 // *******************************************
-// Optional: CNVkit with pre-defined reference
+// Optional: CNVkit with on-the-fly reference
 // *******************************************
 if (params.cnv) {
 
-        process stage_cnv_reference {
+	// autobin to get reference coverages
+	process cnvkit_autobin {
 
-                executor 'local'
+		label 'cnvkit'
 
-                input:
-                file(ref_gz) from cnv_ref_gz
+		publishDir "${params.outdir}/CnvKit/Ref", mode: 'copy'
 
-                output:
-                file(ref_cnn) into cnv_ref
+		input:
+		file(baits) from TargetsToAnti.collect()
+		file('*') from cnv_bam_autobin.collect()
 
-                script:
-                ref_cnn = ref_gz.getBaseName()
+		output:
+		set file(targets),file(antitargets) into cnv_anti, cnv_anti_process
 
-                """
-                        gunzip -c $ref_gz > $ref_cnn
-                """
+		script:
+		targets = baits.getBaseName() + ".target.bed"
+		antitargets = baits.getBaseName() + ".antitarget.bed"
 
-        }
+		"""
+			cnvkit.py access $FASTA -o access.bed
+			cnvkit.py autobin -t $baits -g access.bed *.bam	
+		"""		
+	}
 
-        process cnvkit_batch{
+	// get per sample coverage for targets and antitargets
+	process cnvkit_coverage {
 
                 label 'cnvkit'
 
@@ -926,32 +924,78 @@ if (params.cnv) {
 
                 input:
                 set indivID, sampleID, file(bam),file(bai) from Bam_for_Cnv
-                file(cnn) from cnv_ref.collect()
+		set file(targets),file(antitargets) from cnv_anti.collect()
 
                 output:
-                set indivID, sampleID,file(cnr),file(cns) into Cnv_to_seg
-
+                set file(cnn),file(cnn_anti) into cnv_coverage
+		set indivID, sampleID, file(cnn),file(cnn_anti) into cnv_coverage_sample
+		
                 script:
-                cnr = bam.getBaseName() + ".cnr"
-                cns = bam.getBaseName() + ".cns"
+		cnn = bam.getBaseName() + ".targetcoverage.cnn"
+		cnn_anti = bam.getBaseName() + ".antitargetcoverage.cnn"
+
                 """
-                        cnvkit.py batch -r $cnn -d out *.bam
-                        mv out/*.cns .
-                        mv out/*.cnr .
+                        cnvkit.py coverage $bam $targets -o $cnn
+			cnvkit.py coverage $bam $antitargets -o $cnn_anti
                 """
 
         }
 
+	// build a reference from the individual coverages
+	process cnvkit_reference {
+
+		label 'cnvkit'
+
+		publishDir "${params.outdir}/CnvKit", mode: 'copy'
+
+		input:
+		file('*') from cnv_coverage.collect()
+
+		output:
+		file(cnn) into cnv_ref
+
+		script:
+		cnn = "cnvkit_ref_" + run_name + ".cnn"
+
+		"""
+			cnvkit.py reference *targetcoverage.cnn --fasta $FASTA -o $cnn
+		"""
+	}
+
+	// correct biases and stuff
+	process cnvkit_process {
+
+		label 'cnvkit'
+
+		input:
+		set indivID, sampleID, file(cnn),file(cnn_anti) from cnv_coverage_sample
+		file(ref) from cnv_ref.collect()
+
+		output:
+		set indivID, sampleID, file(cnr),file(cns) into cnv_to_seg
+
+		script:
+		cns = cnn.getBaseName() + ".cns"
+		cnr = cnn.getBaseName() + ".cnr"
+		"""
+			cnvkit.py fix $cnn $cnn_anti $ref -o $cnr
+			cnvkit.py segment $cnr -o $cns
+		"""
+
+	}
+
+	// Segmetrics
         process cnvkit_segmetrics {
+ 
                 label 'cnvkit'
 
                 publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Processing", mode: 'copy'
 
                 input:
-                set indivID, sampleID, file(cnr),file(cns) from Cnv_to_seg
+                set indivID, sampleID, file(cnr),file(cns) from cnv_to_seg
 
                 output:
-                set indivID, sampleID,file(cnr),file(seg_cns) into Cnv_to_call
+                set indivID, sampleID,file(cnr),file(seg_cns) into cnv_to_call
 
                 script:
                 seg_cns = cns.getBaseName() + ".segmetrics.cns"
@@ -962,8 +1006,9 @@ if (params.cnv) {
 
         }
 
-	Cnv_call_vcf = Cnv_to_call.join(Vcf_to_Cnv, by: [0,1] )
+	cnv_call_vcf = cnv_to_call.join(Vcf_to_Cnv, by: [0,1] )
 
+	// Attach confidence interfals
         process cnvkit_call {
 
                 label 'cnvkit'
@@ -971,20 +1016,20 @@ if (params.cnv) {
                 publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Processing", mode: 'copy'
 
                 input:
-                set indivID, sampleID, file(cnr),file(cns),file(vcf) from Cnv_call_vcf
+                set indivID, sampleID, file(cnr),file(cns),file(vcf) from cnv_call_vcf
 
                 output:
-                set indivID, sampleID,file(cnr),file(call_cns) into Cnv_to_gene, Cnv_to_break, Cnv_to_export, Cnv_to_plot
+                set indivID, sampleID,file(cnr),file(call_cns) into cnv_to_gene, cnv_to_break, cnv_to_export, cnv_to_plot
 
                 script:
                 call_cns = cns.getBaseName() + ".call.cns"
 
                 """
-                        cnvkit.py call $cns --filter ci
+			cnvkit.py call $cns --filter ci
                 """
 
         }
-
+	// Metrics per gene
         process cnvkit_genemetrics {
 
                 label 'cnvkit'
@@ -992,7 +1037,7 @@ if (params.cnv) {
                 publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Metrics", mode: 'copy'
 
                 input:
-                set indivID, sampleID, file(cnr),file(cns) from Cnv_to_gene
+                set indivID, sampleID, file(cnr),file(cns) from cnv_to_gene
 
                 output:
                 file(metrics)
@@ -1007,6 +1052,7 @@ if (params.cnv) {
 
         }
 
+	// find putative breaks
         process cnvkit_breaks {
 
                 label 'cnvkit'
@@ -1014,7 +1060,7 @@ if (params.cnv) {
                 publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Metrics", mode: 'copy'
 
                 input:
-                set indivID, sampleID, file(cnr),file(cns) from Cnv_to_break
+                set indivID, sampleID, file(cnr),file(cns) from cnv_to_break
 
                 output:
                 file(breaks)
@@ -1029,6 +1075,7 @@ if (params.cnv) {
 
         }
 
+	// make useful output formats
 	process cnvkit_export {
 	
 		label 'cnvkit'
@@ -1036,7 +1083,7 @@ if (params.cnv) {
 		publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
 
 		input:
-		set indivID, sampleID,file(cnr),file(call_cns) from Cnv_to_export
+		set indivID, sampleID,file(cnr),file(call_cns) from cnv_to_export
 
 		output:
 		set file(bed),file(vcf) into CnvOut
@@ -1052,6 +1099,7 @@ if (params.cnv) {
 
 	}
 
+	// make pretty pictures
 	process cnvkit_plots {
 	
 		label 'cnvkit'
@@ -1059,7 +1107,7 @@ if (params.cnv) {
 		publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Plots", mode: 'copy'
 
 		input:
-                set indivID, sampleID,file(cnr),file(call_cns) from Cnv_to_plot
+                set indivID, sampleID,file(cnr),file(call_cns) from cnv_to_plot
 
 		output:
 		file(scatter)
@@ -1081,6 +1129,8 @@ if (params.cnv) {
 // *********************
 
 process multi_metrics {
+	
+	label 'picard'
 
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
@@ -1117,6 +1167,8 @@ process multi_metrics {
 
 process hybrid_capture_metrics {
 
+	label 'picard'
+
 	publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
 	input:
@@ -1146,6 +1198,9 @@ process hybrid_capture_metrics {
 }
 
 process oxo_metrics {
+
+
+	label 'picard'
 
     publishDir "${OUTDIR}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
 
@@ -1194,7 +1249,7 @@ process get_software_versions {
     echo $workflow.nextflow.version &> v_nextflow.txt
     fastp -v &> v_fastp.txt
     echo "CNVkit 0.9.9" &> v_cnvkit.txt
-    echo "Deepvariant 1.2.0" &> v_deepvariant.txt
+    echo "Deepvariant 1.3.0" &> v_deepvariant.txt
     echo "GLNexus 1.3.1" &> v_glnexus.txt
     echo "ExpansionHunter 4.0.2" &> v_expansionhunter.txt
     samtools --version &> v_samtools.txt
