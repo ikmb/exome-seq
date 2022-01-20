@@ -58,9 +58,18 @@ my %recover = ( "ada_score" => { "Type" => "Float", "Number" => "1"},
 		"existing_OutOfFrame_oORFs" => {"Type" => "String", "Number" => "1"},
 		"existing_uORFs" => {"Type" => "String", "Number" => "1"},
 		"Mastermind_MMID3" => { "Type" => "String", "Number" => "1"},
-		"REVEL" => { "Type" => "Float", "Number" => "1" },
-		"SpliceAI_pred" => { "Type" => "String", "Number" => "1"}
-	);
+		"REVEL_score" => { "Type" => "Float", "Number" => "1" },
+		"SpliceAI_pred" => { "Type" => "String", "Number" => "1" },
+		"SpliceAI_cutoff" => { "Type" => "String", "Number" => "1" },
+		"SpliceAI_pred_DP_AG" => { "Type" => "String", "Number" => "1" },
+		"SpliceAI_pred_DP_AL" => { "Type" => "String", "Number" => "1" },
+		"SpliceAI_pred_DP_DG" => { "Type" => "String", "Number" => "1" },
+		"SpliceAI_pred_DP_DL" => { "Type" => "String", "Number" => "1" },
+		"SpliceAI_pred_DS_AG" => { "Type" => "String", "Number" => "1" },
+		"SpliceAI_pred_DS_AL" => { "Type" => "String", "Number" => "1" },
+		"SpliceAI_pred_DS_DG" => { "Type" => "String", "Number" => "1" },
+		"SpliceAI_pred_DS_DL" => { "Type" => "String", "Number" => "1" }
+);
 
 while (<$IN>) {
 
