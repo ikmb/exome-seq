@@ -310,7 +310,8 @@ if (params.vep) {
 	log.info "Run VEP				${params.vep}"
 } 
 log.info "Joint Calling			${params.joint_calling}"
-log.info "CNVCalling			${params.cnv}"
+log.info "CNV Calling			${params.cnv}"
+log.info "SV Calling			${params.manta}"
 log.info "Phasing				${params.phase}"
 log.info "Find expansions			${params.expansion_hunter}"
 log.info "-----------------------------------------"
@@ -335,7 +336,7 @@ process list_to_bed {
         file(targets) from targets_to_bed
 
         output:
-        file(bed) into (bedToExamples, BedToMerge)
+        file(bed) into (bedToExamples, BedToMerge, BedToCompression)
 
         script:
         bed = targets.getBaseName() + ".bed"
@@ -344,6 +345,26 @@ process list_to_bed {
                 picard IntervalListTools I=$targets O=targets.padded.interval_list PADDING=$params.interval_padding
                 picard IntervalListToBed I=targets.padded.interval_list O=$bed
         """
+}
+
+process bed_to_bedgz {
+
+	executor 'local'
+
+	input:
+	file(bed) from BedToCompression
+
+	output:
+	set file(bed_gz),file(bed_gz_tbi) into BedToManta
+
+	script:
+	bed_gz = bed.getBaseName() + ".bed.gz"
+	bed_gz_tbi = bed_gz + ".tbi"
+
+	"""
+		bgzip $bed
+		tabix -p bed $bed_gz
+	"""
 }
 
 faiToExamples = Channel
@@ -489,7 +510,7 @@ process dedup {
         set indivID, sampleID, file(merged_bam),file(merged_bam_index) from bam_indexed
 
        	output:
-        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_for_Cnv, Bam_for_Expansion
+        set indivID, sampleID, file(outfile_bam),file(outfile_bai) into BamMD, BamForMultipleMetrics, runHybridCaptureMetrics, runPrintReadsOutput_for_OxoG_Metrics, Bam_for_HC_Metrics, inputPanelCoverage, Bam_for_Cnv, Bam_for_Expansion, Bam_for_Manta
 	set file(outfile_bam), file(outfile_bai) into (BamForSexCheck, BamPhasing, cnv_bam_autobin )
 	file(outfile_md5)
 	file(outfile_metrics) into DuplicatesOutput_QC
@@ -508,6 +529,55 @@ process dedup {
 		samtools stats $outfile_bam > $outfile_metrics
 		md5sum $outfile_bam > $outfile_md5
 	"""
+
+}
+
+// SV calling using Manta
+if (params.manta) {
+
+	process manta {
+
+		label 'manta'
+
+		publishDir "${params.outdir}/${indivID}/${sampleID}/Manta", mode: 'copy'
+
+		input:
+		set val(indivID), val(sampleID),file(bam),file(bai) from Bam_for_Manta
+		set file(bed_gz),file(bed_gz_tbi) from BedToManta.collect()
+
+		output:
+		set val("Manta"),indivID,sampleID,file('*.vcf.gz'),file('*.tbi') into MantaSV,MantaSVDipl,MantaSVIndel
+		file("manta")
+
+		script:
+		sv = indivID + "_" + sampleID + ".diploidSV.vcf.gz"
+		sv_tbi = sv + ".tbi"
+		indel = indivID + "_" + sampleID + ".candidateSmallIndels.vcf.gz"
+		indel_tbi = indel + ".tbi"
+		sv_can = indivID + "_" + sampleID + ".candidateSV.vcf.gz"
+		sv_can_tbi = sv_can + ".tbi"
+		"""
+			configManta.py --bam $bam --referenceFasta ${FASTA} --runDir manta --callRegions $bed_gz --exome
+
+			manta/runWorkflow.py -j ${task.cpus}
+
+			cp manta/results/variants/diploidSV.vcf.gz $sv
+			cp manta/results/variants/diploidSV.vcf.gz.tbi $sv_tbi
+			cp manta/results/variants/candidateSmallIndels.vcf.gz $indel
+			cp manta/results/variants/candidateSmallIndels.vcf.gz.tbi $indel_tbi
+			cp manta/results/variants/candidateSV.vcf.gz $sv_can
+			cp manta/results/variants/candidateSV.vcf.gz.tbi $sv_can_tbi
+
+		"""
+
+	 }
+
+
+} else {
+
+	MantaSV = Channel.empty()
+	MantaSVDipl = Channel.empty()
+	MantaSVIndel = Channel.empty()
 
 }
 
@@ -602,7 +672,8 @@ process deepvariant {
         set indivID,sampleID,file(gvcf)
         file(gvcf) into MergeGVCF
 	file(vcf) into MergeVCF
-        set val(indivID),val(sampleID),file(vcf) into Vcf_to_Cnv, Sample_to_Vep
+        set val(indivID),val(sampleID),file(vcf) into Vcf_to_Cnv
+	set val("Deepvariant"),(indivID),val(sampleID),file(vcf) into Sample_to_Vep
 	val(sample_name) into SampleNames
 
         script:
@@ -622,14 +693,30 @@ process deepvariant {
         """
 }
 
+//Combine Manta and Deepvariant calls for VEP annotation
+VcfPerSample = Channel.empty().mix(
+	MantaSV.map {
+		caller,indivID,sampleID,vcf,tbi -> 
+		[ caller,indivID,sampleID,vcf[0] ]
+	},
+	MantaSVDipl.map {
+		indivID,sampleID,vcf,tbi ->
+		[caller,indivID,sampleID,vcf[1] ]
+	},
+	MantaSVIndel.map {
+		indivID,sampleID,vcf,tbi ->
+                [caller,indivID,sampleID,vcf[2] ]
+        },
+	Sample_to_Vep)
+
 process vep_per_sample {
 
-	publishDir "${params.outdir}/${indivID}/${sampleID}/VEP", mode: 'copy'
+	publishDir "${params.outdir}/${indivID}/${sampleID}/VEP/${caller}", mode: 'copy'
 
 	label 'vep'
 
 	input:
-	set val(indivID),val(sampleID),file(vcf) from Sample_to_Vep
+	set val(caller),val(indivID),val(sampleID),file(vcf) from VcfPerSample
 
 	output:
 	file(vcf_vep_sample)

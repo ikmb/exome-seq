@@ -87,13 +87,16 @@ This option allows the user to run non-defined panels. Must be in picard interva
 genome assembly to run against (use with care!!!). Usually, you would start with a target list in BED format and convert this into an interval list
 using the Picard Tools "BedToIntervalList" command.
 
-### `--cnv`
+### `--cnv` [ true | false (default) ]
 Enable CNV calling using CNVkit. This option requires a pre-configured CNVkit reference matching the kit and assembly used for capture and mapping, respectively. Currently, this is only available for GRCh38 and xGen_v2. Alternatively, an external reference can be provided using the developer option `--cnv_ref`.
 
-### `--vep`
+### `--manta` [ true (default) | false ]
+Run discovery of structural variants using Manta.
+
+### `--vep` [ true | false (default) ]
 Run variant effect prediction on the final VCF file(s). This option requires a locally available EnsEMBL cache and some databases (see cluster profiles for examples). 
 
-## `--joint_calling` [ true (default) | false ]
+### `--joint_calling` [ true (default) | false ]
 Run joint calling on the samples rather than simply merging them down into one final VCF without generating sample-overarching genotyping for all possible sites. 
 
 ### `--kill`
