@@ -546,7 +546,9 @@ if (params.manta) {
 		set file(bed_gz),file(bed_gz_tbi) from BedToManta.collect()
 
 		output:
-		set val("Manta"),indivID,sampleID,file('*.vcf.gz'),file('*.tbi') into MantaSV,MantaSVDipl,MantaSVIndel
+		set val("Manta"),indivID,sampleID,file(sv) into MantaSV
+		set val("Manta"),indivID,sampleID,file(sv_can) into MantaSVDipl
+		set val("Manta"),indivID,sampleID,file(indel) into MantaSVIndel
 		file("manta")
 
 		script:
@@ -694,20 +696,7 @@ process deepvariant {
 }
 
 //Combine Manta and Deepvariant calls for VEP annotation
-VcfPerSample = Channel.empty().mix(
-	MantaSV.map {
-		caller,indivID,sampleID,vcf,tbi -> 
-		[ caller,indivID,sampleID,vcf[0] ]
-	},
-	MantaSVDipl.map {
-		indivID,sampleID,vcf,tbi ->
-		[caller,indivID,sampleID,vcf[1] ]
-	},
-	MantaSVIndel.map {
-		indivID,sampleID,vcf,tbi ->
-                [caller,indivID,sampleID,vcf[2] ]
-        },
-	Sample_to_Vep)
+VcfPerSample = Channel.empty().mix(MantaSV,MantaSVDipl,MantaSVIndel,Sample_to_Vep)
 
 process vep_per_sample {
 
