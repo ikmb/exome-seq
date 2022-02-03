@@ -1,6 +1,6 @@
 include { expansion_hunter; expansions2xls } from "./../../modules/expansions/main.nf" params(params)
 
-workflow expansions {
+workflow EXPANSIONS {
 
 	take:
 		bam

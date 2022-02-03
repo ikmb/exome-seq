@@ -90,6 +90,11 @@ using the Picard Tools "BedToIntervalList" command.
 ### `--cnv` [ true | false (default) ]
 Enable CNV calling using CNVkit. This option requires a pre-configured CNVkit reference matching the kit and assembly used for capture and mapping, respectively. Currently, this is only available for GRCh38 and xGen_v2. Alternatively, an external reference can be provided using the developer option `--cnv_ref`.
 
+The following regions are ignored for this analysis:
+
+Exclude regions: https://www.encodeproject.org/annotations/ENCSR636HFF/
+Black list regions: https://github.com/Boyle-Lab/Blacklist/
+
 ### `--manta` [ true (default) | false ]
 Run discovery of structural variants using Manta.
 

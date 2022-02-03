@@ -2,7 +2,7 @@ process vep {
 
 	label 'vep'
 
-        publishDir "${params.outdir}/${indivID}/${sampleID}/VEP/#{cname}", mode: 'copy'
+        publishDir "${params.outdir}/${indivID}/${sampleID}/VEP/${cname}", mode: 'copy'
 
         input:
         tuple val(cname),val(indivID),val(sampleID),path(vcf),path(vcf_index)

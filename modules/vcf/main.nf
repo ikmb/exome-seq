@@ -4,14 +4,15 @@ process merge_vcf {
 	path(vcfs)
 
 	output:
-	tuple val("Deepvariant"),val("Merged"),val("Bcftools"),path(merged_vcf)
+	tuple val("Deepvariant"),val("Merged"),val("Bcftools"),path(merged_vcf),path(merged_tbi)
 
 	script:
 	merged_vcf = "deepvariant.flat_merged." + params.run_name + ".vcf.gz"
+	merged_tbi = merged_vcf + ".tbi"
 
 	"""
-		for i in \$(echo *.vcf.gz); do tabix \$i ; done;
 		bcftools merge --threads ${task.cpus} -o $merged_vcf -O z *.vcf.gz
+		bcftools index -t $merged_vcf
 	"""
 
 }
@@ -42,7 +43,7 @@ process vcf_get_sample {
 
 process vcf_add_header {
 
-        publishDir "${params.outdir}/${indivID}/${sampleID}", mode: 'copy'
+        publishDir "${params.outdir}/${indivID}/${sampleID}/Variants", mode: 'copy'
 
         input:
         tuple val(cname),val(indivID),val(sampleID),path(vcf),path(tbi)
@@ -64,6 +65,8 @@ process vcf_add_header {
 }
 
 process vcf_stats {
+
+	publishDir "${params.outdir}/${indivID}/${sampleID}/Variants", mode: 'copy'
 
         input:
         tuple val(cname),val(indivID),val(sampleID),path(vcf),path(tbi)
@@ -94,13 +97,14 @@ process vcf_filter_pass {
 
 	"""
 		bcftools view -f PASS -O z -o $vcf_pass $vcf
+		tabix $vcf_pass
 	"""
 
 }
 
 process vcf_add_dbsnp {
 
-        publishDir "${params.outdir}/${indivID}/${sampleID}/Variants", mode: 'copy'
+        //publishDir "${params.outdir}/${indivID}/${sampleID}/Variants", mode: 'copy'
 
         input:
         tuple val(cname),val(indivID),val(sampleID),path(vcf),path(tbi)

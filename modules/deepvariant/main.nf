@@ -12,7 +12,6 @@ process deepvariant {
         output:
         path(gvcf)
         tuple val("Deepvariant"),val(indivID),val(sampleID),path(vcf)
-	path(vcf)
         val(sample_name)
 
         script:
@@ -35,23 +34,26 @@ process deepvariant {
 
 process merge_gvcfs {
 
+	publishDir "${params.outdir}/Merged/GLNexus", mode: 'copy'
+
 	label 'glnexus'
 
 	input:
 	path(gvcfs)
-	bed(bed)
+	path(bed)
 
 	output:
-	tuple val("Deepvariant"),val("JointCalling"),val("GLNexus"),path(merged_vcf)
+	tuple val("Deepvariant"),val("Merged"),val("GLNexus"),path(merged_vcf),path(merged_tbi)
 
 	script:
-	merged_vcf = "deepvariant.joint_merged." + run_name + ".vcf.gz"
-
+	merged_vcf = "deepvariant.joint_merged." + params.run_name + ".vcf.gz"
+	merged_tbi = merged_vcf + ".tbi"
 	"""
 		/usr/local/bin/glnexus_cli \
 		--config ${params.glnexus_config} \
 		--bed $bed \
 		$gvcfs | bcftools view - | bgzip -c > $merged_vcf
+		tabix $merged_vcf
 
 	 """
 }

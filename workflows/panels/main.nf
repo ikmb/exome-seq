@@ -6,7 +6,7 @@ workflow PANEL_QC {
 	take:
 		bam
 		panels
-		target
+		targets
 
 	main:
 		panel_coverage(bam.combine(panels),targets.collect())

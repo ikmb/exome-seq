@@ -1,6 +1,6 @@
 process multiqc {
 
-    publishDir "${params.outdir}/Summary/#{cname}", mode: 'copy'
+    publishDir "${params.outdir}/Summary/${cname}", mode: 'copy'
 
     input:
     val(cname)
@@ -8,7 +8,6 @@ process multiqc {
 
     output:
     file("${cname}_multiqc.html")
-    file("*.yaml")
 
     script:
 

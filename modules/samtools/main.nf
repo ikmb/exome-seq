@@ -17,7 +17,7 @@ process merge_multi_lane {
 
 process bam_index {
 
-        publishDir "${params.outdir}/${indivID}/${sampleID}/", mode: 'copy'
+        //publishDir "${params.outdir}/${indivID}/${sampleID}/", mode: 'copy'
 
         input:
         tuple val(indivID), val(sampleID), path(bam)
