@@ -1,13 +1,13 @@
 process merge_multi_lane {
 
         input:
-        tuple val(indivID), val(sampleID), path(aligned_bam_list)
+        tuple val(meta), path(aligned_bam_list)
 
         output:
-        tuple val(indivID),val(sampleID),path(merged_bam)
+        tuple val(meta),path(merged_bam), emit: bam
 
         script:
-        merged_bam = indivID + "_" + sampleID + ".merged.bam"
+        merged_bam = meta.patient_id + "_" + meta.sample_id + ".merged.bam"
         merged_bam_index = merged_bam + ".bai"
 
         """
@@ -17,14 +17,11 @@ process merge_multi_lane {
 
 process bam_index {
 
-        //publishDir "${params.outdir}/${indivID}/${sampleID}/", mode: 'copy'
-
         input:
-        tuple val(indivID), val(sampleID), path(bam)
+        tuple val(meta), path(bam)
 
         output:
-        tuple val(indivID), val(sampleID), path(bam),path(bam_index)
-        tuple path(bam),path(bam_index)
+        tuple val(meta), path(bam),path(bam_index), emit: bam
 
         script:
         bam_index = bam.getName() + ".bai"
@@ -37,22 +34,22 @@ process bam_index {
 
 process dedup {
 
-        publishDir "${params.outdir}/${indivID}/${sampleID}/", mode: 'copy'
+        publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/", mode: 'copy'
 
         input:
-        tuple val(indivID), val(sampleID), path(merged_bam),path(merged_bam_index)
+        tuple val(meta),path(merged_bam),path(merged_bam_index)
 
         output:
-        tuple val(indivID), val(sampleID), path(outfile_bam),path(outfile_bai)
-        tuple path(outfile_bam),path(outfile_bai)
-        path(outfile_md5)
-        path(outfile_metrics)
+        tuple val(meta), path(outfile_bam),path(outfile_bai), emit: bam
+        path(outfile_md5), emit: md5sum
+        path(outfile_metrics), emit: report
 
         script:
-        outfile_bam = indivID + "_" + sampleID + ".dedup.bam"
-        outfile_bai = indivID + "_" + sampleID + ".dedup.bam.bai"
-        outfile_md5 = indivID + "_" + sampleID + ".dedup.bam.md5"
-        outfile_metrics = indivID + "_" + sampleID + "_duplicate_metrics.txt"
+        prefix = meta.patient_id + "_" + meta.sample_id + ".dedup"
+        outfile_bam = prefix + ".bam"
+        outfile_bai = prefix + ".bam.bai"
+        outfile_md5 = prefix + ".bam.md5"
+        outfile_metrics = prefix + "_duplicate_metrics.txt"
 
         """
                 samtools markdup -@ ${task.cpus} $merged_bam $outfile_bam

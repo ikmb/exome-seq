@@ -98,6 +98,8 @@ params.dict = file(params.genomes[ params.assembly ].dict)
 params.dbsnp = file(params.genomes[ params.assembly ].dbsnp )
 params.cnv_ref = file(params.genomes[params.assembly ].kits[params.kit].cnv_ref)
 
+ch_fasta = Channel.fromPath(params.fasta, checkIfExists: true)
+
 deepvariant_ref = Channel.from( [ file(params.fasta_fai),file(params.fasta_gz),file(params.fasta_gzfai),file(params.fasta_gzi)] )
 
 if (params.cnv && !file(params.cnv_ref).exists()) {
@@ -296,15 +298,13 @@ if (workflow.containerEngine) {
 log.info "========================================="
 
 // Read sample file
-Channel.from(file(params.samples))
-	.splitCsv(sep: ';', header: true)
-	.map{ row-> tuple( row.IndivID,row.SampleID,row.libraryID,row.rgID,row.rgPU,row.platform,row.platform_model,row.Center,row.Date,file(row.R1),file(row.R2) ) }
-	.set {  reads }
+ch_samplesheet = file(params.samples, checkIfExists: true)
 
 // Modules and workflows to include
 include { CONVERT_BED } from "./workflows/bed/main.nf" params(params)
 include { TRIM_AND_ALIGN } from "./workflows/align/main.nf" params(params)
-include { VARIANT_CALLING } from "./workflows/calling/main.nf" params(params)
+include { DV_VARIANT_CALLING } from "./workflows/deepvariant/main.nf" params(params)
+include { STRELKA_VARIANT_CALLING } from "./workflows/strelka/main.nf" params(params)
 include { merge_gvcfs } from "./modules/deepvariant/main.nf" params(params)
 include { manta } from "./modules/manta/main.nf" params(params)
 include { PICARD_METRICS } from "./workflows/picard/main.nf" params(params)
@@ -314,6 +314,7 @@ include { multiqc as  multiqc_fastq ; multiqc as multiqc_library ; multiqc as mu
 include { merge_vcf ; vcf_add_dbsnp; vcf_stats ; vcf_index } from "./modules/vcf/main.nf" params(params)
 include { PANEL_QC } from "./workflows/panels/main.nf" params(params)
 include { CNVKIT } from "./workflows/cnvkit/main.nf" params(params)
+include { concat } from "./modules/bcftools/main.nf" params(params)
 
 workflow {
 
@@ -325,34 +326,26 @@ workflow {
 		bedgz = CONVERT_BED.out.bed_gz
 
 		// align reads against genome
-		TRIM_AND_ALIGN(reads)
+		TRIM_AND_ALIGN(ch_samplesheet)
 		bam = TRIM_AND_ALIGN.out.bam
 		trim_report = TRIM_AND_ALIGN.out.qc
 		dedup_report = TRIM_AND_ALIGN.out.dedup_report
+		sample_names = TRIM_AND_ALIGN.out.sample_names
 
 		// SNP + Indel calling with Deepvariant
-		VARIANT_CALLING(bam,padded_bed,deepvariant_ref.collect())
-		vcf = VARIANT_CALLING.out.vcf
-		gvcf = VARIANT_CALLING.out.gvcf
-		sample_names = VARIANT_CALLING.out.sample_names
+		DV_VARIANT_CALLING(bam,padded_bed,deepvariant_ref.collect())
+		dv_vcf = DV_VARIANT_CALLING.out.vcf
+                dv_merged_vcf = DV_VARIANT_CALLING.out.vcf_multi
 
-		vcf_only = vcf.map { c,i,s,v,t -> [ v,t ] }
-
+                // SNP + Indel calling with Strelka
+                STRELKA_VARIANT_CALLING(bam,ch_fasta,padded_bed,sample_names)
+                strelka_vcf = STRELKA_VARIANT_CALLING.out.vcf
+		strelka_merged_vcf = STRELKA_VARIANT_CALLING.out.vcf_multi
+		
 		// CNV Calling
 		if (params.cnv) {
 			CNVKIT(padded_bed,bam,cnv_cnn)
 		}
-
-		// Joint calling with GLNexus - or simple merging
-		if (params.joint_calling) {
-			merge_gvcfs(gvcf.collect(),padded_bed)
-			merged_vcf = merge_gvcfs.out
-		} else {
-			merge_vcf(vcf_only.collect())
-			merged_vcf = merge_vcf.out
-		}
-		vcf_add_dbsnp(merged_vcf)
-		merged_vcf_ann = vcf_add_dbsnp.out
 
 		// SV calling with Manta
 		if (params.manta) {
@@ -370,11 +363,14 @@ workflow {
 
 		PICARD_METRICS(bam,targets,baits)
 		bam_qc = PICARD_METRICS.out.qc_reports
-		vcf_stats(vcf)
-		vcf_qc = vcf_stats.out
+		vcf_stats(dv_vcf)
+		vcf_qc = vcf_stats.out.stats
+
+		// Concat callsets
+		vcf_concat = concat(dv_merged_vcf.mix(strelka_merged_vcf).collect())
 
 		// Effect prediction
-		vep(vcf.mix(merged_vcf_ann,manta_vcf))
+		vep(dv_merged_vcf.mix(strelka_merged_vcf,manta_vcf,vcf_concat))
 
 		// QC
 		multiqc_fastq("FastQ",trim_report.collect())

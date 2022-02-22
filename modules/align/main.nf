@@ -3,13 +3,15 @@ process align {
 	//scratch true	
 
 	input:
-	tuple val(indivID), val(sampleID), val(libraryID), val(rgID), val(platform_unit), val(platform), val(platform_model), val(run_date), val(center),path(left),path(right)
+	tuple val(meta), path(left),path(right)
 
 	output:
-	tuple val(indivID), val(sampleID), path(bam)
+	tuple val(meta), path(bam), emit: bam
+	val(sample), emit: sample_name
     
 	script:
-	bam = sampleID + "_" + libraryID + "_" + rgID + ".aligned.fm.bam"	
+	bam = meta.sample_id + "_" + meta.library_id + "_" + meta.readgroup_id + ".aligned.fm.bam"	
+	sample = meta.patient_id + "_" + meta.sample_id
 
 	def aligner = "bwa"
 	def options = ""
@@ -18,7 +20,7 @@ process align {
 		options = "-K 1000000"
 	}
 	"""
-		$aligner mem $options -H ${params.dict} -M -R "@RG\\tID:${rgID}\\tPL:ILLUMINA\\tPU:${platform_unit}\\tSM:${indivID}_${sampleID}\\tLB:${libraryID}\\tDS:${params.fasta}\\tCN:${center}" \
+		$aligner mem $options -H ${params.dict} -M -R "@RG\\tID:${meta.readgroup_id}\\tPL:ILLUMINA\\tPU:${meta.platform_unit}\\tSM:${meta.patient_id}_${meta.sample_id}\\tLB:${meta.library_id}\\tDS:${params.fasta}\\tCN:${meta.center}" \
 			-t ${task.cpus} ${params.bwa_index} $left $right \
 			| samtools fixmate -@ ${task.cpus} -m - - \
 			| samtools sort -@ ${task.cpus} -m 3G -O bam -o $bam - 

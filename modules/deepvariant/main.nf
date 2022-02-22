@@ -2,30 +2,30 @@ process deepvariant {
 
         label 'deepvariant'
 
-        publishDir "${params.outdir}/${indivID}/${sampleID}/DeepVariant", mode: 'copy'
+        publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/DeepVariant", mode: 'copy'
 
         input:
-        tuple val(indivID), val(sampleID), path(bam),path(bai)
+        tuple val(meta), path(bam),path(bai)
         path(bed)
 	tuple path(fai),path(fastagz),path(gzfai),path(gzi)
 
         output:
-        path(gvcf)
-        tuple val("Deepvariant"),val(indivID),val(sampleID),path(vcf)
-        val(sample_name)
+        path(dv_gvcf), emit: gvcf
+        tuple val(meta),path(dv_vcf), emit: vcf
+        val(sample_name), emit: sample_name
 
         script:
-        gvcf = bam.getBaseName() + ".g.vcf.gz"
-        vcf = bam.getBaseName() + ".vcf.gz"
+        dv_gvcf = bam.getBaseName() + ".g.vcf.gz"
+        dv_vcf = bam.getBaseName() + ".vcf.gz"
         sample_name = indivID + "_" + sampleID
-
+	meta.caller = "DeepVariant"
         """
                 /opt/deepvariant/bin/run_deepvariant \
                 --model_type=WES \
                 --ref=$fastagz \
                 --reads $bam \
-                --output_vcf=$vcf \
-                --output_gvcf=$gvcf \
+                --output_vcf=$dv_vcf \
+                --output_gvcf=$dv_gvcf \
                 --regions=$bed \
                 --num_shards=${task.cpus} \
         """
@@ -43,7 +43,7 @@ process merge_gvcfs {
 	path(bed)
 
 	output:
-	tuple val("Deepvariant"),val("Merged"),val("GLNexus"),path(merged_vcf),path(merged_tbi)
+	tuple path(merged_vcf),path(merged_tbi)
 
 	script:
 	merged_vcf = "deepvariant.joint_merged." + params.run_name + ".vcf.gz"

@@ -9,9 +9,9 @@ process manta {
 	tuple path(bed_gz),path(bed_gz_tbi)
 
 	output:
-	tuple val("Manta"),val(indivID),val(sampleID),path(sv),path(sv_tbi)
-	tuple val("Manta"),val(indivID),val(sampleID),path(sv_can),path(sv_can_tbi)
-	tuple val("Manta"),val(indivID),val(sampleID),path(indel),path(indel_tbi)
+	tuple val("Manta"),val(indivID),val(sampleID),path(sv),path(sv_tbi), emit: diploid_sv
+	tuple val("Manta"),val(indivID),val(sampleID),path(sv_can),path(sv_can_tbi), emit: candidate_sv
+	tuple val("Manta"),val(indivID),val(sampleID),path(indel),path(indel_tbi), emit: small_indels
 	path("manta")
 
 	script:

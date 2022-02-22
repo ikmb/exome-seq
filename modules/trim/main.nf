@@ -1,11 +1,11 @@
 process trim {
 
         input:
-        tuple val(indivID), val(sampleID), val(libraryID), val(rgID), val(platform_unit), val(platform), val(platform_model), val(center), val(date), path(fastqR1), path(fastqR2)
+	tuple val(meta), path(fastqR1), path(fastqR2)
 
         output:
-        tuple val(indivID), val(sampleID), val(libraryID), val(rgID), val(platform_unit), val(platform), val(platform_model), val(date), val(center), path(left),path(right)
-        path(json)
+        tuple val(meta),path(left),path(right), emit: reads
+        path(json), emit: json
 
         script:
 

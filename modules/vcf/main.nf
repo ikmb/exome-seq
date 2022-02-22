@@ -1,13 +1,13 @@
 process merge_vcf {
 
 	input:
-	path(vcfs)
+	tuple val(caller),path(vcfs)
 
 	output:
-	tuple val("Deepvariant"),val("Merged"),val("Bcftools"),path(merged_vcf),path(merged_tbi)
+	tuple path(merged_vcf),path(merged_tbi), emit: vcf
 
 	script:
-	merged_vcf = "deepvariant.flat_merged." + params.run_name + ".vcf.gz"
+	merged_vcf = caller + ".flat_merged." + params.run_name + ".vcf.gz"
 	merged_tbi = merged_vcf + ".tbi"
 
 	"""
@@ -22,11 +22,11 @@ process vcf_get_sample {
         label 'gatk'
 
         input:
-        tuple path(vcf),path(vcf_index)
+        tuple val(meta),path(vcf),path(vcf_index)
         val(sample_name)
 
         output:
-        set file(vcf_sample),file(vcf_sample_index)
+        tuple path(vcf_sample),path(vcf_sample_index), emit: vcf
 
         script:
         vcf_sample = sample_name + ".vcf.gz"
@@ -43,13 +43,13 @@ process vcf_get_sample {
 
 process vcf_add_header {
 
-        publishDir "${params.outdir}/${indivID}/${sampleID}/Variants", mode: 'copy'
+        publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Variants", mode: 'copy'
 
         input:
-        tuple val(cname),val(indivID),val(sampleID),path(vcf),path(tbi)
+        tuple val(meta),path(vcf),path(tbi)
 
         output:
-        tuple val(cname),val(indivID),val(sampleID),path(vcf_r),path(tbi_r)
+        tuple val(meta),path(vcf_r),path(tbi_r), emit: vcf
 
         script:
 
@@ -66,13 +66,13 @@ process vcf_add_header {
 
 process vcf_stats {
 
-	publishDir "${params.outdir}/${indivID}/${sampleID}/Variants", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Variants", mode: 'copy'
 
         input:
-        tuple val(cname),val(indivID),val(sampleID),path(vcf),path(tbi)
+        tuple val(meta),path(vcf),path(tbi)
 
         output:
-        path(vcf_stats)
+        path(vcf_stats), emit: stats
 
         script:
         vcf_stats = vcf.getBaseName() + ".stats"
@@ -86,10 +86,10 @@ process vcf_stats {
 process vcf_filter_pass {
 
 	input:
-	tuple val(cname),val(indivID),val(sampleID),path(vcf),path(tbi)
+	tuple val(meta),path(vcf),path(tbi)
 
 	output:
-	tuple val(cname),val(indivID),val(sampleID),path(vcf_pass), path(vcf_pass_index)
+	tuple val(meta.patient_id),val(meta.sample_id),path(vcf_pass), path(vcf_pass_index), emit: vcf
 
 	script:
 	vcf_pass = vcf.getSimpleName() + ".pass.vcf.gz"
@@ -104,13 +104,11 @@ process vcf_filter_pass {
 
 process vcf_add_dbsnp {
 
-        //publishDir "${params.outdir}/${indivID}/${sampleID}/Variants", mode: 'copy'
-
         input:
-        tuple val(cname),val(indivID),val(sampleID),path(vcf),path(tbi)
+        tuple val(meta),path(vcf),path(tbi)
 
         output:
-        tuple val(cname),val(indivID),val(sampleID),path(vcf_annotated), path(vcf_annotated_index)
+        tuple val(meta),path(vcf_annotated), path(vcf_annotated_index), emit: vcf
 
         script:
         vcf_annotated = vcf.getBaseName() + ".rsids.vcf.gz"
@@ -125,10 +123,10 @@ process vcf_add_dbsnp {
 process vcf_index {
 
 	input:
-	tuple val(cname),val(indivID),val(sampleID),path(vcf)
+	tuple val(meta),path(vcf)
 
 	output:
-	tuple val(cname),val(indivID),val(sampleID),path(vcf),path(tbi)
+	tuple val(meta),path(vcf),path(tbi), emit: vcf
 
 	script:
 
@@ -143,10 +141,10 @@ process vcf_index {
 process vcf_compress_and_index {
 
 	input:
-	tuple val(indivID),val(sampleID),path(vcf)
+	tuple val(meta),path(vcf)
 
 	output:
-	tuple val(indivID),val(sampleID),path(vcf_gz),path(vcf_gz_tbi)
+	tuple val(meta),path(vcf_gz),path(vcf_gz_tbi), emit: vcf
 
 	script:
 	vcf_gz = vcf + ".gz"
