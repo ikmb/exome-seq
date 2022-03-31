@@ -1,8 +1,8 @@
-process deepvariant {
+process DEEPVARIANT {
 
         label 'deepvariant'
 
-        publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/DeepVariant", mode: 'copy'
+        publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/DEEPVARIANT", mode: 'copy'
 
         input:
         tuple val(meta), path(bam),path(bai)
@@ -15,10 +15,9 @@ process deepvariant {
         val(sample_name), emit: sample_name
 
         script:
-        dv_gvcf = bam.getBaseName() + ".g.vcf.gz"
-        dv_vcf = bam.getBaseName() + ".vcf.gz"
-        sample_name = indivID + "_" + sampleID
-	meta.caller = "DeepVariant"
+        dv_gvcf = meta.patient_id + "_" + meta.sample_id + "-deepvariant.g.vcf.gz"
+        dv_vcf = meta.patient_id + "_" + meta.sample_id + "-deepvariant.vcf.gz"
+        sample_name = "${meta.patient_id}_${meta.sample_id}"
         """
                 /opt/deepvariant/bin/run_deepvariant \
                 --model_type=WES \
@@ -32,9 +31,9 @@ process deepvariant {
 }
 
 
-process merge_gvcfs {
+process MERGE_GVCFS {
 
-	publishDir "${params.outdir}/Merged/GLNexus", mode: 'copy'
+	publishDir "${params.outdir}/MergedCallset/GLNEXUS_DEEPVARIANT", mode: 'copy'
 
 	label 'glnexus'
 
@@ -43,11 +42,12 @@ process merge_gvcfs {
 	path(bed)
 
 	output:
-	tuple path(merged_vcf),path(merged_tbi)
+	tuple path(merged_vcf),path(merged_tbi), emit: vcf
 
 	script:
 	merged_vcf = "deepvariant.joint_merged." + params.run_name + ".vcf.gz"
 	merged_tbi = merged_vcf + ".tbi"
+	
 	"""
 		/usr/local/bin/glnexus_cli \
 		--config ${params.glnexus_config} \

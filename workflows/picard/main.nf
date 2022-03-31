@@ -1,4 +1,4 @@
-include { hybrid_capture_metrics; multi_metrics; oxo_metrics } from "./../../modules/picard/main.nf" params(params)
+include { HYBRID_CAPTURE_METRICS ; MULTI_METRICS ; OXO_METRICS } from "./../../modules/picard/main.nf" params(params)
 
 workflow PICARD_METRICS {
 
@@ -8,10 +8,10 @@ workflow PICARD_METRICS {
 		baits
 	
 	main:
-		hybrid_capture_metrics(bam,targets.collect(),baits.collect())
-		multi_metrics(bam,baits.collect())
-		oxo_metrics(bam,targets.collect())
+		HYBRID_CAPTURE_METRICS(bam,targets.collect(),baits.collect())
+		MULTI_METRICS(bam,baits.collect())
+		OXO_METRICS(bam,targets.collect())
 
 	emit:
-		qc_reports = hybrid_capture_metrics.out[0].mix(multi_metrics.out[0],oxo_metrics.out[0])
+		qc_reports = HYBRID_CAPTURE_METRICS.out[0].mix(MULTI_METRICS.out[0],OXO_METRICS.out[0])
 }

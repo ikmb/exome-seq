@@ -6,15 +6,15 @@ The following command will execute this pipeline; the options will be discussed 
 
 If you are at the IKMB, the following will work:
 
-`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com`
+`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com` --tools 'strelka,deepvariant,manta' 
 
 If you need to run a specific "release" of the pipeline, you can do:
 
-`nextflow run ikmb/exome-seq -r 1.5 --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com`
+`nextflow run ikmb/exome-seq -r 4.1 --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com`
 
 If you try to run the pipeline on another system, you will need to configure a profile (see the installation instructions):
 
-`nextflow run /path/to/main.nf --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com' -profile your_profile`
+`nextflow run /path/to/main.nf --samples Samples.csv --assembly GRCh38 --kit xGen --tools 'deepvariant,expansionhunter,manta' --email 'hello@gmail.com' -profile your_profile`
 
 ## Mandatory arguments
 
@@ -36,6 +36,25 @@ The following human genome assembly versions are supported on MedCluster (see re
 - GRCh37 (the 1000 genomes reference with decoys)
 - GRCh38 (the current human reference assembly without ALT loci)
 - hg19 (another version of GRCh37, also referred to as the UCSC reference)
+
+### `--tools`
+The pipeline offers various tools for the analysis of variant information. Specifically:
+
+* Deepvariant (deepvariant)
+* Strelka (strelka)
+* Manta (manta)
+* Expansion Hunter (expansionhunter)
+
+Your tools of choice can be provided like so:
+
+`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --tools 'deepvariant,manta,expansionhunter,strelka'`
+
+If no tools are selected, the pipeline will stop after the deduplication of read alignments. 
+
+### `--joint_calling`
+The pipeline produces multi-vcf files through merging of the single-sample callsets. However, you can alternatively request for the samples to be called jointly, i.e. all in one process. This will
+cause individual callsets to take into consideration information from other samples, and result in numerous ref calls in the individual VCF files. An advantage of this approach is 
+that individual sites can obtain support from multiple samples. This is typically done when analysing cohorts.
 
 ### `--kit`
 Each exome capture kit has a target and a bait definition, i.e. information about the exons it enriches and the specific RNA bait sequences that are used 
@@ -94,9 +113,6 @@ The following regions are ignored for this analysis:
 
 Exclude regions: https://www.encodeproject.org/annotations/ENCSR636HFF/
 Black list regions: https://github.com/Boyle-Lab/Blacklist/
-
-### `--manta` [ true (default) | false ]
-Run discovery of structural variants using Manta.
 
 ### `--vep` [ true | false (default) ]
 Run variant effect prediction on the final VCF file(s). This option requires a locally available EnsEMBL cache and some databases (see cluster profiles for examples). 

@@ -1,4 +1,4 @@
-include { expansion_hunter; expansions2xls } from "./../../modules/expansions/main.nf" params(params)
+include { EXPANSION_HUNTER; EXPANSIONS2XLSX } from "./../../modules/expansions/main.nf" params(params)
 
 workflow EXPANSIONS {
 
@@ -6,10 +6,10 @@ workflow EXPANSIONS {
 		bam
 		catalog	
 	main:
-		expansion_hunter(bam,catalog.collect())
-		expansions2xls(expansion_hunter.out[0])
+		EXPANSION_HUNTER(bam,catalog.collect())
+		EXPANSIONS2XLSX(EXPANSION_HUNTER.out[0])
 
 	emit:
-		expansions = expansions2xls.out
+		expansions = EXPANSIONS2XLSX.out
 	
 }

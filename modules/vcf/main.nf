@@ -1,15 +1,16 @@
-process merge_vcf {
+process MERGE_VCF {
+
+	publishDir "${params.outdir}/MergedCallset/Bcftools", mode: 'copy'
 
 	input:
-	tuple val(caller),path(vcfs)
+	tuple val(meta),path(vcfs),path(tbis)
 
 	output:
-	tuple path(merged_vcf),path(merged_tbi), emit: vcf
+	tuple val(meta),path(merged_vcf),path(merged_tbi), emit: vcf
 
 	script:
-	merged_vcf = caller + ".flat_merged." + params.run_name + ".vcf.gz"
+	merged_vcf = meta.variantcaller + ".flat_merged." + params.run_name + ".vcf.gz"
 	merged_tbi = merged_vcf + ".tbi"
-
 	"""
 		bcftools merge --threads ${task.cpus} -o $merged_vcf -O z *.vcf.gz
 		bcftools index -t $merged_vcf
@@ -17,33 +18,34 @@ process merge_vcf {
 
 }
 
-process vcf_get_sample {
+process VCF_GET_SAMPLE {
 
         label 'gatk'
 
         input:
-        tuple val(meta),path(vcf),path(vcf_index)
-        val(sample_name)
+        tuple val(m_f),path(vcf),path(vcf_index)
+        val(meta)
 
         output:
-        tuple path(vcf_sample),path(vcf_sample_index), emit: vcf
+        tuple val(meta),path(vcf_sample),path(vcf_sample_index), emit: vcf
 
         script:
-        vcf_sample = sample_name + ".vcf.gz"
+        def prefix = meta.patient_id + "_" + meta.sample_id
+        vcf_sample = prefix + "-" + meta.variantcaller + ".split.vcf.gz"
         vcf_sample_index = vcf_sample + ".tbi"
 
         """
-                gatk SelectVariants --remove-unused-alternates --exclude-non-variants -V $vcf -sn $sample_name -O variants.vcf.gz -OVI
-                gatk LeftAlignAndTrimVariants -R $FASTA -V variants.vcf.gz -O $vcf_sample
+                gatk SelectVariants --remove-unused-alternates --exclude-non-variants -V $vcf -sn $prefix -O variants.vcf.gz -OVI
+                gatk LeftAlignAndTrimVariants -R $params.fasta -V variants.vcf.gz -O $vcf_sample
                 rm variants.vcf.gz
 
         """
 
 }
 
-process vcf_add_header {
+process VCF_ADD_HEADER {
 
-        publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Variants", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/${meta.variantcaller}", mode: 'copy'
 
         input:
         tuple val(meta),path(vcf),path(tbi)
@@ -64,9 +66,9 @@ process vcf_add_header {
 
 }
 
-process vcf_stats {
+process VCF_STATS {
 
-	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Variants", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Stats", mode: 'copy'
 
         input:
         tuple val(meta),path(vcf),path(tbi)
@@ -83,13 +85,13 @@ process vcf_stats {
 
 }
 
-process vcf_filter_pass {
+process VCF_FILTER_PASS {
 
 	input:
 	tuple val(meta),path(vcf),path(tbi)
 
 	output:
-	tuple val(meta.patient_id),val(meta.sample_id),path(vcf_pass), path(vcf_pass_index), emit: vcf
+	tuple val(meta),path(vcf_pass), path(vcf_pass_index), emit: vcf
 
 	script:
 	vcf_pass = vcf.getSimpleName() + ".pass.vcf.gz"
@@ -102,7 +104,9 @@ process vcf_filter_pass {
 
 }
 
-process vcf_add_dbsnp {
+process VCF_ADD_DBSNP {
+
+	//publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Variants", mode: 'copy'
 
         input:
         tuple val(meta),path(vcf),path(tbi)
@@ -120,7 +124,7 @@ process vcf_add_dbsnp {
         """
 }
 
-process vcf_index {
+process VCF_INDEX {
 
 	input:
 	tuple val(meta),path(vcf)
@@ -138,7 +142,7 @@ process vcf_index {
 
 }
 
-process vcf_compress_and_index {
+process VCF_COMPRESS_AND_INDEX {
 
 	input:
 	tuple val(meta),path(vcf)

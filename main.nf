@@ -28,91 +28,35 @@ Author: Marc P. Hoeppner, m.hoeppner@ikmb.uni-kiel.de
 
 // Pipeline version
 
-params.version = workflow.manifest.version
-
-// Help message
-helpMessage = """
-===============================================================================
-IKMB Diagnostic Exome pipeline | version ${params.version}
-===============================================================================
-Usage: nextflow run ikmb/exome-seq --assembly GRCh38 --kit xGen_v2 --samples Samples.csv
-This example will perform an exome analysis against the ALT-free hg38 assembly, assuming that exome reads were generated with
-the IDT xGen v2 kit and using DeepVariant with GLNexus.
-
-Required parameters:
---samples                      A sample list in CSV format (see website for formatting hints)
---assembly                     Name of the reference assembly to use
---kit                          Name of the exome kit (available options: xGen, xGen_custom, xGen_v2, Nextera, Pan_cancer)
---email                        Email address to send reports to (enclosed in '')
-Optional parameters:
---bwa2                         Use BWA2 instead of BWA1
---expansion_hunter             Run ExpansionHunter
---joint_calling                Perform joint calling of all samples (default: true)
---skip_multiqc                 Don't attached MultiQC report to the email.
---panel                        Gene panel to check coverage of (valid options: cardio_dilatative, cardio_hypertrophic, cardio_non_compaction, eoIBD_25kb, imm_eoIBD_full, breast_cancer)
---all_panels                   Run all gene panels defined for this assembly (none if no panel is defined!)
---panel_intervals              Run a custom gene panel in interval list format (must have a matching sequence dictionary!)
---run_name                     A descriptive name for this pipeline run
---cram                         Whether to output the alignments in CRAM format (default: bam)
---interval_padding             Include this number of nt upstream and downstream around the exome targets (default: 10)
---vep                          Perform variant annotation with VEP (requires substantial local configuration work!)
-Expert options (usually not necessary to change!):
---fasta                        A reference genome in FASTA format (set automatically if using --assembly)
---dict                         A sequence dictionary matching --fasta (set automatically if using --assembly)
---dbsnp                        dbSNP data in VCF format (set automatically if using --assembly)
---targets                      A interval_list target file (set automatically if using the --kit option)
---baits                        A interval_list bait file (set automatically if using the --kit option)
---bed                          A list of calling intervals to be used by Deepvariant (default: exome kit targets will be converted to bed)
---min_mapq                     Minimum mapping quality to consider for general coverage analysis (default = 20)
---kill                         A list of known bad exons in the genome build that are ignored for panel coverage statistics (see documentation for details)
-Output:
---outdir                       Local directory to which all output is written (default: results)
-"""
-
-params.help = false
-
-// Show help when needed
-if (params.help){
-    log.info helpMessage
-}
-
 def summary = [:]
 
 // #############
 // INPUT OPTIONS
 // #############
 
-// Giving this pipeline run a name
-run_name = ( params.run_name == false) ? "${workflow.sessionId}" : "${params.run_name}"
-
-if (!params.run_name) {
-        exit 1, "No run name was specified, exiting..."
-}
-
-params.fasta = file(params.genomes[ params.assembly ].fasta)
-params.fasta_fai = file(params.genomes[ params.assembly ].fai)
-params.fasta_gz = file(params.genomes[ params.assembly ].fastagz)
-params.fasta_gzfai = file(params.genomes[ params.assembly ].gzfai)
-params.fasta_gzi = file(params.genomes[ params.assembly ].gzi)
-params.dict = file(params.genomes[ params.assembly ].dict)
-params.dbsnp = file(params.genomes[ params.assembly ].dbsnp )
+// Set Channels
+params.fasta = file(params.genomes[ params.assembly ].fasta, checkIfExists: true)
+params.fasta_fai = file(params.genomes[ params.assembly ].fai, checkIfExists: true)
+params.fasta_gz = file(params.genomes[ params.assembly ].fastagz, checkIfExists: true)
+params.fasta_gzfai = file(params.genomes[ params.assembly ].gzfai, checkIfExists: true)
+params.fasta_gzi = file(params.genomes[ params.assembly ].gzi, checkIfExists: true)
+params.dict = file(params.genomes[ params.assembly ].dict, checkIfExists: true)
+params.dbsnp = file(params.genomes[ params.assembly ].dbsnp, checkIfExists: true)
 params.cnv_ref = file(params.genomes[params.assembly ].kits[params.kit].cnv_ref)
 
 ch_fasta = Channel.fromPath(params.fasta, checkIfExists: true)
 
 deepvariant_ref = Channel.from( [ file(params.fasta_fai),file(params.fasta_gz),file(params.fasta_gzfai),file(params.fasta_gzi)] )
 
-if (params.cnv && !file(params.cnv_ref).exists()) {
-	exit 1, "Missing cnv ref file for this kit"
-}
-cnv_cnn = Channel.from(params.cnv_ref)
-
 if (params.bwa2) {
-        params.bwa_index = file(params.genomes[ params.assembly ].bwa2_index)
+        params.bwa_index = file(params.genomes[ params.assembly ].bwa2_index, checkIfExists: true)
 } else {
-        params.bwa_index = file(params.genomes[ params.assembly ].fasta)
+        params.bwa_index = file(params.genomes[ params.assembly ].fasta, checkIfExists: true)
 }
 
+//
+// Targets and Baits
+//
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
 
@@ -120,9 +64,12 @@ if (TARGETS==BAITS) {
         exit 1, "Target and bait files must not have the same name to avoid file collisions!"
 }
 
-targets = Channel.from(file(TARGETS))
-baits = Channel.from(file(BAITS))
+targets = Channel.from(file(TARGETS, checkIfExists: true))
+baits = Channel.from(file(BAITS, checkIfExists: true))
 
+//
+// Kill List
+//
 if (params.kill) {
         params.kill_list = params.kill
 } else if (params.kit && params.genomes[params.assembly].kits[params.kit].kill) {
@@ -135,9 +82,6 @@ if (params.kill) {
 PANEL COVERAGE - pick the correct panel for reporting
 */
 
-if (params.panel && params.all_panels || params.panel && params.panel_intervals || params.all_panels && params.panel_intervals) {
-        log.info "The options for panel stats are mutually exclusive! Will use the highest ranked choice (panel > panel_intervals > all panels)"
-}
 if (params.panel) {
         panel = params.genomes[params.assembly].panels[params.panel].intervals
         panels = Channel.fromPath(panel)
@@ -159,15 +103,23 @@ if (params.panel) {
 
 // A single exon only covered in male samples - simple sex check
 params.sry_region  = params.sry_bed ?: params.genomes[params.assembly].sry_bed
-SRY_REGION = file(params.sry_region)
 
-if (!SRY_REGION.exists() ) {
-        exit 1, "Could not find the bed file for SRY check!"
+//
+// Input validation
+//
+WorkflowMain.initialise(workflow, params, log)
+WorkflowExomes.initialise( params, log)
+
+tools = params.tools ? params.tools.split(',').collect{it.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '')} : []
+
+if ('cnvkit' in tools && !file(params.cnv_ref).exists()) {
+        exit 1, "Missing cnv ref file for this kit"
+        cnv_cnn = file(params.genomes[ params.assembly ].cnn, checkIfExists: true)
 }
 
 // Expansion hunter references
-if (params.expansion_hunter) {
-        ecatalog = file(params.genomes[params.assembly].expansion_catalog)
+if ('expansionhunter' in tools) {
+        ecatalog = file(params.genomes[params.assembly].expansion_catalog, checkIfExists: true )
         Channel.fromPath(ecatalog)
         .ifEmpty { exit 1, "Could not find a matching ExpansionHunter catalog for this assembly" }
         .set { expansion_catalog }
@@ -175,52 +127,10 @@ if (params.expansion_hunter) {
         expansion_catalog = Channel.empty()
 }
 
-// Whether to produce BAM output instead of CRAM
-params.cram = false
-align_suffix = (params.cram == false) ? "bam" : "cram"
-
-// Input validation
-if (params.vep) {
-
-        if (params.assembly != "GRCh38") {
-                exit 1, "VEP is not currently set up to work with defunct assembly versions...please use GRCh38"
-        }
-
-        if (!params.vep_cache_dir || !params.vep_plugin_dir) {
-                exit 1, "Missing VEP cache and/or plugin directory..."
-        }
-
-        if (params.dbnsfp_db) {
-                dbNSFP_DB = file(params.dbnsfp_db)
-                if (!dbNSFP_DB.exists()) {
-                        exit 1, "Could not find the specified dbNSFP database..."
-                }
-        } else {
-                exit 1, "No dbNSFP database defined for this execution profile..."
-        }
-
-        if (params.dbscsnv_db) {
-                dbscSNV_DB = file(params.dbscsnv_db)
-                if ( !dbscSNV_DB.exists() ) {
-                        exit 1, "Could not find the specified dbscSNV database..."
-                }
-        } else {
-                exit 1, "No dbscSNV database defined for this execution profile..."
-        }
-
-        if (params.cadd_snps && params.cadd_indels) {
-                CADD_SNPS = file(params.cadd_snps)
-                CADD_INDELS = file(params.cadd_indels)
-                if (!CADD_SNPS.exists() || !CADD_INDELS.exists() )
-                        exit 1, "Missing CADD SNPs and/or Indel references..."
-                }
-        else {
-                exit 1, "CADD SNP and/or Indel reference files not defined for this execution profile..."
-        }
-
-}
-
-summary['runName'] = run_name
+//
+// Summary of all options
+//
+summary['runName'] = params.run_name
 summary['Samples'] = params.samples
 summary['Current home'] = "$HOME"
 summary['Current user'] = "$USER"
@@ -240,7 +150,9 @@ if (params.panel) {
         summary['GenePanel'] = "All panels"
 }
 summary['JointCalling'] = params.joint_calling
-summary['ExpansionAnalysis'] = params.expansion_hunter
+if ('expansionhunter' in tools) {
+	summary['ExpansionAnalysis'] = true
+}
 summary['CommandLine'] = workflow.commandLine
 if (params.kill_list) {
         summary['KillList'] = params.kill_list
@@ -256,7 +168,7 @@ if (params.vep) {
         summary['References']['CADD_SNPs'] = params.cadd_snps
         summary['References']['CADD_Indels'] = params.cadd_indels
 }
-if (params.cnv) {
+if ("cnvkit" in tools) {
 	summary['CNVkit'] = [:]
 	summary['CNVkit']['BlackList'] = params.cnv_blacklist
 	summary['CNVkit']['ExcludeRegions'] = params.cnv_exclusion
@@ -264,61 +176,35 @@ if (params.cnv) {
 summary['IntervallPadding'] = params.interval_padding
 summary['SessionID'] = workflow.sessionId
 
-// Header log info
-log.info "========================================="
-log.info "Exome-seq pipeline v${params.version}"
-log.info "Nextflow Version:             $workflow.nextflow.version"
-log.info "Assembly version:             ${params.assembly}"
-if (params.bwa2) {
-        log.info "Read aligner:                 BWA2"
-} else {
-        log.info "Read aligner:                 BWA"
-}
-log.info "Exome kit:                    ${params.kit}"
-if (params.panel) {
-        log.info "Panel(s):                     ${params.panel}"
-} else if (params.panel_intervals) {
-        log.info "Panel(s):                     custom"
-} else if (params.all_panels) {
-        log.info "Panel(s)                      all"
-}
-if (params.vep) {
-        log.info "Run VEP                       ${params.vep}"
-}
-log.info "Joint Calling                 ${params.joint_calling}"
-log.info "SV Calling                    ${params.manta}"
-log.info "CNV Calling		${params.cnv}"
-log.info "Find expansions               ${params.expansion_hunter}"
-log.info "-----------------------------------------"
-log.info "Command Line:                 $workflow.commandLine"
-log.info "Run name:                     ${run_name}"
-if (workflow.containerEngine) {
-        log.info "Container engine:             ${workflow.containerEngine}"
-}
-log.info "========================================="
-
 // Read sample file
 ch_samplesheet = file(params.samples, checkIfExists: true)
 
+//
 // Modules and workflows to include
-include { CONVERT_BED } from "./workflows/bed/main.nf" params(params)
-include { TRIM_AND_ALIGN } from "./workflows/align/main.nf" params(params)
-include { DV_VARIANT_CALLING } from "./workflows/deepvariant/main.nf" params(params)
-include { STRELKA_VARIANT_CALLING } from "./workflows/strelka/main.nf" params(params)
-include { merge_gvcfs } from "./modules/deepvariant/main.nf" params(params)
-include { manta } from "./modules/manta/main.nf" params(params)
-include { PICARD_METRICS } from "./workflows/picard/main.nf" params(params)
-include { EXPANSIONS } from "./workflows/expansions/main.nf" params(params)
-include { vep } from "./modules/vep/main.nf" params(params)
-include { multiqc as  multiqc_fastq ; multiqc as multiqc_library ; multiqc as multiqc_sample } from "./modules/multiqc/main.nf" params(params)
-include { merge_vcf ; vcf_add_dbsnp; vcf_stats ; vcf_index } from "./modules/vcf/main.nf" params(params)
-include { PANEL_QC } from "./workflows/panels/main.nf" params(params)
-include { CNVKIT } from "./workflows/cnvkit/main.nf" params(params)
-include { concat } from "./modules/bcftools/main.nf" params(params)
+//
+include { CONVERT_BED } from "./workflows/bed/main.nf"
+include { TRIM_AND_ALIGN } from "./workflows/align/main.nf"
+include { DV_VARIANT_CALLING } from "./workflows/deepvariant/main.nf"
+include { STRELKA_VARIANT_CALLING ; STRELKA_MULTI_CALLING } from "./workflows/strelka/main.nf"
+include { MERGE_GVCFS } from "./modules/deepvariant/main.nf"
+include { MANTA } from "./modules/manta/main.nf"
+include { PICARD_METRICS } from "./workflows/picard/main.nf"
+include { EXPANSIONS } from "./workflows/expansions/main.nf"
+include { VEP } from "./modules/vep/main.nf"
+include { MULTIQC as  multiqc_fastq ; MULTIQC as multiqc_library ; MULTIQC as multiqc_sample } from "./modules/multiqc/main.nf"
+include { MERGE_VCF ; VCF_ADD_DBSNP; VCF_STATS ; VCF_INDEX } from "./modules/vcf/main.nf"
+include { PANEL_QC } from "./workflows/panels/main.nf"
+include { CNVKIT } from "./workflows/cnvkit/main.nf"
+include { CONCAT } from "./modules/bcftools/main.nf" 
+include { SEX_CHECK} from "./modules/qc/main.nf"
+
+def multiqc_report = []
 
 workflow {
 
 	main:
+
+                ch_vcfs = Channel.empty()
 
 		// create calling regions
 		CONVERT_BED(targets)
@@ -333,48 +219,165 @@ workflow {
 		sample_names = TRIM_AND_ALIGN.out.sample_names
 
 		// SNP + Indel calling with Deepvariant
-		DV_VARIANT_CALLING(bam,padded_bed,deepvariant_ref.collect())
-		dv_vcf = DV_VARIANT_CALLING.out.vcf
-                dv_merged_vcf = DV_VARIANT_CALLING.out.vcf_multi
+		if ('deepvariant' in tools) {
+			DV_VARIANT_CALLING(bam,padded_bed,deepvariant_ref.collect())
+			dv_vcf = DV_VARIANT_CALLING.out.vcf
+                	dv_merged_vcf = DV_VARIANT_CALLING.out.vcf_multi
+			ch_vcfs = ch_vcfs.mix(dv_vcf,dv_merged_vcf)
+		} else {
+			dv_vcf = Channel.empty()
+			dv_merged_vcf = Channel.empty()
+		}
 
-                // SNP + Indel calling with Strelka
-                STRELKA_VARIANT_CALLING(bam,ch_fasta,padded_bed,sample_names)
-                strelka_vcf = STRELKA_VARIANT_CALLING.out.vcf
-		strelka_merged_vcf = STRELKA_VARIANT_CALLING.out.vcf_multi
+		// SNP + Indel calling with Strelk
+		if ('strelka' in tools) {
+                        if (params.joint_calling) {
+				STRELKA_MULTI_CALLING(
+					bam.map {m,b,i -> [ b,i ] },
+					bedgz,
+					TRIM_AND_ALIGN.out.metas
+				)
+				ch_vcfs = ch_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf,STRELKA_MULTI_CALLING.out.vcf_multi)
+                        } else {
+	        	        STRELKA_VARIANT_CALLING(bam,bedgz,sample_names)
+        	        	strelka_vcf = STRELKA_VARIANT_CALLING.out.vcf
+				strelka_merged_vcf = STRELKA_VARIANT_CALLING.out.vcf_multi
+				ch_vcfs = ch_vcfs.mix(strelka_vcf,strelka_merged_vcf)
+			}
+		} else {
+			strelka_vcf = Channel.empty()
+			strelka_merged_vcf = Channel.empty()
+		}
 		
 		// CNV Calling
-		if (params.cnv) {
+		if ('cnvkit' in tools) {
 			CNVKIT(padded_bed,bam,cnv_cnn)
 		}
 
 		// SV calling with Manta
-		if (params.manta) {
-			manta(bam,bedgz.collect())
-			manta_vcf = manta.out[0].mix(manta.out[1],manta.out[2])
+		if ('manta' in tools) {
+			MANTA(bam,bedgz.collect())
+			manta_vcf = MANTA.out[0].mix(MANTA.out[1],MANTA.out[2])
 		} else {
 			manta_vcf = Channel.empty()
 		}
 
 		// Expansions
-		EXPANSIONS(bam,expansion_catalog)
+                if ('expansionhunter' in tools) {
+	 		EXPANSIONS(bam,expansion_catalog)
+		}
 
 		// QC Metrics
 		PANEL_QC(bam,panels,targets)
 
 		PICARD_METRICS(bam,targets,baits)
 		bam_qc = PICARD_METRICS.out.qc_reports
-		vcf_stats(dv_vcf)
-		vcf_qc = vcf_stats.out.stats
+		VCF_STATS(ch_vcfs)
+		vcf_qc = VCF_STATS.out.stats
 
-		// Concat callsets
-		vcf_concat = concat(dv_merged_vcf.mix(strelka_merged_vcf).collect())
+		// Coverage of SRY gene
+		SEX_CHECK(
+			bam.map { m,b,i -> tuple(b,i) }.collect()
+		)
 
 		// Effect prediction
-		vep(dv_merged_vcf.mix(strelka_merged_vcf,manta_vcf,vcf_concat))
+		VEP(ch_vcfs)
 
 		// QC
 		multiqc_fastq("FastQ",trim_report.collect())
 		multiqc_library("Library",dedup_report.collect())
-		multiqc_sample("Sample",bam_qc.mix(vcf_qc).collect())
-				
+		multiqc_sample("Sample",bam_qc.mix(vcf_qc,SEX_CHECK.out.yaml).collect())
+
+                multiqc_report = multiqc_sample.out.report.toList()
 }
+
+workflow.onComplete {
+
+  log.info "========================================="
+  log.info "Duration:		$workflow.duration"
+  log.info "========================================="
+
+  def email_fields = [:]
+  email_fields['version'] = workflow.manifest.version
+  email_fields['session'] = workflow.sessionId
+  email_fields['runName'] = run_name
+  email_fields['Samples'] = params.samples
+  email_fields['success'] = workflow.success
+  email_fields['dateStarted'] = workflow.start
+  email_fields['dateComplete'] = workflow.complete
+  email_fields['duration'] = workflow.duration
+  email_fields['exitStatus'] = workflow.exitStatus
+  email_fields['errorMessage'] = (workflow.errorMessage ?: 'None')
+  email_fields['errorReport'] = (workflow.errorReport ?: 'None')
+  email_fields['commandLine'] = workflow.commandLine
+  email_fields['projectDir'] = workflow.projectDir
+  email_fields['script_file'] = workflow.scriptFile
+  email_fields['launchDir'] = workflow.launchDir
+  email_fields['user'] = workflow.userName
+  email_fields['Pipeline script hash ID'] = workflow.scriptId
+  email_fields['kit'] = TARGETS
+  email_fields['assembly'] = FASTA
+  email_fields['manifest'] = workflow.manifest
+  email_fields['summary'] = summary
+
+  email_info = ""
+  for (s in email_fields) {
+	email_info += "\n${s.key}: ${s.value}"
+  }
+
+  def output_d = new File( "${params.outdir}/pipeline_info/" )
+  if( !output_d.exists() ) {
+      output_d.mkdirs()
+  }
+
+  def output_tf = new File( output_d, "pipeline_report.txt" )
+  output_tf.withWriter { w -> w << email_info }	
+
+ // make txt template
+  def engine = new groovy.text.GStringTemplateEngine()
+
+  def tf = new File("$baseDir/assets/email_template.txt")
+  def txt_template = engine.createTemplate(tf).make(email_fields)
+  def email_txt = txt_template.toString()
+
+  // make email template
+  def hf = new File("$baseDir/assets/email_template.html")
+  def html_template = engine.createTemplate(hf).make(email_fields)
+  def email_html = html_template.toString()
+  
+  def subject = "Diagnostic exome analysis finished ($params.run_name)."
+
+  if (params.email) {
+
+        def mqc_report = null
+        try {
+                if (workflow.success && !params.skip_multiqc) {
+                        mqc_report = multiqc_report.getVal()
+                        if (mqc_report.getClass() == ArrayList){
+                                log.warn "[IKMB ExoSeq] Found multiple reports from process 'multiqc', will use only one"
+                                mqc_report = mqc_report[-1]
+                        }
+                }
+        } catch (all) {
+                log.warn "[IKMB ExoSeq] Could not attach MultiQC report to summary email"
+        }
+
+
+	def smail_fields = [ email: params.email, subject: subject, email_txt: email_txt, email_html: email_html, baseDir: "$baseDir", mqcFile: mqc_report, mqcMaxSize: params.maxMultiqcEmailFileSize.toBytes() ]
+	def sf = new File("$baseDir/assets/sendmail_template.txt")	
+    	def sendmail_template = engine.createTemplate(sf).make(smail_fields)
+    	def sendmail_html = sendmail_template.toString()
+
+	try {
+          if( params.plaintext_email ){ throw GroovyException('Send plaintext e-mail, not HTML') }
+          // Try to send HTML e-mail using sendmail
+          [ 'sendmail', '-t' ].execute() << sendmail_html
+        } catch (all) {
+          // Catch failures and try with plaintext
+          [ 'mail', '-s', subject, params.email ].execute() << email_txt
+        }
+
+  }
+
+}
+

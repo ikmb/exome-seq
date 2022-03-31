@@ -1,11 +1,11 @@
-process vep {
+process VEP {
 
 	label 'vep'
 
-        publishDir "${params.outdir}/${indivID}/${sampleID}/VEP/${cname}", mode: 'copy'
+        publishDir "${params.outdir}/VEP/${meta.variantcaller}", mode: 'copy'
 
         input:
-        tuple val(cname),val(indivID),val(sampleID),path(vcf),path(vcf_index)
+        tuple val(meta),path(vcf),path(vcf_index)
 
         output:
         path(vcf_vep)

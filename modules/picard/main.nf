@@ -1,4 +1,4 @@
-process interval_to_bed {
+process INTERVAL_TO_BED {
 
         executor 'local'
 
@@ -19,21 +19,21 @@ process interval_to_bed {
         """
 }
 
-process multi_metrics {
+process MULTI_METRICS {
 
         label 'picard'
 
-        publishDir "${params.outdir}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+        publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Processing/Picard_Metrics", mode: 'copy'
 
         input:
-        tuple val(indivID), val(sampleID), path(bam), path(bai)
+        tuple val(meta), path(bam), path(bai)
         path(baits)
 
         output:
         file("${prefix}*") 
 
         script:
-        prefix = indivID + "_" + sampleID + "."
+        prefix = "${meta.patient_id}_${meta.sample_id}."
 
         """
                 picard -Xmx5g CollectMultipleMetrics \
@@ -56,14 +56,14 @@ process multi_metrics {
         """
 }
 
-process hybrid_capture_metrics {
+process HYBRID_CAPTURE_METRICS {
 
         label 'picard'
 
-        publishDir "${params.outdir}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+        publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Processing/Picard_Metrics", mode: 'copy'
 
         input:
-        tuple val(indivID), val(sampleID), path(bam), path(bai)
+        tuple val(meta), path(bam), path(bai)
         path(targets)
         path(baits)
 
@@ -72,8 +72,8 @@ process hybrid_capture_metrics {
         path(outfile_per_target)
 
         script:
-        outfile = indivID + "_" + sampleID + ".hybrid_selection_metrics.txt"
-        outfile_per_target = indivID + "_" + sampleID + ".hybrid_selection_per_target_metrics.txt"
+        outfile = "${meta.patient_id}_${meta.sample_id}.hybrid_selection_metrics.txt"
+        outfile_per_target = "${meta.patient_id}_${meta.sample_id}.hybrid_selection_per_target_metrics.txt"
 
         """
         picard -Xmx${task.memory.toGiga()}G CollectHsMetrics \
@@ -88,22 +88,22 @@ process hybrid_capture_metrics {
         """
 }
 
-process oxo_metrics {
+process OXO_METRICS {
 
 
 	label 'picard'
 
-	publishDir "${params.outdir}/${indivID}/${sampleID}/Processing/Picard_Metrics", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Processing/Picard_Metrics", mode: 'copy'
 
 	input:
-	tuple val(indivID), val(sampleID), path(bam), path(bai)
+	tuple val(meta), path(bam), path(bai)
 	path(targets)
 
 	output:
 	path(outfile)
 
 	script:
-	outfile = indivID + "_" + sampleID + ".OxoG_metrics.txt"
+	outfile = "${meta.patient_id}_${meta.sample_id}.OxoG_metrics.txt"
 
 	"""
 
@@ -117,12 +117,12 @@ process oxo_metrics {
         """
 }
 
-process panel_coverage {
+process PANEL_COVERAGE {
 
         publishDir "${params.outdir}/Summary/Panel/PanelCoverage", mode: "copy"
 
         input:
-        tuple val(indivID),val(sampleID),file(bam),file(bai),file(panel)
+        tuple val(meta),file(bam),file(bai),file(panel)
         path(targets)
 
         output:
@@ -132,9 +132,9 @@ process panel_coverage {
 
         script:
         panel_name = panel.getSimpleName()
-        coverage = indivID + "_" + sampleID + "." +  panel_name  + ".hs_metrics.txt"
-        target_coverage = indivID + "_" + sampleID + "." +  panel_name  + ".per_target.hs_metrics.txt"
-        target_coverage_xls = indivID + "_" + sampleID + "." + panel_name + ".per_target.hs_metrics_mqc.xlsx"
+        coverage = "${meta.patient_id}_${meta.sample_id}.${panel_name}.hs_metrics.txt"
+        target_coverage = "${meta.patient_id}_${meta.sample_id}.${panel_name}.per_target.hs_metrics.txt"
+        target_coverage_xls = "${meta.patient_id}_${meta.sample_id}.${panel_name}.per_target.hs_metrics_mqc.xlsx"
 
         // optionally support a kill list of known bad exons
         def options = ""

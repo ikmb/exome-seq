@@ -1,4 +1,4 @@
-process merge_multi_lane {
+process MERGE_MULTI_LANE {
 
         input:
         tuple val(meta), path(aligned_bam_list)
@@ -15,7 +15,7 @@ process merge_multi_lane {
         """
 }
 
-process bam_index {
+process BAM_INDEX {
 
         input:
         tuple val(meta), path(bam)
@@ -32,7 +32,7 @@ process bam_index {
 
 }
 
-process dedup {
+process DEDUP {
 
         publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/", mode: 'copy'
 
@@ -45,7 +45,7 @@ process dedup {
         path(outfile_metrics), emit: report
 
         script:
-        prefix = meta.patient_id + "_" + meta.sample_id + ".dedup"
+        def prefix = "${meta.patient_id}_${meta.sample_id}.dedup"
         outfile_bam = prefix + ".bam"
         outfile_bai = prefix + ".bam.bai"
         outfile_md5 = prefix + ".bam.md5"

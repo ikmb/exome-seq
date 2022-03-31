@@ -1,5 +1,5 @@
-include { interval_to_bed } from "./../../modules/picard/main.nf" params(params)
-include { bed_to_bedgz } from "./../../modules/bed/main.nf" params(params)
+include { INTERVAL_TO_BED } from "./../../modules/picard/main.nf" params(params)
+include { BED_TO_BEDGZ } from "./../../modules/bed/main.nf" params(params)
 
 workflow CONVERT_BED {
 	
@@ -7,11 +7,11 @@ workflow CONVERT_BED {
 		intervals
 
 	main:
-		interval_to_bed(intervals)
-		bed_to_bedgz(interval_to_bed.out)
+		INTERVAL_TO_BED(intervals)
+		BED_TO_BEDGZ(INTERVAL_TO_BED.out)
 
 	emit:
-		bed = interval_to_bed.out
-		bed_gz = bed_to_bedgz.out
+		bed = INTERVAL_TO_BED.out
+		bed_gz = BED_TO_BEDGZ.out
 
 }

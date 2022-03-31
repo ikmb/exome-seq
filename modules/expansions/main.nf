@@ -1,21 +1,21 @@
-process expansion_hunter {
+process EXPANSION_HUNTER {
 
 	label 'expansion_hunter'
 
-	publishDir "${params.outdir}/${indivID}/${sampleID}/ExpansionHunter", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/ExpansionHunter", mode: 'copy'
 
 	input:
-	tuple val(indivID), val(sampleID), path(bam),path(bai)
+	tuple val(meta), path(bam),path(bai)
 	path(catalog)
 
 	output:
-	tuple val(indivID), val(sampleID),path(expansion_report)
+	tuple val(meta),path(expansion_report)
 	path(expansion_vcf)
 
 	script:
-	expansion_report = indivID + "_" + sampleID + ".expansion_report.json"
-	expansion_vcf = indivID + "_" + sampleID + ".expansion_report.vcf"
-	prefix = indivID + "_" + sampleID + ".expansion_report"
+	expansion_report = "${meta.patient_id}_${meta.sample_id}.expansion_report.json"
+	expansion_vcf = "${meta.patient_id}_${meta.sample_id}.expansion_report.vcf"
+	prefix = "${meta.patient_id}_${meta.sample_id}.expansion_report"
 
 	"""
 		ExpansionHunter --reads $bam --reference $params.fasta --variant-catalog $catalog --output-prefix $prefix
@@ -23,12 +23,12 @@ process expansion_hunter {
 
 }
 
-process  expansions2xls {
+process  EXPANSIONS2XLSX {
 
-	publishDir "${params.outdir}/${indivID}/${sampleID}/ExpansionHunter", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/ExpansionHunter", mode: 'copy'
 
 	input:
-	tuple val(indivID), val(sampleID),path(report)
+	tuple val(meta),path(report)
 
 	output:
 	path(expansion_xls)

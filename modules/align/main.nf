@@ -1,4 +1,4 @@
-process align {
+process ALIGN {
 
 	//scratch true	
 
@@ -8,10 +8,11 @@ process align {
 	output:
 	tuple val(meta), path(bam), emit: bam
 	val(sample), emit: sample_name
+        val(meta), emit: meta_data
     
 	script:
-	bam = meta.sample_id + "_" + meta.library_id + "_" + meta.readgroup_id + ".aligned.fm.bam"	
-	sample = meta.patient_id + "_" + meta.sample_id
+	bam = "${meta.sample_id}_${meta.library_id}_${meta.readgroup_id}.aligned.fm.bam"
+	sample = "${meta.patient_id}_${meta.sample_id}"
 
 	def aligner = "bwa"
 	def options = ""

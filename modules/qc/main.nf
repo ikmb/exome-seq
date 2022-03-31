@@ -1,11 +1,11 @@
 // a simple sex check looking at coverage of the SRY gene
-process sex_check {
+process SEX_CHECK {
 
         input:
         path(bams)
 
         output:
-        path(sex_check_yaml)
+        path(sex_check_yaml), emit: yaml
 
         script:
         sex_check_yaml = "sex_check_mqc.yaml"

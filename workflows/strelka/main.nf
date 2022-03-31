@@ -1,43 +1,85 @@
-include { Strelka ; Strelka_JointCalling } from './../../modules/strelka/main.nf'
-include { merge_vcf; vcf_get_sample } from './../../modules/vcf/main.nf'
+include { STRELKA ; STRELKA_JOINTCALLING } from './../../modules/strelka/main.nf'
+include { VCF_ADD_HEADER; VCF_INDEX; VCF_ADD_DBSNP; VCF_FILTER_PASS; MERGE_VCF; VCF_GET_SAMPLE } from './../../modules/vcf/main.nf'
 
 workflow STRELKA_VARIANT_CALLING {
 
+        ch_merged_vcf = Channel.empty()
+        ch_vcf = Channel.empty()
+
 	take:
 	bam
-	fasta
 	bed
 	sample_names
 
 	main:
 
-	if (params.joint_calling) {	
-		Strelka_JointCalling(
-			bam,
-			fasta.collect(),
-			bed.collect()
-		)
-		vcf_merged = Strelka_JointCalling.out.vcf
-		vcf_get_sample(
-			Strelka_JointCalling.out.vcf.collect(),
-			sample_names
-		).set { vcf }
+	STRELKA(
+		bam,
+		bed.collect()
+	)
+	VCF_INDEX(STRELKA.out.vcf)
+        VCF_FILTER_PASS(VCF_INDEX.out.vcf)
+        VCF_ADD_DBSNP(VCF_FILTER_PASS.out.vcf)
+	VCF_ADD_HEADER(VCF_ADD_DBSNP.out.vcf.map { meta,v,t ->
+			new_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "STRELKA" ]
+			tuple(new_meta,v,t)
+		}
+	)
+	single_vcf = ch_vcf.mix(VCF_ADD_HEADER.out.vcf)
 
-	} else {
-		Strelka(
-			bam,
-			fasta.collect(),
-			bed.collect()
-		)
-		vcf = Strelka.out.vcf
-		vcf_merged = merge_vcf(
-			Strelka.out.vcf.map { m,v ->
-				tuple(meta.caller,v)
-			}.groupTuple().collect()
-		)
-	}
+        def smeta = [ id: "all", sample_id: "Bcftools", patient_id: "MergedCallset", variantcaller: "STRELKA" ]
+	MERGE_VCF(
+		VCF_FILTER_PASS.out.vcf.map { m,v,t -> [smeta,v,t] }.groupTuple()
+	)
+        ch_merged_vcf = ch_merged_vcf.mix(MERGE_VCF.out.vcf)
+			
+	emit:
+	vcf = single_vcf
+	vcf_multi = ch_merged_vcf
+}
+
+workflow STRELKA_MULTI_CALLING {
+
+	take:
+	bams
+	bed
+	metas
+
+	main:
+
+	ch_merged_vcf = Channel.empty()
+        ch_vcf = Channel.empty()
+    
+        bams.map { b,i -> [ [id: "merge"],b,i ] }
+        .groupTuple()
+        .set { ch_bams }
+
+	STRELKA_JOINTCALLING(
+            ch_bams.map { m,b,i -> [ b,i]},
+            bed.collect()
+        )
+
+        ch_merged_vcf = ch_merged_vcf.mix(
+		STRELKA_JOINTCALLING.out.vcf.map { v,t -> [ [id: "all", sample_id: "STRELKA_JOINT_CALLING", patient_id: "MergedCallset", variantcaller: "STRELKA"],v,t]}
+	)
+
+        VCF_GET_SAMPLE(
+                ch_merged_vcf.collect(),
+		metas
+        ).set { svcf }
+
+        svcf.map { m,v,t ->
+                new_meta = m.clone()
+                new_meta.variantcaller = "STRELKA"
+                tuple(new_meta,v,t)
+        }.set { ch_vcf_header }
+
+        VCF_ADD_HEADER(ch_vcf_header)
+
+        single_vcf = ch_vcf.mix(VCF_ADD_HEADER.out.vcf)
 
 	emit:
-	vcf = Strelka.out.vcf
-	vcf_multi = vcf_merged
+	vcf = single_vcf
+	vcf_multi = ch_merged_vcf
 }
+

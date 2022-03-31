@@ -1,6 +1,6 @@
-include { trim } from "./../../modules/trim/main.nf" params(params)
-include { align } from "./../../modules/align/main.nf" params(params)
-include { merge_multi_lane; bam_index ; dedup } from "./../../modules/samtools/main.nf" params(params)
+include { TRIM } from "./../../modules/trim/main.nf" params(params)
+include { ALIGN } from "./../../modules/align/main.nf" params(params)
+include { MERGE_MULTI_LANE; BAM_INDEX ; DEDUP } from "./../../modules/samtools/main.nf" params(params)
 
 workflow TRIM_AND_ALIGN {
 
@@ -14,28 +14,33 @@ workflow TRIM_AND_ALIGN {
 		.map { create_fastq_channel(it) }
 		.set {reads }
 
-		trim(
+		TRIM(
 			reads
                 )
-		align( trim.out.reads )
-		bam_mapped = align.out.bam.map { meta, bam ->
-			tuple( meta.sample_id, meta, bam)
-		}.groupTuple().map { mid,meta,bam -> [ meta, bam ] }
+		ALIGN( TRIM.out.reads )
+		bam_mapped = ALIGN.out.bam.map { meta, bam ->
+                        new_meta = [:]
+			new_meta.patient_id = meta.patient_id
+			new_meta.sample_id = meta.sample_id
+			def groupKey = meta.sample_id
+			tuple( groupKey, new_meta, bam)
+		}.groupTuple(by: [0,1]).map { g ,new_meta ,bam -> [ new_meta, bam ] }
 			
 		bam_mapped.branch {
 		        single:   it[1].size() == 1
 		        multiple: it[1].size() > 1
 	        }.set { bam_to_merge }
 
-		merge_multi_lane( bam_to_merge.multiple )
-		bam_index(merge_multi_lane.out.bam.mix( bam_to_merge.single ))
-		dedup(bam_index.out.bam)
+		MERGE_MULTI_LANE( bam_to_merge.multiple )
+		BAM_INDEX(MERGE_MULTI_LANE.out.bam.mix( bam_to_merge.single ))
+		DEDUP(BAM_INDEX.out.bam)
 		
 	emit:
-		bam = dedup.out.bam
-		qc = trim.out.json
-		dedup_report = dedup.out.report
-		sample_names = align.out.sample_name.unique()
+		bam = DEDUP.out.bam
+		qc = TRIM.out.json
+		dedup_report = DEDUP.out.report
+		sample_names = ALIGN.out.sample_name.unique()
+		metas = ALIGN.out.meta_data
 }
 
 def create_fastq_channel(LinkedHashMap row) {
@@ -43,8 +48,8 @@ def create_fastq_channel(LinkedHashMap row) {
     // IndivID;SampleID;libraryID;rgID;rgPU;platform;platform_model;Center;Date;R1;R2
 
     def meta = [:]
-    meta.patient_id = row.indivID
-    meta.sample_id = row.sampleID
+    meta.patient_id = row.IndivID
+    meta.sample_id = row.SampleID
     meta.library_id = row.libraryID
     meta.readgroup_id = row.rgID
     meta.center = row.Center

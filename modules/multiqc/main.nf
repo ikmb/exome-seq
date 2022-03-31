@@ -1,4 +1,4 @@
-process multiqc {
+process MULTIQC {
 
     publishDir "${params.outdir}/Summary/${cname}", mode: 'copy'
 
@@ -7,7 +7,7 @@ process multiqc {
     path('*')
 
     output:
-    file("${cname}_multiqc.html")
+    path("${cname}_multiqc.html"), emit: report
 
     script:
 
@@ -19,7 +19,7 @@ process multiqc {
     """
 }
 
-process multiqc_panel {
+process MULTIQC_PANEL {
 
         publishDir "${params.outdir}/Summary/Panel", mode: "copy"
 

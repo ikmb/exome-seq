@@ -1,4 +1,4 @@
-process bed_to_bedgz {
+process BED_TO_BEDGZ {
 
         executor 'local'
 
