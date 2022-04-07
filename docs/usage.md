@@ -6,15 +6,15 @@ The following command will execute this pipeline; the options will be discussed 
 
 If you are at the IKMB, the following will work:
 
-`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com`
+`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com` --tools 'strelka,deepvariant,manta' 
 
 If you need to run a specific "release" of the pipeline, you can do:
 
-`nextflow run ikmb/exome-seq -r 1.5 --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com`
+`nextflow run ikmb/exome-seq -r 4.1 --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com` --tools 'strelka,deepvariant,manta'
 
 If you try to run the pipeline on another system, you will need to configure a profile (see the installation instructions):
 
-`nextflow run /path/to/main.nf --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com' -profile your_profile`
+`nextflow run /path/to/main.nf --samples Samples.csv --assembly GRCh38 --kit xGen --tools 'deepvariant,expansionhunter,manta' --email 'hello@gmail.com' -profile your_profile`
 
 ## Mandatory arguments
 
@@ -36,6 +36,25 @@ The following human genome assembly versions are supported on MedCluster (see re
 - GRCh37 (the 1000 genomes reference with decoys)
 - GRCh38 (the current human reference assembly without ALT loci)
 - hg19 (another version of GRCh37, also referred to as the UCSC reference)
+
+### `--tools`
+The pipeline offers various tools for the analysis of variant information. Specifically:
+
+* Deepvariant (deepvariant)
+* Strelka (strelka)
+* Manta (manta)
+* Expansion Hunter (expansionhunter)
+
+Your tools of choice can be provided like so:
+
+`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --tools 'deepvariant,manta,expansionhunter,strelka'`
+
+If no tools are selected, the pipeline will stop after the deduplication of read alignments. 
+
+### `--joint_calling`
+The pipeline produces multi-vcf files through merging of the single-sample callsets. However, you can alternatively request for the samples to be called jointly, i.e. all in one process. This will
+cause individual callsets to take into consideration information from other samples, and result in numerous ref calls in the individual VCF files. An advantage of this approach is 
+that individual sites can obtain support from multiple samples. This is typically done when analysing cohorts.
 
 ### `--kit`
 Each exome capture kit has a target and a bait definition, i.e. information about the exons it enriches and the specific RNA bait sequences that are used 
@@ -87,13 +106,18 @@ This option allows the user to run non-defined panels. Must be in picard interva
 genome assembly to run against (use with care!!!). Usually, you would start with a target list in BED format and convert this into an interval list
 using the Picard Tools "BedToIntervalList" command.
 
-### `--cnv`
+### `--cnv` [ true | false (default) ]
 Enable CNV calling using CNVkit. This option requires a pre-configured CNVkit reference matching the kit and assembly used for capture and mapping, respectively. Currently, this is only available for GRCh38 and xGen_v2. Alternatively, an external reference can be provided using the developer option `--cnv_ref`.
 
-### `--vep`
+The following regions are ignored for this analysis:
+
+Exclude regions: https://www.encodeproject.org/annotations/ENCSR636HFF/
+Black list regions: https://github.com/Boyle-Lab/Blacklist/
+
+### `--vep` [ true | false (default) ]
 Run variant effect prediction on the final VCF file(s). This option requires a locally available EnsEMBL cache and some databases (see cluster profiles for examples). 
 
-## `--joint_calling` [ true (default) | false ]
+### `--joint_calling` [ true (default) | false ]
 Run joint calling on the samples rather than simply merging them down into one final VCF without generating sample-overarching genotyping for all possible sites. 
 
 ### `--kill`
@@ -116,6 +140,17 @@ Create CRAM instead of BAM files to save space. Note that CRAM files are slower 
 ### `--run_name`
 Give this run a meaningful name (like a LIMS or project ID)
 
+## Expert options
+
+### `--cnv_gz`
+If you wish to overwrite the default CNVKit reference file, you can provide it with this option. This file must be compressed with gzip (.cnn.gz) and match the assembly and exome kit!
+
+### `--cnvkit_mode` [ default = "hmm-germline" ]
+The segmentation mode for CNV intervals. Default is hmm-germline. Other options are documented [here](https://cnvkit.readthedocs.io/en/stable/pipeline.html#segment).
+
+### `--glnexus_config` [ default = "DeepVariant" ]
+The filter profile for gVCF merging in GLXNexus (DeepVariant). The default (DeepVariant) is fairly unconstrained. Other options are DeepVariantWGS and DeepVariantWES.
+
 ### `--fasta`
 Provide path to a genome sequence in FASTA format (default: false, uses a pre-configured genome)
 
@@ -129,6 +164,3 @@ Provide path to a dbSNP reference VCF file for variant filtering (default: false
 
 ### `--panel_coverage`
 This option changes the cut-off for reporting lowly covered panel intervals (default: 10)
-
-### `--cnv_ref`
-Option to pass a custom CNVkit reference (cnn.gz) to the pipeline. This reference must match both the exom kit and assembly used! File must be compressed with gzip. 
