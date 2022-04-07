@@ -1,5 +1,6 @@
 include { STRELKA ; STRELKA_JOINTCALLING } from './../../modules/strelka/main.nf'
-include { VCF_ADD_HEADER; VCF_INDEX; VCF_ADD_DBSNP; VCF_FILTER_PASS; MERGE_VCF; VCF_GET_SAMPLE } from './../../modules/vcf/main.nf'
+include { VCF_GATK_SORT ; VCF_ADD_HEADER; VCF_INDEX; VCF_ADD_DBSNP; VCF_FILTER_PASS; MERGE_VCF; VCF_GET_SAMPLE } from './../../modules/vcf/main.nf'
+include { VCF_INDEL_NORMALIZE } from './../../modules/bcftools/main.nf'
 
 workflow STRELKA_VARIANT_CALLING {
 
@@ -27,9 +28,19 @@ workflow STRELKA_VARIANT_CALLING {
 	)
 	single_vcf = ch_vcf.mix(VCF_ADD_HEADER.out.vcf)
 
-        def smeta = [ id: "all", sample_id: "Bcftools", patient_id: "MergedCallset", variantcaller: "STRELKA" ]
+	// Fiddly work-around to determine whether we have 1 or multiple vcfs. No merging when n=1
+	VCF_FILTER_PASS.out.vcf.map { m,v,t ->
+		def new_meta = [ id: "all", sample_id: "UNDEFINED", patient_id: "UNDEFINED", variantcaller: "STRELKA" ]
+		tuple(new_meta,v,t)
+	}
+	.groupTuple()
+	.branch { m,v,t ->
+                        single: v.size() == 1
+                        multi: v.size() > 1
+        }.set { ch_grouped_vcfs }
+
 	MERGE_VCF(
-		VCF_FILTER_PASS.out.vcf.map { m,v,t -> [smeta,v,t] }.groupTuple()
+                ch_grouped_vcfs.multi.map { m,v,t -> [ [ id: "all", sample_id: "Bcftools", patient_id: "MergedCallset", variantcaller: "STRELKA"],v,t] }
 	)
         ch_merged_vcf = ch_merged_vcf.mix(MERGE_VCF.out.vcf)
 			
@@ -58,9 +69,15 @@ workflow STRELKA_MULTI_CALLING {
             ch_bams.map { m,b,i -> [ b,i]},
             bed.collect()
         )
+	VCF_FILTER_PASS(
+		STRELKA_JOINTCALLING.out.vcf.map { v,t -> [ [id: "all", sample_id: "STRELKA_JOINT_CALLING", patient_id: "MergedCallset", variantcaller: "STRELKA"],v,t]}
+	)
+	VCF_GATK_SORT(
+		VCF_FILTER_PASS.out.vcf
+	)
 
         ch_merged_vcf = ch_merged_vcf.mix(
-		STRELKA_JOINTCALLING.out.vcf.map { v,t -> [ [id: "all", sample_id: "STRELKA_JOINT_CALLING", patient_id: "MergedCallset", variantcaller: "STRELKA"],v,t]}
+		VCF_GATK_SORT.out.vcf
 	)
 
         VCF_GET_SAMPLE(
@@ -68,7 +85,11 @@ workflow STRELKA_MULTI_CALLING {
 		metas
         ).set { svcf }
 
-        svcf.map { m,v,t ->
+	VCF_INDEL_NORMALIZE(
+		svcf
+	)
+
+        VCF_INDEL_NORMALIZE.out.vcf.map { m,v,t ->
                 new_meta = m.clone()
                 new_meta.variantcaller = "STRELKA"
                 tuple(new_meta,v,t)

@@ -18,6 +18,27 @@ process MERGE_VCF {
 
 }
 
+process VCF_GATK_SORT {
+
+	label 'picard'
+
+	input:
+	tuple val(meta),path(vcf),path(tbi)
+
+	output:
+	tuple val(meta),path(vcf_sorted),path(tbi_sorted), emit: vcf
+
+	script:
+	vcf_sorted = vcf.getSimpleName() + ".sorted.vcf.gz"
+	tbi_sorted = vcf_sorted + ".tbi"
+
+	"""
+		picard SortVcf I=$vcf O=$vcf_sorted CREATE_INDEX=true 
+		
+	"""
+
+}
+	
 process VCF_GET_SAMPLE {
 
         label 'gatk'
@@ -31,13 +52,11 @@ process VCF_GET_SAMPLE {
 
         script:
         def prefix = meta.patient_id + "_" + meta.sample_id
-        vcf_sample = prefix + "-" + meta.variantcaller + ".split.vcf.gz"
+        vcf_sample = prefix + "-" + m_f.variantcaller + ".split.vcf.gz"
         vcf_sample_index = vcf_sample + ".tbi"
 
         """
-                gatk SelectVariants --remove-unused-alternates --exclude-non-variants -V $vcf -sn $prefix -O variants.vcf.gz -OVI
-                gatk LeftAlignAndTrimVariants -R $params.fasta -V variants.vcf.gz -O $vcf_sample
-                rm variants.vcf.gz
+                gatk SelectVariants --remove-unused-alternates --exclude-non-variants -V $vcf -sn $prefix -O $vcf_sample -OVI
 
         """
 

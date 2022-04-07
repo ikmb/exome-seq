@@ -69,15 +69,15 @@ process cnvkit_coverage {
 
 	label 'cnvkit'
 
-	publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Processing", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit/Processing", mode: 'copy'
 
 	input:
-	tuple val(indivID), val(sampleID), path(bam),path(bai)
+	tuple val(meta), path(bam),path(bai)
 	tuple path(targets),path(antitargets)
 
 	output:
 	tuple path(cnn),path(cnn_anti)
-	tuple val(indivID),val(sampleID),path(cnn),path(cnn_anti)
+	tuple val(meta),path(cnn),path(cnn_anti)
 
 	script:
 	cnn = bam.getBaseName() + ".targetcoverage.cnn"
@@ -95,11 +95,11 @@ process cnvkit_process {
 
 	label 'cnvkit'
 	input:
-	tuple val(indivID),val(sampleID),path(cnn),path(cnn_anti)
+	tuple val(meta),path(cnn),path(cnn_anti)
 	path(ref)
 
 	output:
-	tuple val(indivID),val(sampleID),path(cnr),path(cns)
+	tuple val(meta),path(cnr),path(cns)
 
 	script:
 	cns = cnn.getBaseName() + ".cns"
@@ -107,7 +107,7 @@ process cnvkit_process {
 	
 	"""
 		cnvkit.py fix $cnn $cnn_anti $ref -o $cnr
-		cnvkit.py segment -p ${task.cpus} -m hmm-germline $cnr -o $cns
+		cnvkit.py segment -p ${task.cpus} -m ${params.cnvkit_mode} $cnr -o $cns
 	"""
 
 }
@@ -117,13 +117,13 @@ process cnvkit_segmetrics {
 
 	label 'cnvkit'
 
-	publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Processing", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit/Processing", mode: 'copy'
 
 	input:
-	tuple val(indivID),val(sampleID),path(cnr),path(cns)
+	tuple val(meta),path(cnr),path(cns)
 
 	output:
-	tuple val(indivID),val(sampleID),path(cnr),path(seg_cns)
+	tuple val(meta),path(cnr),path(seg_cns)
 
 	script:
 	seg_cns = cns.getBaseName() + ".segmetrics.cns"
@@ -138,13 +138,13 @@ process cnvkit_call {
 
 	label 'cnvkit'
 
-	publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Processing", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit/Processing", mode: 'copy'
 
 	input:
-	tuple val(indivID),val(sampleID),path(cnr),path(cns)
+	tuple val(meta),path(cnr),path(cns)
 
 	output:
-	tuple val(indivID),val(sampleID),path(cnr),path(call_cns)
+	tuple val(meta),path(cnr),path(call_cns)
 
 	script:
 	call_cns = cns.getBaseName() + ".call.cns"
@@ -160,10 +160,10 @@ process cnvkit_genemetrics {
 
 	label 'cnvkit'
 
-	publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Metrics", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit/Metrics", mode: 'copy'
 
 	input:
-	tuple val(indivID), val(sampleID), path(cnr),path(cns)
+	tuple val(meta), path(cnr),path(cns)
 
 	output:
 	path(metrics)
@@ -173,7 +173,7 @@ process cnvkit_genemetrics {
 	metrics = cnr.getBaseName() + ".genemetrics.txt"
 
 	"""
-		cnvkit.py genemetrics -s $cns $cnr -t 0.3 > $metrics
+		cnvkit.py genemetrics -s $cns $cnr -t 0.2 -m 4 > $metrics
 	"""
 
 }
@@ -183,10 +183,10 @@ process cnvkit_breaks {
 
 	label 'cnvkit'
 
-	publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Metrics", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit/Metrics", mode: 'copy'
 
 	input:
-	tuple val(indivID),val(sampleID),path(cnr),path(cns)
+	tuple val(meta),path(cnr),path(cns)
 
 	output:
 	path(breaks)
@@ -206,10 +206,10 @@ process cnvkit_export {
 
 	label 'cnvkit'
 
-	publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit", mode: 'copy'
 
 	input:
-	tuple val(indivID), val(sampleID),path(cnr),path(call_cns)
+	tuple val(meta),path(cnr),path(call_cns)
 
 	output:
 	tuple path(bed),path(vcf)
@@ -220,7 +220,7 @@ process cnvkit_export {
 
 	"""
 		cnvkit.py export bed $call_cns -o $bed
-		cnvkit.py export vcf $call_cns -i $sampleID -o $vcf
+		cnvkit.py export vcf $call_cns -i $meta.sample_id -o $vcf
 	"""
 
 }
@@ -229,10 +229,10 @@ process cnvkit_plots {
 
 	label 'cnvkit'
 
-	publishDir "${params.outdir}/${indivID}/${sampleID}/CnvKit/Plots", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit/Plots", mode: 'copy'
 
 	input:
-	tuple val(indivID),val(sampleID),path(cnr),path(call_cns)
+	tuple val(meta),path(cnr),path(call_cns)
 
 	output:
 	path(scatter)

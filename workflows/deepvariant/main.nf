@@ -10,6 +10,7 @@ workflow DV_VARIANT_CALLING {
 		deepvariant_index
 
 	main:
+                merged_vcf = Channel.empty()
 		
 		DEEPVARIANT(
 			bam,
@@ -26,17 +27,30 @@ workflow DV_VARIANT_CALLING {
 			}
 		)
 
+		// Fiddly work-around to determine whether we have 1 or multiple vcfs. No merging when n=1
+		VCF_FILTER_PASS.out.vcf.map { m,v,t ->
+			new_meta = [ id: "all", sample_id: "UNDEFINED", patient_id: "UNDEFINED", variantcaller: "DEEPVARIANT" ]
+			tuple(new_meta,v,t)
+		}
+		.groupTuple()
+		.branch { m,v,t ->
+			single: v.size() == 1
+			multi: v.size() > 1
+		}.set { ch_grouped_vcfs }
+		
 		// Joint calling with GLNexus - or simple merging
                 if (params.joint_calling) {
 	                MERGE_GVCFS(DEEPVARIANT.out.gvcf.collect(),bed)
-        	        merged_vcf = MERGE_GVCFS.out
+        	        joint_vcf = MERGE_GVCFS.out
                         def j_meta = [ id: "JointCalling", sample_id: "GLNEXUS_DEEPVARIANT", patient_id: "MergedCallset", variantcaller: "DEEPVARIANT" ]
-                        merged_vcf = merged_vcf.map { v,t -> [ j_meta,v,t]}
+                        merged_vcf = merged_vcf.mix(
+				joint_vcf.map { v,t -> tuple(j_meta,v,t) }
+			)
 	        } else {
        	                MERGE_VCF(
-				VCF_FILTER_PASS.out.vcf.map { m,v,t -> [ [ id: "Deepvariant", sample_id: "Bcftools", patient_id: "MergedCallset", variantcaller: "DEEPVARIANT"],v,t ] }.groupTuple()
+  				ch_grouped_vcfs.multi.map { m,v,t -> [ [ id: "Deepvariant", sample_id: "Bcftools", patient_id: "MergedCallset", variantcaller: "DEEPVARIANT"],v,t] }
 			)
-               	        merged_vcf = MERGE_VCF.out.vcf
+               	        merged_vcf = merged_vcf.mix(MERGE_VCF.out.vcf)
 	        }
 
 	emit:

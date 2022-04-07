@@ -10,7 +10,7 @@ If you are at the IKMB, the following will work:
 
 If you need to run a specific "release" of the pipeline, you can do:
 
-`nextflow run ikmb/exome-seq -r 4.1 --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com`
+`nextflow run ikmb/exome-seq -r 4.1 --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com` --tools 'strelka,deepvariant,manta'
 
 If you try to run the pipeline on another system, you will need to configure a profile (see the installation instructions):
 
@@ -140,6 +140,17 @@ Create CRAM instead of BAM files to save space. Note that CRAM files are slower 
 ### `--run_name`
 Give this run a meaningful name (like a LIMS or project ID)
 
+## Expert options
+
+### `--cnv_gz`
+If you wish to overwrite the default CNVKit reference file, you can provide it with this option. This file must be compressed with gzip (.cnn.gz) and match the assembly and exome kit!
+
+### `--cnvkit_mode` [ default = "hmm-germline" ]
+The segmentation mode for CNV intervals. Default is hmm-germline. Other options are documented [here](https://cnvkit.readthedocs.io/en/stable/pipeline.html#segment).
+
+### `--glnexus_config` [ default = "DeepVariant" ]
+The filter profile for gVCF merging in GLXNexus (DeepVariant). The default (DeepVariant) is fairly unconstrained. Other options are DeepVariantWGS and DeepVariantWES.
+
 ### `--fasta`
 Provide path to a genome sequence in FASTA format (default: false, uses a pre-configured genome)
 
@@ -153,6 +164,3 @@ Provide path to a dbSNP reference VCF file for variant filtering (default: false
 
 ### `--panel_coverage`
 This option changes the cut-off for reporting lowly covered panel intervals (default: 10)
-
-### `--cnv_ref`
-Option to pass a custom CNVkit reference (cnn.gz) to the pipeline. This reference must match both the exom kit and assembly used! File must be compressed with gzip. 

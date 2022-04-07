@@ -42,7 +42,7 @@ params.fasta_gzfai = file(params.genomes[ params.assembly ].gzfai, checkIfExists
 params.fasta_gzi = file(params.genomes[ params.assembly ].gzi, checkIfExists: true)
 params.dict = file(params.genomes[ params.assembly ].dict, checkIfExists: true)
 params.dbsnp = file(params.genomes[ params.assembly ].dbsnp, checkIfExists: true)
-params.cnv_ref = file(params.genomes[params.assembly ].kits[params.kit].cnv_ref)
+params.cnv_ref = params.cnv_gz ?: file(params.genomes[params.assembly ].kits[params.kit].cnv_ref)
 
 ch_fasta = Channel.fromPath(params.fasta, checkIfExists: true)
 
@@ -172,6 +172,7 @@ if ("cnvkit" in tools) {
 	summary['CNVkit'] = [:]
 	summary['CNVkit']['BlackList'] = params.cnv_blacklist
 	summary['CNVkit']['ExcludeRegions'] = params.cnv_exclusion
+	summary['Reference'] = params.cnv_ref
 }
 summary['IntervallPadding'] = params.interval_padding
 summary['SessionID'] = workflow.sessionId
@@ -251,7 +252,7 @@ workflow {
 		
 		// CNV Calling
 		if ('cnvkit' in tools) {
-			CNVKIT(padded_bed,bam,cnv_cnn)
+			CNVKIT(padded_bed,bam,file(params.cnv_ref))
 		}
 
 		// SV calling with Manta

@@ -11,7 +11,7 @@ process SEX_CHECK {
         sex_check_yaml = "sex_check_mqc.yaml"
 
         """
-                parse_sry_coverage.pl --fasta ${params.fasta} --region ${params.sry_bed} > $sex_check_yaml
+                parse_sry_coverage.pl --fasta ${params.fasta} --region ${params.sry_region} > $sex_check_yaml
         """
 }
 
