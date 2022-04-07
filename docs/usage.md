@@ -6,7 +6,7 @@ The following command will execute this pipeline; the options will be discussed 
 
 If you are at the IKMB, the following will work:
 
-`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com` --tools 'strelka,deepvariant,manta' 
+`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com' --tools 'strelka,deepvariant,manta'` 
 
 If you need to run a specific "release" of the pipeline, you can do:
 
@@ -40,14 +40,19 @@ The following human genome assembly versions are supported on MedCluster (see re
 ### `--tools`
 The pipeline offers various tools for the analysis of variant information. Specifically:
 
-* Deepvariant (deepvariant)
-* Strelka (strelka)
-* Manta (manta)
-* Expansion Hunter (expansionhunter)
+1. SNPS and INDELs
+   - [Deepvariant](https://github.com/google/deepvariant) (deepvariant)
+   - [Strelka](https://github.com/Illumina/strelka) (strelka)
+2. Structural variants
+   - [Manta](https://github.com/Illumina/manta) (manta)
+3. Repeat expansions
+   - [Expansion Hunter](https://github.com/Illumina/ExpansionHunter) (expansionhunter)
+4. Copy number variants
+   - [CNVkit](https://cnvkit.readthedocs.io/en/stable/) (cnvkit)
 
 Your tools of choice can be provided like so:
 
-`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --tools 'deepvariant,manta,expansionhunter,strelka'`
+`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --tools 'deepvariant,manta,expansionhunter,strelka,cnvkit'`
 
 If no tools are selected, the pipeline will stop after the deduplication of read alignments. 
 
@@ -106,14 +111,6 @@ This option allows the user to run non-defined panels. Must be in picard interva
 genome assembly to run against (use with care!!!). Usually, you would start with a target list in BED format and convert this into an interval list
 using the Picard Tools "BedToIntervalList" command.
 
-### `--cnv` [ true | false (default) ]
-Enable CNV calling using CNVkit. This option requires a pre-configured CNVkit reference matching the kit and assembly used for capture and mapping, respectively. Currently, this is only available for GRCh38 and xGen_v2. Alternatively, an external reference can be provided using the developer option `--cnv_ref`.
-
-The following regions are ignored for this analysis:
-
-Exclude regions: https://www.encodeproject.org/annotations/ENCSR636HFF/
-Black list regions: https://github.com/Boyle-Lab/Blacklist/
-
 ### `--vep` [ true | false (default) ]
 Run variant effect prediction on the final VCF file(s). This option requires a locally available EnsEMBL cache and some databases (see cluster profiles for examples). 
 
@@ -125,17 +122,11 @@ For panel-based statistics, it is desirable to mark any exons that are known to 
 resulting multimapping (MAPQ = 0). This options allows the user to provide a list of panel targets that are to be listed as "KNOWN BAD" when compiling the
 coverage report. An example is included for the IDT xGen v2 kit and assembly GRCh38 [here](../assets/kits/hg38_no_alt/idt_xgen_v2/kill.txt) .
 
-### `--max_length` 
-Set this to a positive number to trim all reads down to a desired size. Default: no size-trimming.
-
 ### `--interval_padding`
 Set this to a positive number to include flanking regions of exon targets in the analysis. Default: 10
 
 ### `--skip_multiqc`
 Skip the sending of a QC report. Default: false
-
-### `--cram`
-Create CRAM instead of BAM files to save space. Note that CRAM files are slower to read by IGV. 
 
 ### `--run_name`
 Give this run a meaningful name (like a LIMS or project ID)
