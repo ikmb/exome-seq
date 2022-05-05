@@ -113,7 +113,7 @@ This option allows the user to run non-defined panels. Must be in picard interva
 genome assembly to run against (use with care!!!). Usually, you would start with a target list in BED format and convert this into an interval list
 using the Picard Tools "BedToIntervalList" command.
 
-### `--vep` [ true | false (default) ]
+### `--effects` [ true | false (default) ]
 Run variant effect prediction on the final VCF file(s). This option requires a locally available EnsEMBL cache and some databases (see cluster profiles for examples). 
 
 ### `--joint_calling` [ true (default) | false ]

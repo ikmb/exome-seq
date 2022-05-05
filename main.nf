@@ -168,7 +168,7 @@ if (workflow.containerEngine) {
 }
 summary['References'] = [:]
 summary['References']['DBSNP'] = params.dbsnp
-if (params.vep) {
+if (params.effects {
         summary['References']['dbNSFP'] = params.dbnsfp_db
         summary['References']['dbSCSNV'] = params.dbscsnv_db
         summary['References']['CADD_SNPs'] = params.cadd_snps
@@ -292,10 +292,12 @@ workflow {
 		)
 
 		// Effect prediction
-		VEP(ch_vcfs)
-		CSQ(ch_phased_vcfs)
-		if ('haplosaurus' in tools) {
-			HAPLOSAURUS(ch_phased_vcfs)
+		if (params.effects) {
+			VEP(ch_vcfs)
+			CSQ(ch_phased_vcfs)
+			if ('haplosaurus' in tools) {
+				HAPLOSAURUS(ch_phased_vcfs)
+			}
 		}
 
 		// QC Reports
