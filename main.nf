@@ -34,6 +34,8 @@ def summary = [:]
 // INPUT OPTIONS
 // #############
 
+tools = params.tools ? params.tools.split(',').collect{it.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '')} : []
+
 // Set Channels
 params.fasta = file(params.genomes[ params.assembly ].fasta, checkIfExists: true)
 params.fasta_fai = file(params.genomes[ params.assembly ].fai, checkIfExists: true)
@@ -42,7 +44,9 @@ params.fasta_gzfai = file(params.genomes[ params.assembly ].gzfai, checkIfExists
 params.fasta_gzi = file(params.genomes[ params.assembly ].gzi, checkIfExists: true)
 params.dict = file(params.genomes[ params.assembly ].dict, checkIfExists: true)
 params.dbsnp = file(params.genomes[ params.assembly ].dbsnp, checkIfExists: true)
-params.cnv_ref = params.cnv_gz ?: file(params.genomes[params.assembly ].kits[params.kit].cnv_ref)
+if ('cnvkit' in tools) {
+	params.cnv_ref = params.cnv_gz ?: file(params.genomes[params.assembly ].kits[params.kit].cnv_ref)	
+}
 if (params.amplicon_bed) { ch_amplicon_bed = Channel.fromPath(file(params.amplicon_bed, checkIfExists: true)) } else { ch_amplicon_bed = Channel.from([]) }
 
 
@@ -111,8 +115,6 @@ params.sry_region  = params.sry_bed ?: params.genomes[params.assembly].sry_bed
 //
 WorkflowMain.initialise(workflow, params, log)
 WorkflowExomes.initialise( params, log)
-
-tools = params.tools ? params.tools.split(',').collect{it.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '')} : []
 
 if ('cnvkit' in tools && !file(params.cnv_ref).exists()) {
         exit 1, "Missing cnv ref file for this kit"
