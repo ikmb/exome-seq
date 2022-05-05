@@ -1,4 +1,4 @@
-include { cnvkit_ref_decompress; cnvkit_autobin ; cnvkit_ref_to_targets ; cnvkit_coverage ;  cnvkit_process ; cnvkit_segmetrics ; cnvkit_call ; cnvkit_genemetrics ;  cnvkit_breaks ; cnvkit_export ; cnvkit_plots } from "./../../modules/cnvkit/main.nf" params(params)
+include { cnvkit_ref_decompress ; cnvkit_ref_to_targets ; cnvkit_coverage ;  cnvkit_process ; cnvkit_segmetrics ; cnvkit_call ; cnvkit_genemetrics ;  cnvkit_breaks ; cnvkit_export ; cnvkit_plots } from "./../../modules/cnvkit/main.nf" params(params)
 
 
 workflow CNVKIT {

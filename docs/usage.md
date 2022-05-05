@@ -49,6 +49,8 @@ The pipeline offers various tools for the analysis of variant information. Speci
    - [Expansion Hunter](https://github.com/Illumina/ExpansionHunter) (expansionhunter)
 4. Copy number variants
    - [CNVkit](https://cnvkit.readthedocs.io/en/stable/) (cnvkit)
+5. Protein-level haplotypes
+   - [Haplosaurus](https://www.ensembl.org/info/docs/tools/vep/haplo/index.html) (haplosaurus)
 
 Your tools of choice can be provided like so:
 
@@ -132,6 +134,9 @@ Skip the sending of a QC report. Default: false
 Give this run a meaningful name (like a LIMS or project ID)
 
 ## Expert options
+
+### `--amplicon_bed`
+A BED file specifying the location of amplicon primer positions. These will be masked from the final BAM file; no deduplication will be performed. Must match the assembly version. 
 
 ### `--cnv_gz`
 If you wish to overwrite the default CNVKit reference file, you can provide it with this option. This file must be compressed with gzip (.cnn.gz) and match the assembly and exome kit!

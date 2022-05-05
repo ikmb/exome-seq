@@ -43,6 +43,8 @@ params.fasta_gzi = file(params.genomes[ params.assembly ].gzi, checkIfExists: tr
 params.dict = file(params.genomes[ params.assembly ].dict, checkIfExists: true)
 params.dbsnp = file(params.genomes[ params.assembly ].dbsnp, checkIfExists: true)
 params.cnv_ref = params.cnv_gz ?: file(params.genomes[params.assembly ].kits[params.kit].cnv_ref)
+if (params.amplicon_bed) { ch_amplicon_bed = Channel.fromPath(file(params.amplicon_bed, checkIfExists: true)) } else { ch_amplicon_bed = Channel.from([]) }
+
 
 ch_fasta = Channel.fromPath(params.fasta, checkIfExists: true)
 
@@ -170,13 +172,13 @@ if (params.vep) {
 }
 if ("cnvkit" in tools) {
 	summary['CNVkit'] = [:]
-	summary['CNVkit']['BlackList'] = params.cnv_blacklist
-	summary['CNVkit']['ExcludeRegions'] = params.cnv_exclusion
 	summary['Reference'] = params.cnv_ref
 }
 summary['IntervallPadding'] = params.interval_padding
 summary['SessionID'] = workflow.sessionId
-
+if (params.amplicon_bed) {
+	summary['AmpliconBedFile'] = params.amplicon_bed
+}
 // Read sample file
 ch_samplesheet = file(params.samples, checkIfExists: true)
 
@@ -191,12 +193,12 @@ include { MERGE_GVCFS } from "./modules/deepvariant/main.nf"
 include { MANTA } from "./modules/manta/main.nf"
 include { PICARD_METRICS } from "./workflows/picard/main.nf"
 include { EXPANSIONS } from "./workflows/expansions/main.nf"
-include { VEP } from "./modules/vep/main.nf"
+include { VEP; HAPLOSAURUS } from "./modules/vep/main.nf"
 include { MULTIQC as  multiqc_fastq ; MULTIQC as multiqc_library ; MULTIQC as multiqc_sample } from "./modules/multiqc/main.nf"
 include { MERGE_VCF ; VCF_ADD_DBSNP; VCF_STATS ; VCF_INDEX } from "./modules/vcf/main.nf"
 include { PANEL_QC } from "./workflows/panels/main.nf"
 include { CNVKIT } from "./workflows/cnvkit/main.nf"
-include { CONCAT } from "./modules/bcftools/main.nf" 
+include { CSQ; CONCAT } from "./modules/bcftools/main.nf" 
 include { SEX_CHECK} from "./modules/qc/main.nf"
 
 def multiqc_report = []
@@ -206,6 +208,7 @@ workflow {
 	main:
 
                 ch_vcfs = Channel.empty()
+		ch_phased_vcfs = Channel.empty()
 
 		// create calling regions
 		CONVERT_BED(targets)
@@ -213,7 +216,7 @@ workflow {
 		bedgz = CONVERT_BED.out.bed_gz
 
 		// align reads against genome
-		TRIM_AND_ALIGN(ch_samplesheet)
+		TRIM_AND_ALIGN(ch_samplesheet,ch_amplicon_bed)
 		bam = TRIM_AND_ALIGN.out.bam
 		trim_report = TRIM_AND_ALIGN.out.qc
 		dedup_report = TRIM_AND_ALIGN.out.dedup_report
@@ -225,6 +228,7 @@ workflow {
 			dv_vcf = DV_VARIANT_CALLING.out.vcf
                 	dv_merged_vcf = DV_VARIANT_CALLING.out.vcf_multi
 			ch_vcfs = ch_vcfs.mix(dv_vcf,dv_merged_vcf)
+			ch_phased_vcfs = ch_phased_vcfs.mix(DV_VARIANT_CALLING.out.vcf_phased_multi,DV_VARIANT_CALLING.out.vcf_phased_single)
 		} else {
 			dv_vcf = Channel.empty()
 			dv_merged_vcf = Channel.empty()
@@ -232,6 +236,7 @@ workflow {
 
 		// SNP + Indel calling with Strelk
 		if ('strelka' in tools) {
+			// Call all samples together
                         if (params.joint_calling) {
 				STRELKA_MULTI_CALLING(
 					bam.map {m,b,i -> [ b,i ] },
@@ -239,6 +244,8 @@ workflow {
 					TRIM_AND_ALIGN.out.metas
 				)
 				ch_vcfs = ch_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf,STRELKA_MULTI_CALLING.out.vcf_multi)
+				ch_phased_vcfs = ch_phased_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf_phased_multi)
+			// Call each sample individually and merge later
                         } else {
 	        	        STRELKA_VARIANT_CALLING(bam,bedgz,sample_names)
         	        	strelka_vcf = STRELKA_VARIANT_CALLING.out.vcf
@@ -270,7 +277,6 @@ workflow {
 
 		// QC Metrics
 		PANEL_QC(bam,panels,targets)
-
 		PICARD_METRICS(bam,targets,baits)
 		bam_qc = PICARD_METRICS.out.qc_reports
 		VCF_STATS(ch_vcfs)
@@ -283,8 +289,12 @@ workflow {
 
 		// Effect prediction
 		VEP(ch_vcfs)
+		CSQ(ch_phased_vcfs)
+		if ('haplosaurus' in tools) {
+			HAPLOSAURUS(ch_phased_vcfs)
+		}
 
-		// QC
+		// QC Reports
 		multiqc_fastq("FastQ",trim_report.collect())
 		multiqc_library("Library",dedup_report.collect())
 		multiqc_sample("Sample",bam_qc.mix(vcf_qc,SEX_CHECK.out.yaml).collect())

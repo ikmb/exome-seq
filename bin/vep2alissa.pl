@@ -95,7 +95,6 @@ while (<$IN>) {
 			$counter += 1;
 		}
 		foreach my $r (keys %recover) {
-
 			if (defined $structure{$r}) {
 				my $t = $recover{$r}{"Type"};
 				my $n = $recover{$r}{"Number"};
@@ -136,7 +135,7 @@ while (<$IN>) {
 
 				# We run VEP in a way that the first entry should be sufficient for our purpose
 				my @data = split(/\|/,@data_blocks[0]);
-				foreach my $r (keys %structure) {
+				foreach my $r (keys %recover) {
 					my $pos = $structure{$r};
 					my $val = @data[$pos];
 					if (defined $val && length($val)>0) {

@@ -1,29 +1,3 @@
-// autobin to get reference coverages
-process cnvkit_autobin {
-
-	label 'cnvkit'
-
-	publishDir "${params.outdir}/CnvKit/Ref", mode: 'copy'
-
-	input:
-	path(baits)
-	path(bams)
-
-	output:
-	tuple path(targets),path(antitargets)
-
-	script:
-	targets = baits.getBaseName() + ".target.bed"
-	antitargets = baits.getBaseName() + ".antitarget.bed"
-
-	"""
-		cp ${params.cnv_annotation} . 
-		gunzip -c refFlat.txt.gz > refFlat.txt
-		cnvkit.py access $params.fasta -o access.bed -x ${params.cnv_blacklist} -x ${params.cnv_exclusion}
-		cnvkit.py autobin -t $baits -g access.bed --annotate refFlat.txt *.bam
-	""" 
-}
-
 process cnvkit_ref_decompress {
 	
 	input:
@@ -46,7 +20,7 @@ process cnvkit_ref_to_targets {
 
 	label 'cnvkit'
 
-	publishDir "${params.outdir}/CnvKit/Ref", mode: 'copy'
+	//publishDir "${params.outdir}/CnvKit/Ref", mode: 'copy'
 
 	input:
 	path(cnn)

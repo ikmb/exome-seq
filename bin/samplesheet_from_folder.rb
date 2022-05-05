@@ -39,6 +39,9 @@ puts "IndivID;SampleID;libraryID;rgID;rgPU;platform;platform_model;Center;Date;R
 
 #G00076-L2_S19_L003_R1_001.fastq.gz
 
+individuals = []
+samples = []
+
 # group = the library id, may be split across lanes
 groups.each do |group, files|
 
@@ -68,6 +71,9 @@ groups.each do |group, files|
         	sample = group.split("_S")[0]
 		individual = group.split("-")[0]
 
+		individuals << individual
+		samples << sample
+
         	e = `zcat #{left} | head -n1 `
 		header = e
 
@@ -82,4 +88,8 @@ groups.each do |group, files|
 	end
 end
 
+
+warn "Found: #{individuals.uniq.length} Patients."
+warn "Found: #{samples.uniq.length} Samples."
+warn "If these numbers do not seem right, please re-check the file naming and manually fix the samplesheet."
 

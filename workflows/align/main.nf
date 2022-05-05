@@ -1,12 +1,12 @@
 include { TRIM } from "./../../modules/trim/main.nf" params(params)
 include { ALIGN } from "./../../modules/align/main.nf" params(params)
-include { MERGE_MULTI_LANE; BAM_INDEX ; DEDUP } from "./../../modules/samtools/main.nf" params(params)
+include { MERGE_MULTI_LANE; BAM_INDEX ; DEDUP ; AMPLICON_CLIP } from "./../../modules/samtools/main.nf" params(params)
 
 workflow TRIM_AND_ALIGN {
 
 	take:
 		samplesheet
-
+		amplicon_bed
 	main:
 
 		Channel.fromPath(samplesheet)
@@ -33,10 +33,20 @@ workflow TRIM_AND_ALIGN {
 
 		MERGE_MULTI_LANE( bam_to_merge.multiple )
 		BAM_INDEX(MERGE_MULTI_LANE.out.bam.mix( bam_to_merge.single ))
-		DEDUP(BAM_INDEX.out.bam)
+
+		if (params.amplicon_bed) {
+			AMPLICON_CLIP(
+				BAM_INDEX.out.bam,
+				amplicon_bed.collect()
+			)
+			ch_final_bam = AMPLICON_CLIP.out.bam
+		} else {
+			DEDUP(BAM_INDEX.out.bam)
+			ch_final_bam = DEDUP.out.bam
+		}
 		
 	emit:
-		bam = DEDUP.out.bam
+		bam = ch_final_bam
 		qc = TRIM.out.json
 		dedup_report = DEDUP.out.report
 		sample_names = ALIGN.out.sample_name.unique()
