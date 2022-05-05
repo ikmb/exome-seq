@@ -44,6 +44,8 @@ params.fasta_gzfai = file(params.genomes[ params.assembly ].gzfai, checkIfExists
 params.fasta_gzi = file(params.genomes[ params.assembly ].gzi, checkIfExists: true)
 params.dict = file(params.genomes[ params.assembly ].dict, checkIfExists: true)
 params.dbsnp = file(params.genomes[ params.assembly ].dbsnp, checkIfExists: true)
+params.csq_gtf = file(params.genomes[params.assembly].gtf, checkIfExists: true)
+
 if ('cnvkit' in tools) {
 	params.cnv_ref = params.cnv_gz ?: file(params.genomes[params.assembly ].kits[params.kit].cnv_ref)	
 }

@@ -85,7 +85,7 @@ process CSQ {
 	tbi_fixed = vcf_fixed + ".tbi"
 
 	"""
-		bcftools csq -f $params.fasta -g $params.gtf --phase a $vcf -o $vcf_fixed
+		bcftools csq -f $params.fasta -g $params.csq_gtf --phase a $vcf -o $vcf_fixed
 		bcftools index -t $vcf_fixed
 	"""
 
