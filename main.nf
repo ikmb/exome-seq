@@ -34,8 +34,6 @@ def summary = [:]
 // INPUT OPTIONS
 // #############
 
-tools = params.tools ? params.tools.split(',').collect{it.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '')} : []
-
 // Set Channels
 params.fasta = file(params.genomes[ params.assembly ].fasta, checkIfExists: true)
 params.fasta_fai = file(params.genomes[ params.assembly ].fai, checkIfExists: true)
@@ -46,9 +44,6 @@ params.dict = file(params.genomes[ params.assembly ].dict, checkIfExists: true)
 params.dbsnp = file(params.genomes[ params.assembly ].dbsnp, checkIfExists: true)
 params.csq_gtf = file(params.genomes[params.assembly].gtf, checkIfExists: true)
 
-if ('cnvkit' in tools) {
-	params.cnv_ref = params.cnv_gz ?: file(params.genomes[params.assembly ].kits[params.kit].cnv_ref)	
-}
 if (params.amplicon_bed) { ch_amplicon_bed = Channel.fromPath(file(params.amplicon_bed, checkIfExists: true)) } else { ch_amplicon_bed = Channel.from([]) }
 
 
@@ -112,16 +107,13 @@ if (params.panel) {
 // A single exon only covered in male samples - simple sex check
 params.sry_region  = params.sry_bed ?: params.genomes[params.assembly].sry_bed
 
+tools = params.tools ? params.tools.split(',').collect{it.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '')} : []
+
 //
 // Input validation
 //
 WorkflowMain.initialise(workflow, params, log)
 WorkflowExomes.initialise( params, log)
-
-if ('cnvkit' in tools && !file(params.cnv_ref).exists()) {
-        exit 1, "Missing cnv ref file for this kit"
-        cnv_cnn = file(params.genomes[ params.assembly ].cnn, checkIfExists: true)
-}
 
 // Expansion hunter references
 if ('expansionhunter' in tools) {
@@ -131,6 +123,12 @@ if ('expansionhunter' in tools) {
         .set { expansion_catalog }
 } else {
         expansion_catalog = Channel.empty()
+}
+
+if ('cnvkit' in tools) {
+        params.cnv_ref = params.cnv_gz ?: file(params.genomes[params.assembly ].kits[params.kit].cnv_ref)
+} else {
+        params.cnv_ref = Channel.empty()
 }
 
 //
@@ -168,13 +166,13 @@ if (workflow.containerEngine) {
 }
 summary['References'] = [:]
 summary['References']['DBSNP'] = params.dbsnp
-if (params.effects {
+if (params.effects) {
         summary['References']['dbNSFP'] = params.dbnsfp_db
         summary['References']['dbSCSNV'] = params.dbscsnv_db
         summary['References']['CADD_SNPs'] = params.cadd_snps
         summary['References']['CADD_Indels'] = params.cadd_indels
 }
-if ("cnvkit" in tools) {
+if ('cnvkit' in tools) {
 	summary['CNVkit'] = [:]
 	summary['Reference'] = params.cnv_ref
 }
