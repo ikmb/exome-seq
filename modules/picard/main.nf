@@ -127,7 +127,7 @@ process PANEL_COVERAGE {
 
         output:
         tuple val(panel_name),path(coverage)
-        tuple val(indivID),val(sampleID),path(target_coverage_xls)
+        tuple val(meta.patient_id),val(meta.sample_id),path(target_coverage_xls)
         path(target_coverage)
 
         script:
