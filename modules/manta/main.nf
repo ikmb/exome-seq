@@ -1,5 +1,7 @@
 process MANTA {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
 	label 'manta'
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Manta", mode: 'copy'

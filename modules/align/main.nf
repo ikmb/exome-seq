@@ -1,5 +1,7 @@
 process ALIGN {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
 	//scratch true	
 
 	input:

@@ -1,5 +1,7 @@
 process MERGE_MULTI_LANE {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
         input:
         tuple val(meta), path(aligned_bam_list)
 
@@ -17,6 +19,8 @@ process MERGE_MULTI_LANE {
 
 process BAM_INDEX {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
         input:
         tuple val(meta), path(bam)
 
@@ -33,6 +37,8 @@ process BAM_INDEX {
 }
 
 process DEDUP {
+
+	tag "${meta.patient_id}|${meta.sample_id}"
 
         publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/", mode: 'copy'
 
@@ -61,6 +67,8 @@ process DEDUP {
 }
 
 process AMPLICON_CLIP {
+
+	tag "${meta.patient_id}|${meta.sample_id}"
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/", mode: 'copy'
 

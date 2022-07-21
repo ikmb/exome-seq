@@ -43,6 +43,14 @@ params.fasta_gzi = file(params.genomes[ params.assembly ].gzi, checkIfExists: tr
 params.dict = file(params.genomes[ params.assembly ].dict, checkIfExists: true)
 params.dbsnp = file(params.genomes[ params.assembly ].dbsnp, checkIfExists: true)
 params.csq_gtf = file(params.genomes[params.assembly].gtf, checkIfExists: true)
+params.omni = file( params.genomes[ params.assembly ].omni, checkIfExists: true)
+params.hapmap = file(params.genomes[ params.assembly ].hapmap, checkIfExists: true)
+params.g1k = file(params.genomes[ params.assembly].g1k, checkIfExists: true)
+params.mills = file(params.genomes[ params.assembly ].mills, checkIfExists: true)
+params.axiom = file(params.genomes[ params.assembly ].axiom, checkIfExists: true)
+
+params.snps = [ params.hapmap,  params.omni,  params.dbsnp, params.g1k ]
+params.indels = [ params.mills,  params.axiom ]
 
 if (params.amplicon_bed) { ch_amplicon_bed = Channel.fromPath(file(params.amplicon_bed, checkIfExists: true)) } else { ch_amplicon_bed = Channel.from([]) }
 
@@ -190,6 +198,7 @@ ch_samplesheet = file(params.samples, checkIfExists: true)
 include { CONVERT_BED } from "./workflows/bed/main.nf"
 include { TRIM_AND_ALIGN } from "./workflows/align/main.nf"
 include { DV_VARIANT_CALLING } from "./workflows/deepvariant/main.nf"
+include { GATK_VARIANT_CALLING } from "./workflows/gatk/main.nf"
 include { STRELKA_VARIANT_CALLING ; STRELKA_MULTI_CALLING } from "./workflows/strelka/main.nf"
 include { MERGE_GVCFS } from "./modules/deepvariant/main.nf"
 include { MANTA } from "./modules/manta/main.nf"
@@ -224,7 +233,7 @@ workflow {
 		dedup_report = TRIM_AND_ALIGN.out.dedup_report
 		sample_names = TRIM_AND_ALIGN.out.sample_names
 
-		// SNP + Indel calling with Deepvariant
+		// DEEPVARIANT WORKFLOW
 		if ('deepvariant' in tools) {
 			DV_VARIANT_CALLING(bam,padded_bed,deepvariant_ref.collect())
 			dv_vcf = DV_VARIANT_CALLING.out.vcf
@@ -236,7 +245,23 @@ workflow {
 			dv_merged_vcf = Channel.empty()
 		}
 
-		// SNP + Indel calling with Strelk
+		// GATK WORKFLOW
+		if ('gatk' in tools) {
+			GATK_VARIANT_CALLING(
+				bam,
+				targets,
+				TRIM_AND_ALIGN.out.metas
+			)
+			gatk_vcf = GATK_VARIANT_CALLING.out.vcf
+			gatk_merged_vcf = GATK_VARIANT_CALLING.out.vcf_multi
+			ch_vcfs = ch_vcfs.mix(GATK_VARIANT_CALLING.out.vcf_multi)
+			
+		} else {
+			gatk_vcf = Channel.empty()
+			gatk_merged_vcf = Channel.empty()
+		}
+
+		// STRELKA WORKFLOW
 		if ('strelka' in tools) {
 			// Call all samples together
                         if (params.joint_calling) {
