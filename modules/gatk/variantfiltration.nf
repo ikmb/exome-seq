@@ -1,5 +1,7 @@
 process GATK_VARIANTFILTRATION {
 
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/GATK", mode: 'copy'
+
 	label 'gatk'
 
 	input:
