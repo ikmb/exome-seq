@@ -22,7 +22,7 @@ process GATK_FILTERVARIANTTRANCHES {
 			-V $vcf \
 			--resource $params.hapmap \
 			--resource $params.mills \
-			--info-key CNN_1D \
+			--info-key CNN_2D \
 			--snp-tranche 99.95 \
 			--indel-tranche 99.4 \
 			-O $vcf_filtered
