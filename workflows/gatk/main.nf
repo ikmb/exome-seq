@@ -112,11 +112,11 @@ workflow GATK_VARIANT_CALLING {
         	)
 		// Filter VCF using GATK neural networks
 		GATK_CNNSCOREVARIANTS(
-			GATK_HAPLOTYPECALLER_SINGLE.out.vcf,
+			GATK_HAPLOTYPECALLER_SINGLE.out.vcf.join(bam),
 			intervals.collect()
 		)
 		GATK_FILTERVARIANTTRANCHES(
-			GATK_CNNSCOREVARIANTS.out.vcf.join(bam)
+			GATK_CNNSCOREVARIANTS.out.vcf
 		)
 		ch_vcf_single = ch_vcf_single.mix(GATK_FILTERVARIANTTRANCHES.out.vcf)
 

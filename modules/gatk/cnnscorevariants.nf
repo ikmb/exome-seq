@@ -25,7 +25,7 @@ process GATK_CNNSCOREVARIANTS {
 			--output $cnn_vcf \
 			--reference $params.fasta \
 			--intervals $intervals \
-			
+			--tensor-type read_tensor
 	"""
 	
 }

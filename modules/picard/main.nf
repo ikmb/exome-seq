@@ -168,3 +168,24 @@ process PANEL_COVERAGE {
         """
 }
 
+process PICARD_SET_BAM_TAGS {
+
+	label 'picard'
+
+	input:
+	tuple val(meta),path(bam),path(bai)
+
+	output:
+	tuple val(meta),path(bam_fixed), emit: bam
+
+	script:
+	bam_fixed = bam.getBaseName() + ".fixed.bam"
+	bai_fixed = bam_fixed + ".bai"
+
+	"""
+	picard SetNmMdAndUqTags -Xmx${task.memory.toGiga()}G \
+		R=$params.fasta \
+		I=$bam \
+		O=$bam_fixed
+	"""
+}

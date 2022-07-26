@@ -37,7 +37,7 @@ options.platform ? sequencer = options.platform : sequencer = "NovaSeq6000"
 
 puts "IndivID;SampleID;libraryID;rgID;rgPU;platform;platform_model;Center;Date;R1;R2"
 
-#G00076-L2_S19_L003_R1_001.fastq.gz
+# 220400005495-DS10_22Apr5495-DL010_S10_L001_R1_001.fastq.gz
 
 individuals = []
 samples = []
@@ -67,9 +67,10 @@ groups.each do |group, files|
 		end
 
 		# H26247-L3_S1_L001_R1_001_fastqc.html
-        	library = group.split("_S")[0]
-        	sample = group.split("_S")[0]
-		individual = group.split("-")[0]
+		lims_id = group.split("-")[0]
+        	library = group.split("-")[1..-1].join("-").split("_S")[0]
+        	sample = library
+		individual = library
 
 		individuals << individual
 		samples << sample
