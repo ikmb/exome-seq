@@ -11,6 +11,10 @@ include { GATK_APPLYVQSR as GATK_INDEL_VQSR; GATK_APPLYVQSR as GATK_SNP_VQSR } f
 include { GATK_CNNSCOREVARIANTS } from './../../modules/gatk/cnnscorevariants'
 include { GATK_MERGEVCFS } from './../../modules/gatk/mergevcfs'
 include { GATK_FILTERVARIANTTRANCHES } from './../../modules/gatk/filtervarianttranches'
+include { GATK_SPLITINTERVALS } from './../../modules/gatk/splitintervals'
+include { GATK_GATHERBQSRREPORTS } from './../../modules/gatk/gatherbqsrreports'
+include { PICARD_SET_BAM_TAGS } from "./../../modules/picard/main"
+include { BAM_INDEX } from './../../modules/samtools/main'
 
 workflow GATK_VARIANT_CALLING {
 
@@ -23,15 +27,38 @@ workflow GATK_VARIANT_CALLING {
 
 	ch_vcf_multi = Channel.from([])
 	ch_vcf_single = Channel.from([])
-	
+
+	GATK_SPLITINTERVALS(
+		intervals
+	)
+
+	// Parallelize BQSR recal computation
+	GATK_SPLITINTERVALS.out.intervals.flatMap { i ->
+		i.collect { file(it) }
+	}.set { ch_intervals }
+
+	// Add all relevant tags to BAM file
+	PICARD_SET_BAM_TAGS(
+        	bam
+        )
+	BAM_INDEX(
+		PICARD_SET_BAM_TAGS.out.bam
+	)
+
 	// Recalibrate BAM base quality scores
 	GATK_BASERECALIBRATOR(
-		bam,
-		intervals.collect()
+		BAM_INDEX.out.bam.combine(ch_intervals)
 	)
+
+	recal_by_sample = GATK_BASERECALIBRATOR.out.report.groupTuple()
+
+	GATK_GATHERBQSRREPORTS(
+		recal_by_sample
+	)
+
 	// Apply recalibration
         GATK_APPLYBQSR(
-                bam.join(GATK_BASERECALIBRATOR.out.report),
+                bam.join(GATK_GATHERBQSRREPORTS.out.report),
 		intervals.collect()
         )
 

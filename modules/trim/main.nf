@@ -1,5 +1,7 @@
 process TRIM {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
         input:
 	tuple val(meta), path(fastqR1), path(fastqR2)
 

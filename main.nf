@@ -211,6 +211,7 @@ include { PANEL_QC } from "./workflows/panels/main.nf"
 include { CNVKIT } from "./workflows/cnvkit/main.nf"
 include { CSQ; CONCAT } from "./modules/bcftools/main.nf" 
 include { SEX_CHECK} from "./modules/qc/main.nf"
+include { XHLA } from "./modules/xhla"
 
 def multiqc_report = []
 
@@ -288,7 +289,10 @@ workflow {
 		if ('cnvkit' in tools) {
 			CNVKIT(padded_bed,bam,file(params.cnv_ref))
 		}
-
+		// HLA calling
+		if ('xhla' in tools) {
+			XHLA(bam)
+		}
 		// SV calling with Manta
 		if ('manta' in tools) {
 			MANTA(bam,bedgz.collect())

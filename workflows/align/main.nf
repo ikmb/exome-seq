@@ -1,7 +1,6 @@
 include { TRIM } from "./../../modules/trim/main"
 include { ALIGN } from "./../../modules/align/main"
 include { MERGE_MULTI_LANE; BAM_INDEX ; BAM_INDEX as BAM_INDEX_FILTERED ; DEDUP ; AMPLICON_CLIP } from "./../../modules/samtools/main"
-include { PICARD_SET_BAM_TAGS } from "./../../modules/picard/main"
 
 workflow TRIM_AND_ALIGN {
 
@@ -34,19 +33,15 @@ workflow TRIM_AND_ALIGN {
 
 		MERGE_MULTI_LANE( bam_to_merge.multiple )
 		BAM_INDEX(MERGE_MULTI_LANE.out.bam.mix( bam_to_merge.single ))
-		PICARD_SET_BAM_TAGS(
-			BAM_INDEX.out.bam
-		)
-		BAM_INDEX_FILTERED(PICARD_SET_BAM_TAGS.out.bam)
 
 		if (params.amplicon_bed) {
 			AMPLICON_CLIP(
-				BAM_INDEX_FILTERED.out.bam,
+				BAM_INDEX.out.bam,
 				amplicon_bed.collect()
 			)
 			ch_final_bam = AMPLICON_CLIP.out.bam
 		} else {
-			DEDUP(BAM_INDEX_FILTERED.out.bam)
+			DEDUP(BAM_INDEX.out.bam)
 			ch_final_bam = DEDUP.out.bam
 		}
 		

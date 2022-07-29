@@ -170,6 +170,8 @@ process PANEL_COVERAGE {
 
 process PICARD_SET_BAM_TAGS {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
 	label 'picard'
 
 	input:

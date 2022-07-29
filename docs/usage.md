@@ -53,6 +53,8 @@ The pipeline offers various tools for the analysis of variant information. Speci
    - [CNVkit](https://cnvkit.readthedocs.io/en/stable/) (cnvkit)
 5. Protein-level haplotypes
    - [Haplosaurus](https://www.ensembl.org/info/docs/tools/vep/haplo/index.html) (haplosaurus)
+6. HLA calling
+   - [xHLA](https://github.com/humanlongevity/HLA) (xhla)
 
 Your tools of choice can be provided like so:
 

@@ -5,8 +5,7 @@ process GATK_BASERECALIBRATOR {
 	label 'gatk'
 
 	input:
-	tuple val(meta),path(bam),path(bai)
-	path(intervals)
+	tuple val(meta),path(bam),path(bai),path(intervals)
 
 	output:
 	tuple val(meta),path(report), emit: report
