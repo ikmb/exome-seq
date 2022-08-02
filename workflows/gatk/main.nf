@@ -81,9 +81,15 @@ workflow GATK_VARIANT_CALLING {
                 	GATK_COMBINEGVCFS.out.gvcf,
 	                intervals.collect()
         	)
+
+		GATK_GENOTYPEGVCFS.out.vcf.map { v,t ->
+                        new_meta = [ id: "all", sample_id: "UNDEFINED", patient_id: "UNDEFINED", variantcaller: "GATK" ]
+                        tuple(new_meta,v,t)
+                }.set { ch_variants_pass }
+
 		// Hard-filter variants on excess heterosygosity
 		GATK_VARIANTFILTRATION(
-			GATK_GENOTYPEGVCFS.out.vcf
+			ch_variants_pass
 		)
 		GATK_VARIANTFILTRATION.out.vcf.map { v,t ->
 			def new_meta = [ id: "all", sample_id: "GATK", patient_id: "MergedCallset", variantcaller: "GATK"]
