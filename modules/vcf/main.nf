@@ -41,6 +41,8 @@ process VCF_GATK_SORT {
 	
 process VCF_GET_SAMPLE {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
         label 'gatk'
 
         input:
@@ -63,6 +65,8 @@ process VCF_GET_SAMPLE {
 }
 
 process VCF_ADD_HEADER {
+
+	tag "${meta.patient_id}|${meta.sample_id}" 
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/${meta.variantcaller}", mode: 'copy'
 
@@ -87,6 +91,8 @@ process VCF_ADD_HEADER {
 
 process VCF_STATS {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Stats", mode: 'copy'
 
         input:
@@ -106,6 +112,8 @@ process VCF_STATS {
 
 process VCF_FILTER_PASS {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
 	input:
 	tuple val(meta),path(vcf),path(tbi)
 
@@ -124,6 +132,8 @@ process VCF_FILTER_PASS {
 }
 
 process VCF_ADD_DBSNP {
+
+	tag "${meta.patient_id}|${meta.sample_id}"
 
 	//publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Variants", mode: 'copy'
 
@@ -145,6 +155,8 @@ process VCF_ADD_DBSNP {
 
 process VCF_INDEX {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
 	input:
 	tuple val(meta),path(vcf)
 
@@ -162,6 +174,8 @@ process VCF_INDEX {
 }
 
 process VCF_COMPRESS_AND_INDEX {
+
+	tag "${meta.patient_id}|${meta.sample_id}"
 
 	input:
 	tuple val(meta),path(vcf)

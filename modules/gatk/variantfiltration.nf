@@ -5,7 +5,7 @@ process GATK_VARIANTFILTRATION {
 	label 'gatk'
 
 	input:
-	tuple path(vcf),path(tbi)
+	tuple val(meta),path(vcf),path(tbi)
 
 	output:
 	tuple path(vcf_filtered),path(vcf_filtered_tbi), emit: vcf

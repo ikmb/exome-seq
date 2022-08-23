@@ -21,6 +21,8 @@ process INTERVAL_TO_BED {
 
 process MULTI_METRICS {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
         label 'picard'
 
         publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Processing/Picard_Metrics", mode: 'copy'
@@ -58,6 +60,8 @@ process MULTI_METRICS {
 
 process HYBRID_CAPTURE_METRICS {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
         label 'picard'
 
         publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Processing/Picard_Metrics", mode: 'copy'
@@ -90,6 +94,7 @@ process HYBRID_CAPTURE_METRICS {
 
 process OXO_METRICS {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
 
 	label 'picard'
 
@@ -118,6 +123,8 @@ process OXO_METRICS {
 }
 
 process PANEL_COVERAGE {
+
+	tag "${meta.patient_id}|${meta.sample_id}"
 
         publishDir "${params.outdir}/Summary/Panel/PanelCoverage", mode: "copy"
 

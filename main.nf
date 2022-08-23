@@ -230,6 +230,7 @@ workflow {
 		// align reads against genome
 		TRIM_AND_ALIGN(ch_samplesheet,ch_amplicon_bed)
 		bam = TRIM_AND_ALIGN.out.bam
+		bam_nodedup = TRIM_AND_ALIGN.out.bam_nodedup
 		trim_report = TRIM_AND_ALIGN.out.qc
 		dedup_report = TRIM_AND_ALIGN.out.dedup_report
 		sample_names = TRIM_AND_ALIGN.out.sample_names

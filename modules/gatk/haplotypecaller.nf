@@ -22,14 +22,15 @@ process GATK_HAPLOTYPECALLER {
 	} else {
 		vcf = bam.getBaseName() + ".hc.vcf.gz"
 		tbi = vcf + ".tbi"
-		options = "-ERC GVCF -GQB 10 -GQB 20 -GQB 30 -GQB 40 -GQB 50 -GQB 60 -GQB 70 -GQB 80 -GQB 90"
+		options = "-ERC GVCF -G AS_StandardAnnotation"
 	}
 
+	//  -GQB 10 -GQB 20 -GQB 30 -GQB 40 -GQB 50 -GQB 60 -GQB 70 -GQB 80 -GQB 90
 	"""
-		gatk HaplotypeCaller --java-options "-Xmx4g" -R $params.fasta -I $bam -L $intervals -O $vcf \
+		gatk HaplotypeCaller --java-options "-Xmx${task.memory.giga}g" -R $params.fasta -I $bam -L $intervals -O $vcf \
 			$options \
-			-G StandardAnnotation -G StandardHCAnnotation \
-			-OVI true -ip ${params.interval_padding} --native-pair-hmm-threads ${task.cpus}
+			-G StandardAnnotation -G StandardHCAnnotation --new-qual \
+			-OVI true -ip ${params.interval_padding} -D ${params.dbsnp} 
 	"""
 }
 

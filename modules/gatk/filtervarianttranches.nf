@@ -22,10 +22,12 @@ process GATK_FILTERVARIANTTRANCHES {
 			-V $vcf \
 			--resource $params.hapmap \
 			--resource $params.mills \
+			--resource $params.omni \
+			--resource $params.g1k \
+			--resource $params.dbsnp \
 			--info-key CNN_2D \
-			--snp-tranche 99.9 --snp-tranche 99.95 \
-			--indel-tranche 99.0 --indel-tranche 99.4 \
 			--invalidate-previous-filters \
+			--snp-tranche 99.9 --indel-tranche 99.9 \
 			-O $vcf_filtered
 
 		gatk IndexFeatureFile -I $vcf_filtered

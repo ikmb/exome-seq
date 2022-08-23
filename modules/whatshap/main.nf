@@ -1,4 +1,6 @@
 process WHATSHAP {
+
+	tag "${meta.patient_id}|${meta.sample_id}"
 		
 	label 'whatshap'
 
@@ -23,6 +25,8 @@ process WHATSHAP {
 }
 
 process WHATSHAP_SINGLE {
+
+	tag "${meta.patient_id}|${meta.sample_id}"
 
         label 'whatshap'
 

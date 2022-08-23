@@ -58,7 +58,7 @@ workflow GATK_VARIANT_CALLING {
 
 	// Apply recalibration
         GATK_APPLYBQSR(
-                bam.join(GATK_GATHERBQSRREPORTS.out.report),
+                BAM_INDEX.out.bam.join(GATK_GATHERBQSRREPORTS.out.report),
 		intervals.collect()
         )
 

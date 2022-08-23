@@ -46,6 +46,7 @@ workflow TRIM_AND_ALIGN {
 		}
 		
 	emit:
+		bam_nodedup = BAM_INDEX.out.bam
 		bam = ch_final_bam
 		qc = TRIM.out.json
 		dedup_report = DEDUP.out.report
