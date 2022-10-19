@@ -15,3 +15,20 @@ process SEX_CHECK {
         """
 }
 
+process QC_SNPS {
+
+	input:
+	tuple val(meta),path(vcf),path(tbi)
+	path(bed)
+
+	output:
+	tuple val(meta),path(json)
+
+	script:
+	
+	json = vcf.getBaseName() + ".json"
+
+	"""
+		bcftools view -T $bed $vcf > snps.vcf
+	"""
+}

@@ -21,6 +21,8 @@ process INTERVAL_TO_BED {
 
 process MULTI_METRICS {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
         label 'picard'
 
         publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Processing/Picard_Metrics", mode: 'copy'
@@ -58,6 +60,8 @@ process MULTI_METRICS {
 
 process HYBRID_CAPTURE_METRICS {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
         label 'picard'
 
         publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Processing/Picard_Metrics", mode: 'copy'
@@ -90,6 +94,7 @@ process HYBRID_CAPTURE_METRICS {
 
 process OXO_METRICS {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
 
 	label 'picard'
 
@@ -119,6 +124,8 @@ process OXO_METRICS {
 
 process PANEL_COVERAGE {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
         publishDir "${params.outdir}/Summary/Panel/PanelCoverage", mode: "copy"
 
         input:
@@ -127,7 +134,7 @@ process PANEL_COVERAGE {
 
         output:
         tuple val(panel_name),path(coverage)
-        tuple val(indivID),val(sampleID),path(target_coverage_xls)
+        tuple val(meta.patient_id),val(meta.sample_id),path(target_coverage_xls)
         path(target_coverage)
 
         script:
@@ -168,3 +175,26 @@ process PANEL_COVERAGE {
         """
 }
 
+process PICARD_SET_BAM_TAGS {
+
+	tag "${meta.patient_id}|${meta.sample_id}"
+
+	label 'picard'
+
+	input:
+	tuple val(meta),path(bam),path(bai)
+
+	output:
+	tuple val(meta),path(bam_fixed), emit: bam
+
+	script:
+	bam_fixed = bam.getBaseName() + ".fixed.bam"
+	bai_fixed = bam_fixed + ".bai"
+
+	"""
+	picard SetNmMdAndUqTags -Xmx${task.memory.toGiga()}G \
+		R=$params.fasta \
+		I=$bam \
+		O=$bam_fixed
+	"""
+}

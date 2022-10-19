@@ -41,6 +41,8 @@ process VCF_GATK_SORT {
 	
 process VCF_GET_SAMPLE {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
         label 'gatk'
 
         input:
@@ -64,6 +66,8 @@ process VCF_GET_SAMPLE {
 
 process VCF_ADD_HEADER {
 
+	tag "${meta.patient_id}|${meta.sample_id}" 
+
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/${meta.variantcaller}", mode: 'copy'
 
         input:
@@ -74,7 +78,7 @@ process VCF_ADD_HEADER {
 
         script:
 
-        vcf_r = vcf.getBaseName() + ".final.vcf.gz"
+        vcf_r = vcf.getSimpleName() + "-final.vcf.gz"
         tbi_r = vcf_r + ".tbi"
 
         """
@@ -86,6 +90,8 @@ process VCF_ADD_HEADER {
 }
 
 process VCF_STATS {
+
+	tag "${meta.patient_id}|${meta.sample_id}"
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Stats", mode: 'copy'
 
@@ -106,6 +112,8 @@ process VCF_STATS {
 
 process VCF_FILTER_PASS {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
 	input:
 	tuple val(meta),path(vcf),path(tbi)
 
@@ -113,7 +121,7 @@ process VCF_FILTER_PASS {
 	tuple val(meta),path(vcf_pass), path(vcf_pass_index), emit: vcf
 
 	script:
-	vcf_pass = vcf.getSimpleName() + ".pass.vcf.gz"
+	vcf_pass = vcf.getSimpleName() + "_pass.vcf.gz"
 	vcf_pass_index = vcf_pass + ".tbi"
 
 	"""
@@ -125,6 +133,8 @@ process VCF_FILTER_PASS {
 
 process VCF_ADD_DBSNP {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
 	//publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Variants", mode: 'copy'
 
         input:
@@ -134,7 +144,7 @@ process VCF_ADD_DBSNP {
         tuple val(meta),path(vcf_annotated), path(vcf_annotated_index), emit: vcf
 
         script:
-        vcf_annotated = vcf.getBaseName() + ".rsids.vcf.gz"
+        vcf_annotated = vcf.getSimpleName() + "_rsids.vcf.gz"
         vcf_annotated_index = vcf_annotated + ".tbi"
 
         """
@@ -144,6 +154,8 @@ process VCF_ADD_DBSNP {
 }
 
 process VCF_INDEX {
+
+	tag "${meta.patient_id}|${meta.sample_id}"
 
 	input:
 	tuple val(meta),path(vcf)
@@ -162,6 +174,8 @@ process VCF_INDEX {
 }
 
 process VCF_COMPRESS_AND_INDEX {
+
+	tag "${meta.patient_id}|${meta.sample_id}"
 
 	input:
 	tuple val(meta),path(vcf)

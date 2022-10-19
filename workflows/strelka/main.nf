@@ -1,6 +1,7 @@
 include { STRELKA ; STRELKA_JOINTCALLING } from './../../modules/strelka/main.nf'
 include { VCF_GATK_SORT ; VCF_ADD_HEADER; VCF_INDEX; VCF_ADD_DBSNP; VCF_FILTER_PASS; MERGE_VCF; VCF_GET_SAMPLE } from './../../modules/vcf/main.nf'
 include { VCF_INDEL_NORMALIZE } from './../../modules/bcftools/main.nf'
+include { WHATSHAP; WHATSHAP_SINGLE } from './../../modules/whatshap/main.nf'
 
 workflow STRELKA_VARIANT_CALLING {
 
@@ -28,6 +29,20 @@ workflow STRELKA_VARIANT_CALLING {
 	)
 	single_vcf = ch_vcf.mix(VCF_ADD_HEADER.out.vcf)
 
+	bam.map { m,b,i -> 
+		new_key = m.sample_id
+		tuple(new_key,b,i)
+	}.set { ch_bams_key }
+
+	single_vcf.map { m,v,t ->
+		new_key = m.sample_id
+		tuple(new_key,m,v,t)
+	}.set { ch_vcfs_key }
+
+	//WHATSHAP_SINGLE(
+	//	ch_vcfs_key.join(ch_bams_key).map { n,m,v,t,b,i -> [ m,v,t,b,i ] }
+	//)
+
 	// Fiddly work-around to determine whether we have 1 or multiple vcfs. No merging when n=1
 	VCF_FILTER_PASS.out.vcf.map { m,v,t ->
 		def new_meta = [ id: "all", sample_id: "UNDEFINED", patient_id: "UNDEFINED", variantcaller: "STRELKA" ]
@@ -43,10 +58,11 @@ workflow STRELKA_VARIANT_CALLING {
                 ch_grouped_vcfs.multi.map { m,v,t -> [ [ id: "all", sample_id: "Bcftools", patient_id: "MergedCallset", variantcaller: "STRELKA"],v,t] }
 	)
         ch_merged_vcf = ch_merged_vcf.mix(MERGE_VCF.out.vcf)
-			
+
 	emit:
 	vcf = single_vcf
 	vcf_multi = ch_merged_vcf
+	ch_phased_multi = Channel.empty()
 }
 
 workflow STRELKA_MULTI_CALLING {
@@ -59,6 +75,7 @@ workflow STRELKA_MULTI_CALLING {
 	main:
 
 	ch_merged_vcf = Channel.empty()
+	ch_phased_multi = Channel.empty()
         ch_vcf = Channel.empty()
     
         bams.map { b,i -> [ [id: "merge"],b,i ] }
@@ -80,6 +97,13 @@ workflow STRELKA_MULTI_CALLING {
 		VCF_GATK_SORT.out.vcf
 	)
 
+	// Phase Multi-VCF with all samples
+	WHATSHAP(
+		ch_merged_vcf,
+		bams.collect()
+	)
+	ch_phased_multi = ch_phased_multi.mix(WHATSHAP.out.vcf)
+	
         VCF_GET_SAMPLE(
                 ch_merged_vcf.collect(),
 		metas
@@ -102,5 +126,6 @@ workflow STRELKA_MULTI_CALLING {
 	emit:
 	vcf = single_vcf
 	vcf_multi = ch_merged_vcf
+	vcf_phased_multi = ch_phased_multi
 }
 

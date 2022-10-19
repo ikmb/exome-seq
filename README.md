@@ -2,7 +2,7 @@
 
 # Exome-seq Pipeline
 
-This pipeline offers a end-to-end workflow for exome analysis using the DeepVariant toolchain
+This pipeline offers a end-to-end workflow for exome analysis using several toolchains
 
 - trimming with Fastp
 
@@ -10,9 +10,15 @@ This pipeline offers a end-to-end workflow for exome analysis using the DeepVari
 
 - duplicate marking using Samtools
 
-- vcf/gvcf calling with Deepvariant
+- vcf/gvcf calling with Deepvariant, Strelka and/or GATK
 
-- joint variant calling with GLNexus
+- Effect prediction with VEP and/or Haplosaurus
+
+- SV calling using Manta
+
+- CNV calling using CNVkit
+
+- Expansion detection using ExpansionHunter
 
 The result will be a multi-sample VCF file as well as a list of VCF files for each sample.
 

@@ -42,7 +42,18 @@ params.fasta_gzfai = file(params.genomes[ params.assembly ].gzfai, checkIfExists
 params.fasta_gzi = file(params.genomes[ params.assembly ].gzi, checkIfExists: true)
 params.dict = file(params.genomes[ params.assembly ].dict, checkIfExists: true)
 params.dbsnp = file(params.genomes[ params.assembly ].dbsnp, checkIfExists: true)
-params.cnv_ref = params.cnv_gz ?: file(params.genomes[params.assembly ].kits[params.kit].cnv_ref)
+params.csq_gtf = params.genomes[params.assembly].gtf
+params.omni = file( params.genomes[ params.assembly ].omni, checkIfExists: true)
+params.hapmap = file(params.genomes[ params.assembly ].hapmap, checkIfExists: true)
+params.g1k = file(params.genomes[ params.assembly].g1k, checkIfExists: true)
+params.mills = file(params.genomes[ params.assembly ].mills, checkIfExists: true)
+params.axiom = file(params.genomes[ params.assembly ].axiom, checkIfExists: true)
+
+params.snps = [ params.hapmap,  params.omni,  params.dbsnp, params.g1k ]
+params.indels = [ params.mills,  params.axiom ]
+
+if (params.amplicon_bed) { ch_amplicon_bed = Channel.fromPath(file(params.amplicon_bed, checkIfExists: true)) } else { ch_amplicon_bed = Channel.from([]) }
+
 
 ch_fasta = Channel.fromPath(params.fasta, checkIfExists: true)
 
@@ -78,6 +89,14 @@ if (params.kill) {
         params.kill_list = false
 }
 
+if (params.cram) {
+	aln_ext = "cram"
+	aln_idx = "crai"
+} else {
+	aln_ext = "bam"
+	aln_idx = "bai"
+}
+
 /*
 PANEL COVERAGE - pick the correct panel for reporting
 */
@@ -104,18 +123,13 @@ if (params.panel) {
 // A single exon only covered in male samples - simple sex check
 params.sry_region  = params.sry_bed ?: params.genomes[params.assembly].sry_bed
 
+tools = params.tools ? params.tools.split(',').collect{it.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '')} : []
+
 //
 // Input validation
 //
 WorkflowMain.initialise(workflow, params, log)
 WorkflowExomes.initialise( params, log)
-
-tools = params.tools ? params.tools.split(',').collect{it.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '')} : []
-
-if ('cnvkit' in tools && !file(params.cnv_ref).exists()) {
-        exit 1, "Missing cnv ref file for this kit"
-        cnv_cnn = file(params.genomes[ params.assembly ].cnn, checkIfExists: true)
-}
 
 // Expansion hunter references
 if ('expansionhunter' in tools) {
@@ -125,6 +139,12 @@ if ('expansionhunter' in tools) {
         .set { expansion_catalog }
 } else {
         expansion_catalog = Channel.empty()
+}
+
+if ('cnvkit' in tools) {
+        params.cnv_ref = params.cnv_gz ?: file(params.genomes[params.assembly ].kits[params.kit].cnv_ref)
+} else {
+        params.cnv_ref = Channel.empty()
 }
 
 //
@@ -162,21 +182,21 @@ if (workflow.containerEngine) {
 }
 summary['References'] = [:]
 summary['References']['DBSNP'] = params.dbsnp
-if (params.vep) {
+if (params.effects) {
         summary['References']['dbNSFP'] = params.dbnsfp_db
         summary['References']['dbSCSNV'] = params.dbscsnv_db
         summary['References']['CADD_SNPs'] = params.cadd_snps
         summary['References']['CADD_Indels'] = params.cadd_indels
 }
-if ("cnvkit" in tools) {
+if ('cnvkit' in tools) {
 	summary['CNVkit'] = [:]
-	summary['CNVkit']['BlackList'] = params.cnv_blacklist
-	summary['CNVkit']['ExcludeRegions'] = params.cnv_exclusion
 	summary['Reference'] = params.cnv_ref
 }
 summary['IntervallPadding'] = params.interval_padding
 summary['SessionID'] = workflow.sessionId
-
+if (params.amplicon_bed) {
+	summary['AmpliconBedFile'] = params.amplicon_bed
+}
 // Read sample file
 ch_samplesheet = file(params.samples, checkIfExists: true)
 
@@ -186,18 +206,20 @@ ch_samplesheet = file(params.samples, checkIfExists: true)
 include { CONVERT_BED } from "./workflows/bed/main.nf"
 include { TRIM_AND_ALIGN } from "./workflows/align/main.nf"
 include { DV_VARIANT_CALLING } from "./workflows/deepvariant/main.nf"
+include { GATK_VARIANT_CALLING } from "./workflows/gatk/main.nf"
 include { STRELKA_VARIANT_CALLING ; STRELKA_MULTI_CALLING } from "./workflows/strelka/main.nf"
 include { MERGE_GVCFS } from "./modules/deepvariant/main.nf"
 include { MANTA } from "./modules/manta/main.nf"
 include { PICARD_METRICS } from "./workflows/picard/main.nf"
 include { EXPANSIONS } from "./workflows/expansions/main.nf"
-include { VEP } from "./modules/vep/main.nf"
+include { VEP; HAPLOSAURUS } from "./modules/vep/main.nf"
 include { MULTIQC as  multiqc_fastq ; MULTIQC as multiqc_library ; MULTIQC as multiqc_sample } from "./modules/multiqc/main.nf"
 include { MERGE_VCF ; VCF_ADD_DBSNP; VCF_STATS ; VCF_INDEX } from "./modules/vcf/main.nf"
 include { PANEL_QC } from "./workflows/panels/main.nf"
 include { CNVKIT } from "./workflows/cnvkit/main.nf"
-include { CONCAT } from "./modules/bcftools/main.nf" 
+include { CSQ; CONCAT } from "./modules/bcftools/main.nf" 
 include { SEX_CHECK} from "./modules/qc/main.nf"
+include { XHLA } from "./modules/xhla"
 
 def multiqc_report = []
 
@@ -206,6 +228,7 @@ workflow {
 	main:
 
                 ch_vcfs = Channel.empty()
+		ch_phased_vcfs = Channel.empty()
 
 		// create calling regions
 		CONVERT_BED(targets)
@@ -213,25 +236,52 @@ workflow {
 		bedgz = CONVERT_BED.out.bed_gz
 
 		// align reads against genome
-		TRIM_AND_ALIGN(ch_samplesheet)
+		TRIM_AND_ALIGN(ch_samplesheet,ch_amplicon_bed)
 		bam = TRIM_AND_ALIGN.out.bam
+		bam_nodedup = TRIM_AND_ALIGN.out.bam_nodedup
 		trim_report = TRIM_AND_ALIGN.out.qc
 		dedup_report = TRIM_AND_ALIGN.out.dedup_report
 		sample_names = TRIM_AND_ALIGN.out.sample_names
 
-		// SNP + Indel calling with Deepvariant
+		// Create a sub-set of the BAM file using a target BED file
+		if ('intersect' in tools) {
+			BAM_INTERSECT(
+				bam,
+				padded_bed
+			)
+		}
+
+		// DEEPVARIANT WORKFLOW
 		if ('deepvariant' in tools) {
 			DV_VARIANT_CALLING(bam,padded_bed,deepvariant_ref.collect())
 			dv_vcf = DV_VARIANT_CALLING.out.vcf
                 	dv_merged_vcf = DV_VARIANT_CALLING.out.vcf_multi
 			ch_vcfs = ch_vcfs.mix(dv_vcf,dv_merged_vcf)
+			ch_phased_vcfs = ch_phased_vcfs.mix(DV_VARIANT_CALLING.out.vcf_phased_multi,DV_VARIANT_CALLING.out.vcf_phased_single)
 		} else {
 			dv_vcf = Channel.empty()
 			dv_merged_vcf = Channel.empty()
 		}
 
-		// SNP + Indel calling with Strelk
+		// GATK WORKFLOW
+		if ('gatk' in tools) {
+			GATK_VARIANT_CALLING(
+				bam,
+				targets,
+				TRIM_AND_ALIGN.out.metas
+			)
+			gatk_vcf = GATK_VARIANT_CALLING.out.vcf
+			gatk_merged_vcf = GATK_VARIANT_CALLING.out.vcf_multi
+			ch_vcfs = ch_vcfs.mix(GATK_VARIANT_CALLING.out.vcf_multi)
+			
+		} else {
+			gatk_vcf = Channel.empty()
+			gatk_merged_vcf = Channel.empty()
+		}
+
+		// STRELKA WORKFLOW
 		if ('strelka' in tools) {
+			// Call all samples together
                         if (params.joint_calling) {
 				STRELKA_MULTI_CALLING(
 					bam.map {m,b,i -> [ b,i ] },
@@ -239,6 +289,8 @@ workflow {
 					TRIM_AND_ALIGN.out.metas
 				)
 				ch_vcfs = ch_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf,STRELKA_MULTI_CALLING.out.vcf_multi)
+				ch_phased_vcfs = ch_phased_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf_phased_multi)
+			// Call each sample individually and merge later
                         } else {
 	        	        STRELKA_VARIANT_CALLING(bam,bedgz,sample_names)
         	        	strelka_vcf = STRELKA_VARIANT_CALLING.out.vcf
@@ -254,7 +306,10 @@ workflow {
 		if ('cnvkit' in tools) {
 			CNVKIT(padded_bed,bam,file(params.cnv_ref))
 		}
-
+		// HLA calling
+		if ('xhla' in tools) {
+			XHLA(bam)
+		}
 		// SV calling with Manta
 		if ('manta' in tools) {
 			MANTA(bam,bedgz.collect())
@@ -270,7 +325,6 @@ workflow {
 
 		// QC Metrics
 		PANEL_QC(bam,panels,targets)
-
 		PICARD_METRICS(bam,targets,baits)
 		bam_qc = PICARD_METRICS.out.qc_reports
 		VCF_STATS(ch_vcfs)
@@ -282,9 +336,15 @@ workflow {
 		)
 
 		// Effect prediction
-		VEP(ch_vcfs)
+		if (params.effects) {
+			VEP(ch_vcfs)
+			CSQ(ch_phased_vcfs)
+			if ('haplosaurus' in tools) {
+				HAPLOSAURUS(ch_phased_vcfs)
+			}
+		}
 
-		// QC
+		// QC Reports
 		multiqc_fastq("FastQ",trim_report.collect())
 		multiqc_library("Library",dedup_report.collect())
 		multiqc_sample("Sample",bam_qc.mix(vcf_qc,SEX_CHECK.out.yaml).collect())

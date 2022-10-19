@@ -34,7 +34,8 @@ ruby bin/samplesheet_from_folder.rb -f /path/to/foler > Samplesheet.csv`
 The following human genome assembly versions are supported on MedCluster (see resources.config on how this is set):
 
 - GRCh37 (the 1000 genomes reference with decoys)
-- GRCh38 (the current human reference assembly without ALT loci)
+- GRCh38 (the GRCh38 human reference assembly without ALT loci)
+- GRCh38_p14 (the latest GRCh38 human reference assembly without ALT loci [patch 14])
 - hg19 (another version of GRCh37, also referred to as the UCSC reference)
 
 ### `--tools`
@@ -43,12 +44,17 @@ The pipeline offers various tools for the analysis of variant information. Speci
 1. SNPS and INDELs
    - [Deepvariant](https://github.com/google/deepvariant) (deepvariant)
    - [Strelka](https://github.com/Illumina/strelka) (strelka)
+   - [GATK](https://github.com/broadinstitute/gatk) (gatk)
 2. Structural variants
    - [Manta](https://github.com/Illumina/manta) (manta)
 3. Repeat expansions
    - [Expansion Hunter](https://github.com/Illumina/ExpansionHunter) (expansionhunter)
 4. Copy number variants
    - [CNVkit](https://cnvkit.readthedocs.io/en/stable/) (cnvkit)
+5. Protein-level haplotypes
+   - [Haplosaurus](https://www.ensembl.org/info/docs/tools/vep/haplo/index.html) (haplosaurus)
+6. HLA calling
+   - [xHLA](https://github.com/humanlongevity/HLA) (xhla)
 
 Your tools of choice can be provided like so:
 
@@ -59,7 +65,7 @@ If no tools are selected, the pipeline will stop after the deduplication of read
 ### `--joint_calling`
 The pipeline produces multi-vcf files through merging of the single-sample callsets. However, you can alternatively request for the samples to be called jointly, i.e. all in one process. This will
 cause individual callsets to take into consideration information from other samples, and result in numerous ref calls in the individual VCF files. An advantage of this approach is 
-that individual sites can obtain support from multiple samples. This is typically done when analysing cohorts.
+that individual sites can obtain support from multiple samples. This is typically done when analysing cohorts. Depending on the caller, the exact process of joint calling may differ. 
 
 ### `--kit`
 Each exome capture kit has a target and a bait definition, i.e. information about the exons it enriches and the specific RNA bait sequences that are used 
@@ -71,7 +77,7 @@ We have included these files for the following kits and genome assemblies:
 
 `xGen` (original IDT xGen kit) [hg19, GRCh37, GRCh38]
 
-`xGen_v2` (v2 release of the IDT xGen kit) [GRCh38]
+`xGen_v2` (v2 release of the IDT xGen kit) [GRCh38, GRCH38_p14]
 
 `Pan_cancer` [hg19]
 
@@ -111,7 +117,7 @@ This option allows the user to run non-defined panels. Must be in picard interva
 genome assembly to run against (use with care!!!). Usually, you would start with a target list in BED format and convert this into an interval list
 using the Picard Tools "BedToIntervalList" command.
 
-### `--vep` [ true | false (default) ]
+### `--effects` [ true | false (default) ]
 Run variant effect prediction on the final VCF file(s). This option requires a locally available EnsEMBL cache and some databases (see cluster profiles for examples). 
 
 ### `--joint_calling` [ true (default) | false ]
@@ -132,6 +138,9 @@ Skip the sending of a QC report. Default: false
 Give this run a meaningful name (like a LIMS or project ID)
 
 ## Expert options
+
+### `--amplicon_bed`
+A BED file specifying the location of amplicon primer positions. These will be masked from the final BAM file; no deduplication will be performed. Must match the assembly version. 
 
 ### `--cnv_gz`
 If you wish to overwrite the default CNVKit reference file, you can provide it with this option. This file must be compressed with gzip (.cnn.gz) and match the assembly and exome kit!

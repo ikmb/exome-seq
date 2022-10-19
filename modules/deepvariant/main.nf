@@ -1,5 +1,7 @@
 process DEEPVARIANT {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
         label 'deepvariant'
 
         publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/DEEPVARIANT", mode: 'copy'

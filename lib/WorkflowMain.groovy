@@ -38,6 +38,7 @@ class WorkflowMain {
            --email                        Email address to send reports to (enclosed in '')
            Optional parameters:
            --bwa2                         Use BWA2 instead of BWA1
+           --phase                        Perform phasing of VCF files (only for multi-sample VCF files)
            --joint_calling                Perform joint calling of all samples (default: true)
            --skip_multiqc                 Don't attached MultiQC report to the email.
            --panel                        Gene panel to check coverage of (valid options: cardio_dilatative, cardio_hypertrophic, cardio_non_compaction, eoIBD_25kb, imm_eoIBD_full, breast_cancer)

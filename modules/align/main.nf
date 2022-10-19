@@ -1,5 +1,7 @@
 process ALIGN {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
 	//scratch true	
 
 	input:
@@ -24,6 +26,6 @@ process ALIGN {
 		$aligner mem $options -H ${params.dict} -M -R "@RG\\tID:${meta.readgroup_id}\\tPL:ILLUMINA\\tPU:${meta.platform_unit}\\tSM:${meta.patient_id}_${meta.sample_id}\\tLB:${meta.library_id}\\tDS:${params.fasta}\\tCN:${meta.center}" \
 			-t ${task.cpus} ${params.bwa_index} $left $right \
 			| samtools fixmate -@ ${task.cpus} -m - - \
-			| samtools sort -@ ${task.cpus} -m 3G -O bam -o $bam - 
+			| samtools sort -@ ${task.cpus} -m 4G -O bam -o $bam - 
 	"""	
 }
