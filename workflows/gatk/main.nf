@@ -47,7 +47,7 @@ workflow GATK_VARIANT_CALLING {
 
 	// Recalibrate BAM base quality scores
 	GATK_BASERECALIBRATOR(
-		BAM_INDEX.out.bam.combine(ch_intervals)
+		bam.combine(ch_intervals)
 	)
 
 	recal_by_sample = GATK_BASERECALIBRATOR.out.report.groupTuple()
@@ -145,7 +145,9 @@ workflow GATK_VARIANT_CALLING {
         	)
 		// Filter VCF using GATK neural networks
 		GATK_CNNSCOREVARIANTS(
-			GATK_HAPLOTYPECALLER_SINGLE.out.vcf.join(bam),
+			GATK_HAPLOTYPECALLER_SINGLE.out.vcf.join(
+				GATK_HAPLOTYPECALLER_SINGLE.out.bam
+			),
 			intervals.collect()
 		)
 		GATK_FILTERVARIANTTRANCHES(

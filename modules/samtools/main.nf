@@ -1,3 +1,24 @@
+process BAM_INTERSECT {
+
+	tag "${meta.patient_id}|${meta.sample_id}"
+
+	input:
+	tuple val(meta),path(bam),path(bai)
+	path(bed)
+
+	output:
+	tuple val(meta),path(bam_sub),path(bai_sub), emit: bam
+
+	script:
+	bam_sub = bam.getBaseName() + ".subset.bam"
+	bai_sub = bam_sub + ".bai"
+
+	"""
+
+	"""
+
+}
+	
 process MERGE_MULTI_LANE {
 
 	tag "${meta.patient_id}|${meta.sample_id}"

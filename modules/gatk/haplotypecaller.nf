@@ -13,12 +13,16 @@ process GATK_HAPLOTYPECALLER {
 
 	output:
 	tuple val(meta),path(vcf),path(tbi), emit: vcf
+	tuple val(meta),path(bam_out),path(bai_out), optional: true, emit: bam
 
 	script:
 	def options = ""
 	if (modus == "single") {
 		vcf = bam.getBaseName() + ".hc.vcf.gz"
 		tbi = vcf + ".tbi"
+		bam_out = bam.getBaseName() + ".hc.bam"
+		bai_out = bam.getBaseName() + ".hc.bai"
+		options = "--bam-output $bam_out -OBI true"
 	} else {
 		vcf = bam.getBaseName() + ".hc.vcf.gz"
 		tbi = vcf + ".tbi"
@@ -29,7 +33,7 @@ process GATK_HAPLOTYPECALLER {
 	"""
 		gatk HaplotypeCaller --java-options "-Xmx${task.memory.giga}g" -R $params.fasta -I $bam -L $intervals -O $vcf \
 			$options \
-			-G StandardAnnotation -G StandardHCAnnotation --new-qual \
+			-G StandardAnnotation -G StandardHCAnnotation \
 			-OVI true -ip ${params.interval_padding} -D ${params.dbsnp} 
 	"""
 }

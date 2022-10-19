@@ -25,7 +25,7 @@ process GATK_FILTERVARIANTTRANCHES {
 			--resource $params.omni \
 			--resource $params.g1k \
 			--resource $params.dbsnp \
-			--info-key CNN_2D \
+			--info-key CNN_1D \
 			--invalidate-previous-filters \
 			--snp-tranche 99.9 --indel-tranche 99.9 \
 			-O $vcf_filtered

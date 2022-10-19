@@ -89,6 +89,14 @@ if (params.kill) {
         params.kill_list = false
 }
 
+if (params.cram) {
+	aln_ext = "cram"
+	aln_idx = "crai"
+} else {
+	aln_ext = "bam"
+	aln_idx = "bai"
+}
+
 /*
 PANEL COVERAGE - pick the correct panel for reporting
 */
@@ -234,6 +242,14 @@ workflow {
 		trim_report = TRIM_AND_ALIGN.out.qc
 		dedup_report = TRIM_AND_ALIGN.out.dedup_report
 		sample_names = TRIM_AND_ALIGN.out.sample_names
+
+		// Create a sub-set of the BAM file using a target BED file
+		if ('intersect' in tools) {
+			BAM_INTERSECT(
+				bam,
+				padded_bed
+			)
+		}
 
 		// DEEPVARIANT WORKFLOW
 		if ('deepvariant' in tools) {
