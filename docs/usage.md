@@ -33,10 +33,8 @@ ruby bin/samplesheet_from_folder.rb -f /path/to/foler > Samplesheet.csv`
 ### `--assembly` 
 The following human genome assembly versions are supported on MedCluster (see resources.config on how this is set):
 
-- GRCh37 (the 1000 genomes reference with decoys)
 - GRCh38 (the GRCh38 human reference assembly without ALT loci)
 - GRCh38_p14 (the latest GRCh38 human reference assembly without ALT loci [patch 14])
-- hg19 (another version of GRCh37, also referred to as the UCSC reference)
 
 ### `--tools`
 The pipeline offers various tools for the analysis of variant information. Specifically:
@@ -73,13 +71,7 @@ for capture. This information is important so the pipeline knows whichs regions 
 
 We have included these files for the following kits and genome assemblies:
 
-`Nextera` [hg19, GRCH37, GRCh38]
-
-`xGen` (original IDT xGen kit) [hg19, GRCh37, GRCh38]
-
 `xGen_v2` (v2 release of the IDT xGen kit) [GRCh38, GRCH38_p14]
-
-`Pan_cancer` [hg19]
 
 ### `--email`
 Your Email address in quotes to which the pipeline report is sent upon completion. 
