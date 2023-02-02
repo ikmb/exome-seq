@@ -1,5 +1,7 @@
 process CONCAT {
 
+	label 'bcftools'
+
 	publishDir "${params.outdir}/ConcatenatedVariants", mode: 'copy'
 
 	label 'bcftools'

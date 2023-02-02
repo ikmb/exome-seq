@@ -7,12 +7,9 @@ channels:
   - bioconda
 dependencies:
   - bioconda::fastqc=0.11.9
-  - bioconda::fastp=0.23.1
   - bioconda::bwa-mem2=2.2.1
   - bioconda::bwa=0.7.17
-  - bioconda::multiqc=1.11
   - bioconda::samtools=1.14
-  - bioconda::bcftools=1.14
   - bioconda::htslib=1.14
   - bioconda::perl-excel-writer-xlsx
   - bioconda::perl-json-parse=0.55
