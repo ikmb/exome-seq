@@ -98,7 +98,7 @@ process AMPLICON_CLIP {
 	path(bed)
 
 	output:
-	tuple val(meta),path(bam_masked),path(bam_masked_bai)
+	tuple val(meta),path(bam_masked),path(bam_masked_bai), emit: bam
 
 	script:
 	bam_masked = bam.getBaseName() + ".amplicon_clipped.bam"

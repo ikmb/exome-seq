@@ -34,6 +34,7 @@ workflow TRIM_AND_ALIGN {
 		MERGE_MULTI_LANE( bam_to_merge.multiple )
 		BAM_INDEX(MERGE_MULTI_LANE.out.bam.mix( bam_to_merge.single ))
 
+		ch_report = Channel.from([])
 		if (params.amplicon_bed) {
 			AMPLICON_CLIP(
 				BAM_INDEX.out.bam,
@@ -43,13 +44,14 @@ workflow TRIM_AND_ALIGN {
 		} else {
 			DEDUP(BAM_INDEX.out.bam)
 			ch_final_bam = DEDUP.out.bam
+			ch_report = ch_report.mix(DEDUP.out.report)
 		}
 		
 	emit:
 		bam_nodedup = BAM_INDEX.out.bam
 		bam = ch_final_bam
 		qc = TRIM.out.json
-		dedup_report = DEDUP.out.report
+		dedup_report = ch_report
 		sample_names = ALIGN.out.sample_name.unique()
 		metas = ALIGN.out.meta_data
 }
