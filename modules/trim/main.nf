@@ -1,5 +1,7 @@
 process TRIM {
 
+	label 'fastp'
+
 	tag "${meta.patient_id}|${meta.sample_id}"
 
         input:

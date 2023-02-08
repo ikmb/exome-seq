@@ -105,7 +105,7 @@ process AMPLICON_CLIP {
 	bam_masked_bai = bam_masked + ".bai"
 
 	"""
-		samtools ampliconclip --both-ends -b $bed $bam | samtools sort -n - | samtools fixmate - - | samtools sort - | samtools calmd -bAr - $params.fasta > $bam_masked
+		samtools ampliconclip -b $bed $bam | samtools sort -o $bam_masked
 		samtools index $bam_masked
 	"""
 

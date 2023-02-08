@@ -1,4 +1,6 @@
 process MULTIQC {
+   
+    label 'multiqc'
 
     publishDir "${params.outdir}/Summary/${cname}", mode: 'copy'
 
@@ -20,6 +22,8 @@ process MULTIQC {
 }
 
 process MULTIQC_PANEL {
+
+	label 'multiqc'
 
         publishDir "${params.outdir}/Summary/Panel", mode: "copy"
 

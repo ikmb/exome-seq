@@ -36,11 +36,12 @@ workflow TRIM_AND_ALIGN {
 
 		ch_report = Channel.from([])
 		if (params.amplicon_bed) {
-			AMPLICON_CLIP(
-				BAM_INDEX.out.bam,
-				amplicon_bed.collect()
-			)
-			ch_final_bam = AMPLICON_CLIP.out.bam
+			//AMPLICON_CLIP(
+			//	BAM_INDEX.out.bam,
+			//	amplicon_bed.collect()
+			//)
+			//ch_final_bam = AMPLICON_CLIP.out.bam
+			ch_final_bam = BAM_INDEX.out.bam
 		} else {
 			DEDUP(BAM_INDEX.out.bam)
 			ch_final_bam = DEDUP.out.bam
