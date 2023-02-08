@@ -338,10 +338,10 @@ workflow {
 		// Effect prediction
 		if (params.effects) {
 			VEP(ch_vcfs)
-			CSQ(ch_phased_vcfs)
-			if ('haplosaurus' in tools) {
-				HAPLOSAURUS(ch_phased_vcfs)
-			}
+			//CSQ(ch_phased_vcfs)
+			//if ('haplosaurus' in tools) {
+			//	HAPLOSAURUS(ch_phased_vcfs)
+			//}
 		}
 
 		// QC Reports

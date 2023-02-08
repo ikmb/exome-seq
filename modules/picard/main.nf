@@ -48,6 +48,7 @@ process MULTI_METRICS {
                 PROGRAM=CollectGcBiasMetrics \
                 PROGRAM=CollectBaseDistributionByCycle \
                 INPUT=${bam} \
+		VALIDATION_STRINGENCY=LENIENT \
                 REFERENCE_SEQUENCE=${params.fasta} \
                 DB_SNP=${params.dbsnp} \
                 INTERVALS=${baits} \
@@ -88,6 +89,7 @@ process HYBRID_CAPTURE_METRICS {
                 BAIT_INTERVALS=${baits} \
                 REFERENCE_SEQUENCE=${params.fasta} \
                 MINIMUM_MAPPING_QUALITY=$params.min_mapq \
+		VALIDATION_STRINGENCY=LENIENT \
                 TMP_DIR=tmp
         """
 }
@@ -117,6 +119,7 @@ process OXO_METRICS {
                 OUTPUT=${outfile} \
                 DB_SNP=${params.dbsnp} \
                 INTERVALS=${targets} \
+		VALIDATION_STRINGENCY=LENIENT \
                 REFERENCE_SEQUENCE=${params.fasta} \
                 TMP_DIR=tmp
         """
