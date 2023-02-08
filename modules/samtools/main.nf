@@ -28,6 +28,7 @@ process MERGE_MULTI_LANE {
 
         output:
         tuple val(meta),path(merged_bam), emit: bam
+	val(meta), emit: meta_data
 
         script:
         merged_bam = meta.patient_id + "_" + meta.sample_id + ".merged.bam"

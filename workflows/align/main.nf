@@ -54,7 +54,7 @@ workflow TRIM_AND_ALIGN {
 		qc = TRIM.out.json
 		dedup_report = ch_report
 		sample_names = ALIGN.out.sample_name.unique()
-		metas = ALIGN.out.meta_data
+		metas = MERGE_MULTI_LANE.out.meta_data
 }
 
 def create_fastq_channel(LinkedHashMap row) {
