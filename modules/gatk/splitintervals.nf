@@ -6,6 +6,7 @@ process GATK_SPLITINTERVALS {
 
 	input:
 	path(intervals)
+	tuple path(fasta),path(fai),path(dict)
 
 	output:
 	path("results/*"), emit: intervals
@@ -13,7 +14,7 @@ process GATK_SPLITINTERVALS {
 	script:
 
 	"""
-		gatk SplitIntervals -R $params.fasta -L $intervals \
+		gatk SplitIntervals -R ${fasta} -L $intervals \
 		--scatter-count 10 \
 		-O results
 	"""

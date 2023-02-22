@@ -5,6 +5,7 @@ process GATK_GENOTYPEGVCFS {
 	input:
 	tuple path(gvcf),path(tbi)
 	path(intervals)
+	tuple path(fasta),path(fai)
 
 	output:
 	tuple path(vcf),path(tbi), emit: vcf
@@ -15,7 +16,7 @@ process GATK_GENOTYPEGVCFS {
 
 	"""
 		gatk --java-options "-Xmx4g" GenotypeGVCFs \
-			-R $params.fasta \
+			-R $fasta \
 			-V $gvcf -L $intervals -O $vcf \
 			-G StandardAnnotation -G AS_StandardAnnotation \
 			--allow-old-rms-mapping-quality-annotation-data \

@@ -9,6 +9,7 @@ process WHATSHAP {
 	input:
 	tuple val(meta),path(vcf),path(tbi)
 	path(bams)
+	tuple path(fasta),path(fai),path(dict)
 
 	output:
 	tuple val(meta),path(phased_vcf),path(phased_tbi), emit: vcf
@@ -18,7 +19,7 @@ process WHATSHAP {
 	phased_tbi = phased_vcf + ".tbi"
 
 	"""
-		whatshap phase -o $phased_vcf --tag=PS --reference $params.fasta $vcf *.bam
+		whatshap phase -o $phased_vcf --tag=PS --reference $fasta $vcf *.bam
 		tabix $phased_vcf
 	"""
 		
@@ -34,6 +35,7 @@ process WHATSHAP_SINGLE {
 
         input:
         tuple val(meta),path(vcf),path(tbi),path(bam),path(bai)
+	tuple path(fasta),path(fai),path(dict)
 
         output:
         tuple val(meta),path(phased_vcf),path(phased_tbi), emit: vcf
@@ -43,7 +45,7 @@ process WHATSHAP_SINGLE {
         phased_tbi = phased_vcf + ".tbi"
 
         """
-                whatshap phase -o $phased_vcf --tag=PS --reference $params.fasta $vcf *.bam
+                whatshap phase -o $phased_vcf --tag=PS --reference $fasta $vcf *.bam
                 tabix $phased_vcf
         """
 

@@ -9,6 +9,7 @@ process GATK_CNNSCOREVARIANTS {
 	input:
 	tuple val(meta),path(vcf),path(tbi),path(bam),path(bai)
 	path(intervals)
+	tuple path(fasta),path(fai),path(dict)
 
 	output:
 	tuple val(meta),path(cnn_vcf),path(cnn_vcf_tbi), emit: vcf
@@ -22,7 +23,7 @@ process GATK_CNNSCOREVARIANTS {
 		gatk CNNScoreVariants \
 			--variant $vcf \
 			--output $cnn_vcf \
-			--reference $params.fasta \
+			--reference $fasta \
 			--intervals $intervals \
 	"""
 	

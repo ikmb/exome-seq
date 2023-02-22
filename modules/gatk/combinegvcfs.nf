@@ -6,6 +6,7 @@ process GATK_COMBINEGVCFS {
 	path(gvcfs)
 	path(tbis)
 	path(intervals)
+	path(fasta)
 
 	output:
 	tuple path(merged_gvcf),path(merged_gvcf_tbi), emit: gvcf
@@ -15,7 +16,7 @@ process GATK_COMBINEGVCFS {
 	merged_gvcf_tbi = merged_gvcf + ".tbi"
 
 	"""
-		gatk CombineGVCFs -R $params.fasta --variant ${gvcfs.join(' --variant ')} \
+		gatk CombineGVCFs -R $fasta --variant ${gvcfs.join(' --variant ')} \
 			-O $merged_gvcf -OVI true -L $intervals -ip $params.interval_padding
 	"""
 

@@ -1,6 +1,6 @@
 process XHLA {
 
-	container "docker://humanlongevity/hla:latest"
+	container "humanlongevity/hla:latest"
 	
 	tag "${meta.patient_id}|${meta.sample_id}"
 
