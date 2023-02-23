@@ -10,7 +10,7 @@ dependencies:
   - bioconda::bwa-mem2=2.2.1
   - bioconda::bwa=0.7.17
   - bioconda::samtools=1.16
-  - bioconda::htslib=1.14
+  - bioconda::htslib=1.16
   - bioconda::perl-excel-writer-xlsx
   - bioconda::perl-json-parse=0.55
   - bioconda::picard=2.18.11
