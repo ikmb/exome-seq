@@ -10,7 +10,7 @@ process OXO_METRICS {
         tuple val(meta), path(bam), path(bai)
         path(targets)
 	tuple path(fasta),path(fai),path(dict)
-	val(dbsnp)
+	tuple path(dbsnp),path(dbsnp_tbi)
 
         output:
         path(outfile)

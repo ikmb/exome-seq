@@ -8,8 +8,10 @@ process GATK_FILTERVARIANTTRANCHES {
 	
 	input:
 	tuple val(meta),path(vcf),path(tbi)
-	val(snps)
-	val(indels)
+	path(snps)
+	path(snps_tbi)
+	path(indels)
+	path(indels_tbi)
 
 	output:
 	tuple val(meta),path(vcf_filtered),path(vcf_filtered_tbi), emit: vcf

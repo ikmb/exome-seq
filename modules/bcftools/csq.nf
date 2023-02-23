@@ -7,6 +7,7 @@ process BCFTOOLS_CSQ {
         input:
         tuple val(meta),path(vcf),path(tbi)
 	tuple path(fasta),path(fai),path(dict)
+	path(gtf)
 
         output:
         tuple val(meta),path(vcf_fixed),path(tbi_fixed), emit: vcf
@@ -16,7 +17,7 @@ process BCFTOOLS_CSQ {
         tbi_fixed = vcf_fixed + ".tbi"
 
         """
-                bcftools csq -f $fasta -g $params.csq_gtf --phase a $vcf -o $vcf_fixed
+                bcftools csq -f $fasta -g $gtf --phase a $vcf -o $vcf_fixed
                 bcftools index -t $vcf_fixed
         """
 

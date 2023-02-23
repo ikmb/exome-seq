@@ -22,7 +22,7 @@ process VEP {
                         --cache \
                         --dir ${params.vep_cache_dir} \
                         --species homo_sapiens \
-                        --assembly $params.assembly \
+                        --assembly GRCh38 \
                         -i $vcf \
                         --format vcf \
                         -o $vcf_vep --dir_plugins ${params.vep_plugin_dir} \

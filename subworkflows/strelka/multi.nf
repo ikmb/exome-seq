@@ -27,13 +27,13 @@ workflow STRELKA_MULTI_CALLING {
         .groupTuple()
         .set { ch_bams }
 
-	STRELKA_JOINTCALLING(
+	STRELKA_JOINT_CALLING(
             ch_bams.map { m,b,i -> [ b,i]},
             bed.collect(),
 	    fasta.collect()
         )
 	VCF_FILTER_PASS(
-		STRELKA_JOINTCALLING.out.vcf.map { v,t -> [ [id: "all", sample_id: "STRELKA_JOINT_CALLING", patient_id: "MergedCallset", variantcaller: "STRELKA"],v,t]}
+		STRELKA_JOINT_CALLING.out.vcf.map { v,t -> [ [id: "all", sample_id: "STRELKA_JOINT_CALLING", patient_id: "MergedCallset", variantcaller: "STRELKA"],v,t]}
 	)
 	VCF_GATK_SORT(
 		VCF_FILTER_PASS.out.vcf
@@ -46,7 +46,8 @@ workflow STRELKA_MULTI_CALLING {
 	// Phase Multi-VCF with all samples
 	WHATSHAP(
 		ch_merged_vcf,
-		bams.collect()
+		bams.collect(),
+		fasta.collect()
 	)
 	ch_phased_multi = ch_phased_multi.mix(WHATSHAP.out.vcf)
 	

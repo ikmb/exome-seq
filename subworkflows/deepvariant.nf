@@ -28,7 +28,10 @@ workflow DV_VARIANT_CALLING {
 
 		VCF_INDEX(DEEPVARIANT.out.vcf)
 		VCF_FILTER_PASS(VCF_INDEX.out.vcf)
-		VCF_ADD_DBSNP(VCF_FILTER_PASS.out.vcf,dbsnp)
+		VCF_ADD_DBSNP(
+			VCF_FILTER_PASS.out.vcf,
+			dbsnp.collect()	
+		)
 		VCF_ADD_HEADER(VCF_ADD_DBSNP.out.vcf.map { meta,v,t ->
 			def s_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "DEEPVARIANT" ]
 			tuple(s_meta,v,t)
@@ -46,7 +49,7 @@ workflow DV_VARIANT_CALLING {
 					tuple(new_b_key,b,i)
 				}
 			).map { n,m,v,t,b,i -> [ m,v,t,b,i ] },
-			fasta
+			fasta.collect()
 		)
 
 		// Fiddly work-around to determine whether we have 1 or multiple vcfs. No merging when n=1

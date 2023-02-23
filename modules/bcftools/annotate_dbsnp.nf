@@ -8,7 +8,7 @@ process BCFTOOLS_ANNOTATE_DBSNP {
 
         input:
         tuple val(meta),path(vcf),path(tbi)
-	val(dbsnp)
+	tuple path(dbsnp),path(dbsnp_tbi)
 
         output:
         tuple val(meta),path(vcf_annotated), path(vcf_annotated_index), emit: vcf

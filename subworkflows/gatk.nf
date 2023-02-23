@@ -23,12 +23,15 @@ workflow GATK_VARIANT_CALLING {
 	intervals
 	metas
 	fasta
-	snps
-	indels
 	dbsnp
+	dbsnp_tbi
+	known_snps
+	known_snps_tbi
+	known_indels
+	known_indels_tbi
 
 	main:
-
+	
 	ch_vcf_multi = Channel.from([])
 	ch_vcf_single = Channel.from([])
 
@@ -54,9 +57,11 @@ workflow GATK_VARIANT_CALLING {
 	// Recalibrate BAM base quality scores
 	GATK_BASERECALIBRATOR(
 		bam.combine(ch_intervals),
-		fasta.collect(),
-		snps.collect(),
-		indels.collect()
+		fasta.collect(),			
+		known_snps.collect(),
+		known_snps_tbi.collect(),
+		known_indels.collect(),
+		known_indels_tbi.collect()
 	)
 
 	recal_by_sample = GATK_BASERECALIBRATOR.out.report.groupTuple()
@@ -79,8 +84,7 @@ workflow GATK_VARIANT_CALLING {
 			GATK_APPLYBQSR.out.bam,
 			intervals.collect(),
 			"gvcf",
-			fasta.collect(),
-			dbsnp
+			fasta.collect()
 		)	
 		// Combine all gVCFs into one multi-sample gVCF
 		GATK_COMBINEGVCFS(
@@ -156,8 +160,7 @@ workflow GATK_VARIANT_CALLING {
         	        GATK_APPLYBQSR.out.bam,
 	                intervals.collect(),
                 	"single",
-			fasta.collect(),
-                        dbsnp
+			fasta.collect()
         	)
 		// Filter VCF using GATK neural networks
 		GATK_CNNSCOREVARIANTS(
@@ -170,7 +173,9 @@ workflow GATK_VARIANT_CALLING {
 		GATK_FILTERVARIANTTRANCHES(
 			GATK_CNNSCOREVARIANTS.out.vcf,
 			snps.collect(),
-			indels.collect()
+			snps_tbi.collect(),
+			indels.collect(),
+			indels_tbi.collect()
 		)
 		ch_vcf_single = ch_vcf_single.mix(GATK_FILTERVARIANTTRANCHES.out.vcf)
 

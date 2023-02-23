@@ -8,32 +8,40 @@
 // Input Channels and data
 //
 
-fasta = params.genomes[ params.assembly ].fasta
-fasta_fai = params.genomes[ params.assembly ].fai
-fasta_gz = params.genomes[ params.assembly ].fastagz
-fasta_gzfai = params.genomes[ params.assembly ].gzfai
-fasta_gzi = params.genomes[ params.assembly ].gzi
-dict = params.genomes[ params.assembly ].dict
-dbsnp = params.genomes[ params.assembly ].dbsnp
-csq_gtf = params.genomes[params.assembly].gtf
-omni =  params.genomes[ params.assembly ].omni
-hapmap = params.genomes[ params.assembly ].hapmap
-g1k = params.genomes[ params.assembly].g1k
-mills = params.genomes[ params.assembly ].mills
-axiom = params.genomes[ params.assembly ].axiom
+ch_dbsnp = Channel.fromPath(params.dbsnp)
+ch_dbsnp_tbi = Channel.fromPath(params.dbsnp + ".tbi")
+ch_hapmap = Channel.fromPath(params.hapmap)
+ch_hapmap_tbi =  Channel.fromPath(params.hapmap + ".tbi")
+ch_omni = Channel.fromPath(params.omni)
+ch_omni_tbi = Channel.fromPath(params.omni + ".tbi")
+ch_mills = Channel.fromPath(params.mills)
+ch_mills_tbi = Channel.fromPath(params.mills + ".tbi")
+ch_g1k = Channel.fromPath(params.g1k)
+ch_g1k_tbi = Channel.fromPath(params.g1k + ".tbi")
+ch_axiom = Channel.fromPath(params.axiom)
+ch_axiom_tbi = Channel.fromPath(params.axiom + ".tbi")
 
-snps = [ hapmap,  omni,  dbsnp, g1k ]
-indels = [ mills,  axiom ]
+// combine all SNPs, for GATK calibration
+ch_known_snps = ch_dbsnp.mix(ch_hapmap, ch_omni, ch_g1k)
+ch_known_snps_tbi = ch_dbsnp_tbi.mix(ch_hapmap_tbi, ch_omni_tbi, ch_g1k_tbi)
+
+// combine all INDELs, for GATK calibration
+ch_known_indels = ch_mills.mix(ch_axiom)
+ch_known_indels_tbi = ch_mills_tbi.mix(ch_axiom_tbi)
+
+ch_dbsnp_combined = Channel.fromList( [ params.dbsnp, params.dbsnp + ".tbi" ] )
 
 if (params.amplicon_bed) { ch_amplicon_bed = Channel.fromPath(file(params.amplicon_bed, checkIfExists: true)) } else { ch_amplicon_bed = Channel.from([]) }
 
-ch_fasta = Channel.fromList( [ file(fasta , checkIfExists: true), file(fasta_fai, checkIfExits: true), file(dict, checkIfExists: true) ] )
+ch_gtf = Channel.fromPath(params.csq_gtf)
 
-deepvariant_ref = Channel.from( [ fasta_fai,fasta_gz,fasta_gzfai,fasta_gzi ] )
+ch_fasta = Channel.fromList( [ file(params.fasta , checkIfExists: true), file(params.fasta_fai, checkIfExits: true), file(params.dict, checkIfExists: true) ] )
+
+deepvariant_ref = Channel.from( [ params.fasta_fai,params.fasta_gz,params.fasta_gzfai,params.fasta_gzi ] )
 
 // Mapping tool and corresponding index
 
-if (params.bwa2) { bwa_index = params.genomes[ params.assembly ].bwa2_index } else { bwa_index = fasta }
+if (params.bwa2) { bwa_index = params.genomes[ params.assembly ].bwa2_index } else { bwa_index = params.fasta }
 
 // Targets and bait file
 
@@ -157,9 +165,9 @@ workflow EXOME_SEQ {
 			DV_VARIANT_CALLING(
 				bam,
 				padded_bed,
-				deepvariant_ref.collect(),
-				ch_fasta.collect(),
-				dbsnp
+				deepvariant_ref,
+				ch_fasta,
+				ch_dbsnp_combined
 			)
 			dv_vcf = DV_VARIANT_CALLING.out.vcf
                 	dv_merged_vcf = DV_VARIANT_CALLING.out.vcf_multi
@@ -180,9 +188,12 @@ workflow EXOME_SEQ {
 				targets,
 				TRIM_AND_ALIGN.out.metas,
 				ch_fasta,
-				snps,
-				indels,
-				dbsnp
+				ch_dbsnp,
+				ch_dbsnp_tbi,
+				ch_known_snps,
+				ch_known_snps_tbi,
+				ch_known_indels,
+				ch_known_indels_tbi	
 			)
 			gatk_vcf = GATK_VARIANT_CALLING.out.vcf
 			gatk_merged_vcf = GATK_VARIANT_CALLING.out.vcf_multi
@@ -212,7 +223,7 @@ workflow EXOME_SEQ {
 					bedgz,
 					sample_names,
 					ch_fasta,
-					dbsnp
+					ch_dbsnp_combined
 				)
         	        	strelka_vcf = STRELKA_SINGLE_CALLING.out.vcf
 				strelka_merged_vcf = STRELKA_SINGLE_CALLING.out.vcf_multi
@@ -238,7 +249,7 @@ workflow EXOME_SEQ {
 				bedgz.collect(),
 				ch_fasta.collect()
 			)
-			manta_vcf = MANTA.out[0].mix(MANTA.out[1],MANTA.out[2])
+			manta_vcf = MANTA.out.diploid_sv.mix(MANTA.out.candidate_sv,MANTA.out.small_indels)
 		} else {
 			manta_vcf = Channel.empty()
 		}
@@ -255,7 +266,7 @@ workflow EXOME_SEQ {
 			targets,
 			baits,
 			ch_fasta,
-			dbsnp
+			ch_dbsnp_combined
 		)
 		bam_qc = PICARD_METRICS.out.qc_reports
 		VCF_STATS(ch_vcfs)
@@ -269,13 +280,23 @@ workflow EXOME_SEQ {
 
 		// Effect prediction
 		if ('vep' in tools) {
-			VEP(ch_vcfs,ch_fasta)
+			VEP(
+				ch_vcfs,
+				ch_fasta.collect()
+			)
 		}
 		if ('csq' in tools) {
-			CSQ(ch_phased_vcfs,ch_fasta)
+			CSQ(
+				ch_phased_vcfs,
+				ch_fasta.collect(),
+				ch_gtf.collect()
+			)
 		}
 		if ('haplosaurus' in tools) {
-			HAPLOSAURUS(ch_phased_vcfs,ch_fasta)
+			HAPLOSAURUS(
+				ch_phased_vcfs,
+				ch_fasta.collect()
+			)
 		}
 
 		// QC Reports

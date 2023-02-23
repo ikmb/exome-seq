@@ -67,6 +67,7 @@ workflow {
 
 	EXOME_SEQ()
 	multiqc_report = multiqc_report.mix(EXOME_SEQ.out.qc)
+
 }
 
 workflow.onComplete {

@@ -29,7 +29,10 @@ workflow STRELKA_SINGLE_CALLING {
 	)
 	VCF_INDEX(STRELKA.out.vcf)
         VCF_FILTER_PASS(VCF_INDEX.out.vcf)
-        VCF_ADD_DBSNP(VCF_FILTER_PASS.out.vcf,dbsnp)
+        VCF_ADD_DBSNP(
+		VCF_FILTER_PASS.out.vcf,
+		dbsnp.collect()
+	)
 	VCF_ADD_HEADER(VCF_ADD_DBSNP.out.vcf.map { meta,v,t ->
 			new_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "STRELKA" ]
 			tuple(new_meta,v,t)

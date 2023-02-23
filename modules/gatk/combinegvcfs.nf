@@ -6,7 +6,7 @@ process GATK_COMBINEGVCFS {
 	path(gvcfs)
 	path(tbis)
 	path(intervals)
-	path(fasta)
+	tuple path(fasta),path(fai),path(dict)
 
 	output:
 	tuple path(merged_gvcf),path(merged_gvcf_tbi), emit: gvcf

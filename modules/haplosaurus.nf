@@ -9,11 +9,10 @@ process HAPLOSAURUS {
 	tuple path(fasta),path(fai),path(dict)
 
         output:
-        path(vcf_vep)
-        path('*.html')
+        path(haplo)
 
         script:
-        vcf_vep = vcf.getBaseName() + ".vep_haplo.txt"
+        haplo = vcf.getBaseName() + ".vep_haplo.txt"
 
         """
                 haplo --offline \
@@ -23,15 +22,8 @@ process HAPLOSAURUS {
                         --assembly $params.assembly \
                         -i $vcf \
                         --format vcf \
-                        -o $vcf_vep
+                        -o $haplo  \
                         --fasta $fasta \
-                        --fork ${task.cpus} \
-                        --vcf \
-                        --per_gene \
-                        --sift p \
-                        --polyphen p \
-                        --check_existing \
-                        --canonical
 
         """
 

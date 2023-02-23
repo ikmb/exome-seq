@@ -21,14 +21,14 @@ workflow PICARD_METRICS {
 			bam,
 			baits.collect(),
 			fasta.collect(),
-			dbsnp
+			dbsnp.collect()
 
 		)
 		OXO_METRICS(
 			bam,
 			targets.collect(),
 			fasta.collect(),
-			dbsnp
+			dbsnp.collect()
 		)
 
 	emit:

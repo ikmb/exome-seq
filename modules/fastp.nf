@@ -18,6 +18,8 @@ process FASTP {
         json = file(fastqR1).getBaseName() + ".fastp.json"
         html = file(fastqR1).getBaseName() + ".fastp.html"
 
+	def options = ""
+
         """
                 fastp -c --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right --detect_adapter_for_pe -w ${task.cpus} -j $json -h $html --length_required 35
         """

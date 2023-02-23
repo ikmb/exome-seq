@@ -5,7 +5,7 @@ process GATK_GENOTYPEGVCFS {
 	input:
 	tuple path(gvcf),path(tbi)
 	path(intervals)
-	tuple path(fasta),path(fai)
+	tuple path(fasta),path(fai),path(dict)
 
 	output:
 	tuple path(vcf),path(tbi), emit: vcf
