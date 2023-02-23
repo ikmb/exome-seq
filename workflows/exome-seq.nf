@@ -79,6 +79,7 @@ if (params.panel) {
 // A single exon only covered in male samples - simple sex check
 sry_region  = params.sry_bed ?: params.genomes[params.assembly].sry_bed
 
+// List of tools to run
 tools = params.tools ? params.tools.split(',').collect{it.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '')} : []
 
 // Expansion hunter references
@@ -101,9 +102,12 @@ if ('cnvkit' in tools) {
 // Read sample file
 
 ch_samplesheet = file(params.samples, checkIfExists: true)
+
+// set optional channels
 ch_vcfs = Channel.from([])
 ch_phased_vcfs = Channel.from([])
 
+// import subworkflows and modules
 include { CONVERT_BED } from "./../subworkflows/bed"
 include { TRIM_AND_ALIGN } from "./../subworkflows/align"
 include { DV_VARIANT_CALLING } from "./../subworkflows/deepvariant"
@@ -128,6 +132,7 @@ include { BCFTOOLS_CONCAT as CONCAT } from "./../modules/bcftools/concat"
 include { SEX_CHECK} from "./../modules/qc/main"
 include { XHLA } from "./../modules/xhla"
 
+// Start the main workflow
 workflow EXOME_SEQ {
 
 	main:

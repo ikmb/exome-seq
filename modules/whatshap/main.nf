@@ -1,9 +1,9 @@
 process WHATSHAP {
 
+	container 'quay.io/biocontainers/whatshap:1.1--py36hae55d0a_1'
+
 	tag "${meta.patient_id}|${meta.sample_id}"
 		
-	label 'whatshap'
-
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/${meta.variantcaller}", mode: 'copy'
 
 	input:
@@ -29,7 +29,7 @@ process WHATSHAP_SINGLE {
 
 	tag "${meta.patient_id}|${meta.sample_id}"
 
-        label 'whatshap'
+	container 'quay.io/biocontainers/whatshap:1.1--py36hae55d0a_1'
 
         publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/${meta.variantcaller}", mode: 'copy'
 

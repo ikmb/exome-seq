@@ -1,5 +1,6 @@
 process cnvkit_ref_decompress {
 	
+
 	input:
 	path(cnn_gz)
 
@@ -17,8 +18,7 @@ process cnvkit_ref_decompress {
 
 process cnvkit_ref_to_targets {
 
-
-	label 'cnvkit'
+	container 'quay.io/biocontainers/cnvkit:0.9.9--pyhdfd78af_0'
 
 	//publishDir "${params.outdir}/CnvKit/Ref", mode: 'copy'
 
@@ -41,7 +41,7 @@ process cnvkit_ref_to_targets {
 // get per sample coverage for targets and antitargets
 process cnvkit_coverage {
 
-	label 'cnvkit'
+	container 'quay.io/biocontainers/cnvkit:0.9.9--pyhdfd78af_0'
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit/Processing", mode: 'copy'
 
@@ -67,7 +67,8 @@ process cnvkit_coverage {
 // correct biases and stuff
 process cnvkit_process {
 
-	label 'cnvkit'
+	container 'quay.io/biocontainers/cnvkit:0.9.9--pyhdfd78af_0'
+
 	input:
 	tuple val(meta),path(cnn),path(cnn_anti)
 	path(ref)
@@ -89,7 +90,7 @@ process cnvkit_process {
 // Segmetrics
 process cnvkit_segmetrics {
 
-	label 'cnvkit'
+	container 'quay.io/biocontainers/cnvkit:0.9.9--pyhdfd78af_0'
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit/Processing", mode: 'copy'
 
@@ -110,7 +111,7 @@ process cnvkit_segmetrics {
 // Attach confidence interfals
 process cnvkit_call {
 
-	label 'cnvkit'
+	container 'quay.io/biocontainers/cnvkit:0.9.9--pyhdfd78af_0'
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit/Processing", mode: 'copy'
 
@@ -132,7 +133,7 @@ process cnvkit_call {
 // Metrics per gene
 process cnvkit_genemetrics {
 
-	label 'cnvkit'
+	container 'quay.io/biocontainers/cnvkit:0.9.9--pyhdfd78af_0'
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit/Metrics", mode: 'copy'
 
@@ -155,7 +156,7 @@ process cnvkit_genemetrics {
 // find putative breaks
 process cnvkit_breaks {
 
-	label 'cnvkit'
+	container 'quay.io/biocontainers/cnvkit:0.9.9--pyhdfd78af_0'
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit/Metrics", mode: 'copy'
 
@@ -178,7 +179,7 @@ process cnvkit_breaks {
 // make useful output formats
 process cnvkit_export {
 
-	label 'cnvkit'
+	container 'quay.io/biocontainers/cnvkit:0.9.9--pyhdfd78af_0'
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit", mode: 'copy'
 
@@ -201,7 +202,7 @@ process cnvkit_export {
 
 process cnvkit_plots {
 
-	label 'cnvkit'
+	container 'quay.io/biocontainers/cnvkit:0.9.9--pyhdfd78af_0'
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CnvKit/Plots", mode: 'copy'
 
