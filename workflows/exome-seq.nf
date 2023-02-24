@@ -106,12 +106,14 @@ ch_samplesheet = file(params.samples, checkIfExists: true)
 // set optional channels
 ch_vcfs = Channel.from([])
 ch_phased_vcfs = Channel.from([])
+ch_recal_bam = Channel.from([])
 
 // import subworkflows and modules
 include { CONVERT_BED } from "./../subworkflows/bed"
 include { TRIM_AND_ALIGN } from "./../subworkflows/align"
 include { DV_VARIANT_CALLING } from "./../subworkflows/deepvariant"
-include { GATK_VARIANT_CALLING } from "./../subworkflows/gatk"
+include { GATK_VARIANT_CALLING } from "./../subworkflows/gatk_variant_calling"
+include { GATK_BAM_RECAL } from "./../subworkflows/gatk_bqsr"
 include { STRELKA_SINGLE_CALLING } from "./../subworkflows/strelka/single"
 include { STRELKA_MULTI_CALLING } from "./../subworkflows/strelka/multi"
 include { GLNEXUS as MERGE_GVCFS } from "./../modules/glnexus"
@@ -131,6 +133,7 @@ include { BCFTOOLS_CSQ as CSQ } from "./../modules/bcftools/csq"
 include { BCFTOOLS_CONCAT as CONCAT } from "./../modules/bcftools/concat"
 include { SEX_CHECK} from "./../modules/qc/main"
 include { XHLA } from "./../modules/xhla"
+include { GATK_MUTECT2_CALLING } from "./../subworkflows/gatk_mutect2_calling"
 
 // Start the main workflow
 workflow EXOME_SEQ {
@@ -186,15 +189,26 @@ workflow EXOME_SEQ {
 			dv_merged_vcf = Channel.empty()
 		}
 
+		// Make GATK compliant BAM file
+		if ('gatk' in tools || 'mutect2' in tools) {
+			GATK_BAM_RECAL(
+				bam,
+				targets,
+				ch_fasta,
+				ch_known_snps,
+                                ch_known_snps_tbi,
+                                ch_known_indels,
+                                ch_known_indels_tbi
+			)
+			ch_recal_bam = ch_recal_bam.mix(GATK_BAM_RECAL.out.bam)
+		}
+				
 		// GATK WORKFLOW
 		if ('gatk' in tools) {
 			GATK_VARIANT_CALLING(
-				bam,
+				ch_recal_bam,
 				targets,
-				TRIM_AND_ALIGN.out.metas,
 				ch_fasta,
-				ch_dbsnp,
-				ch_dbsnp_tbi,
 				ch_known_snps,
 				ch_known_snps_tbi,
 				ch_known_indels,
@@ -207,6 +221,17 @@ workflow EXOME_SEQ {
 		} else {
 			gatk_vcf = Channel.empty()
 			gatk_merged_vcf = Channel.empty()
+		}
+
+		// MUTECT2 workflow
+		if ('mutect2' in tools) {
+			GATK_MUTECT2_CALLING(
+				ch_recal_bam,
+				targets,
+				ch_fasta,
+				ch_dbsnp_combined
+			)
+			ch_vcfs = ch_vcfs.mix(GATK_MUTECT2_CALLING.out.vcf)
 		}
 
 		// STRELKA WORKFLOW

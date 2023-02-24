@@ -1,6 +1,7 @@
 process MULTIQC {
    
-    label 'multiqc'
+    container 'quay.io/biocontainers/multiqc:1.14--pyhdfd78af_0'
+
 
     publishDir "${params.outdir}/Summary/${cname}", mode: 'copy'
 
@@ -23,7 +24,7 @@ process MULTIQC {
 
 process MULTIQC_PANEL {
 
-	label 'multiqc'
+	container 'quay.io/biocontainers/multiqc:1.14--pyhdfd78af_0'
 
         publishDir "${params.outdir}/Summary/Panel", mode: "copy"
 

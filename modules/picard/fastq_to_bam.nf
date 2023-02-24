@@ -1,5 +1,7 @@
 process FASTQ_TO_BAM {
 
+	container 'quay.io/biocontainers/picard:2.27.5--hdfd78af_0'
+	
 	tag "${meta.patient_id}|${meta.sample_id}"
 
 	input:

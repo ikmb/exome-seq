@@ -1,6 +1,6 @@
 process GATK_COMBINEGVCFS {
 
-	label 'gatk'
+	container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
 
 	input:
 	path(gvcfs)

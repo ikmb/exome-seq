@@ -2,7 +2,7 @@ process STRELKA_JOINT_CALLING {
 
         publishDir "${params.outdir}/MergedCallset/STRELKA_JOINT_CALLING", mode: 'copy'
 
-        label 'strelka'
+	container 'quay.io/biocontainers/strelka:2.9.10--h9ee0642_1'
 
         input:
         tuple path(bams),path(bais)

@@ -4,7 +4,7 @@ process STRELKA_SINGLE_SAMPLE {
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/STRELKA", mode: 'copy'
 
-	label 'strelka'
+	container 'quay.io/biocontainers/strelka:2.9.10--h9ee0642_1'
 
 	input:
 	tuple val(meta),path(bam),path(bai)

@@ -1,5 +1,3 @@
-include { GATK_BASERECALIBRATOR } from './../modules/gatk/baserecalibrator'
-include { GATK_APPLYBQSR } from  './../modules/gatk/applybqsr'
 include { GATK_HAPLOTYPECALLER as GATK_HAPLOTYPECALLER_SINGLE; GATK_HAPLOTYPECALLER as GATK_HAPLOTYPECALLER_GVCF} from './../modules/gatk/haplotypecaller'
 include { GATK_COMBINEGVCFS } from './../modules/gatk/combinegvcfs'
 include { GATK_GENOTYPEGVCFS } from './../modules/gatk/genotypegvcfs'
@@ -11,20 +9,16 @@ include { GATK_APPLYVQSR as GATK_INDEL_VQSR; GATK_APPLYVQSR as GATK_SNP_VQSR } f
 include { GATK_CNNSCOREVARIANTS } from './../modules/gatk/cnnscorevariants'
 include { GATK_MERGEVCFS } from './../modules/gatk/mergevcfs'
 include { GATK_FILTERVARIANTTRANCHES } from './../modules/gatk/filtervarianttranches'
-include { GATK_SPLITINTERVALS } from './../modules/gatk/splitintervals'
-include { GATK_GATHERBQSRREPORTS } from './../modules/gatk/gatherbqsrreports'
-include { PICARD_SET_BAM_TAGS } from "./../modules/picard/setnmmdanduqtags"
-include { SAMTOOLS_INDEX as BAM_INDEX } from './../modules/samtools/index'
+
+ch_vcf_multi = Channel.from([])
+ch_vcf_single = Channel.from([])
 
 workflow GATK_VARIANT_CALLING {
 
 	take:
 	bam
 	intervals
-	metas
 	fasta
-	dbsnp
-	dbsnp_tbi
 	known_snps
 	known_snps_tbi
 	known_indels
@@ -32,56 +26,11 @@ workflow GATK_VARIANT_CALLING {
 
 	main:
 	
-	ch_vcf_multi = Channel.from([])
-	ch_vcf_single = Channel.from([])
-
-	GATK_SPLITINTERVALS(
-		intervals,
-		fasta.collect()
-	)
-
-	// Parallelize BQSR recal computation
-	GATK_SPLITINTERVALS.out.intervals.flatMap { i ->
-		i.collect { file(it) }
-	}.set { ch_intervals }
-
-	// Add all relevant tags to BAM file
-	PICARD_SET_BAM_TAGS(
-        	bam,
-		fasta.collect()
-        )
-	BAM_INDEX(
-		PICARD_SET_BAM_TAGS.out.bam
-	)
-
-	// Recalibrate BAM base quality scores
-	GATK_BASERECALIBRATOR(
-		bam.combine(ch_intervals),
-		fasta.collect(),			
-		known_snps.collect(),
-		known_snps_tbi.collect(),
-		known_indels.collect(),
-		known_indels_tbi.collect()
-	)
-
-	recal_by_sample = GATK_BASERECALIBRATOR.out.report.groupTuple()
-
-	GATK_GATHERBQSRREPORTS(
-		recal_by_sample
-	)
-
-	// Apply recalibration
-        GATK_APPLYBQSR(
-                BAM_INDEX.out.bam.join(GATK_GATHERBQSRREPORTS.out.report),
-		intervals.collect(),
-		fasta.collect()
-        )
-
 	if (params.joint_calling) {
 
 		// Produce gVCFs
 		GATK_HAPLOTYPECALLER_GVCF(
-			GATK_APPLYBQSR.out.bam,
+			bam,
 			intervals.collect(),
 			"gvcf",
 			fasta.collect()
@@ -157,7 +106,7 @@ workflow GATK_VARIANT_CALLING {
 
 		// Call single samples
 	        GATK_HAPLOTYPECALLER_SINGLE(
-        	        GATK_APPLYBQSR.out.bam,
+        	        bam,
 	                intervals.collect(),
                 	"single",
 			fasta.collect()
@@ -172,10 +121,10 @@ workflow GATK_VARIANT_CALLING {
 		)
 		GATK_FILTERVARIANTTRANCHES(
 			GATK_CNNSCOREVARIANTS.out.vcf,
-			snps.collect(),
-			snps_tbi.collect(),
-			indels.collect(),
-			indels_tbi.collect()
+			known_snps.collect(),
+			known_snps_tbi.collect(),
+			known_indels.collect(),
+			known_indels_tbi.collect()
 		)
 		ch_vcf_single = ch_vcf_single.mix(GATK_FILTERVARIANTTRANCHES.out.vcf)
 
