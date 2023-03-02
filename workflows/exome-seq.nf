@@ -4,7 +4,6 @@
 // Modules and workflows to include
 //
 
-//
 // Input Channels and data
 //
 
@@ -40,11 +39,26 @@ ch_fasta = Channel.fromList( [ file(params.fasta , checkIfExists: true), file(pa
 deepvariant_ref = Channel.from( [ params.fasta_fai,params.fasta_gz,params.fasta_gzfai,params.fasta_gzi ] )
 
 // Mapping tool and corresponding index
+if (params.dragmap) {
+	genome_index = params.dragmap_index
+} else {
+	if (params.bwa2) {
+		genome_index = params.bwa2_index
+	} else {
+		genome_index = params.fasta
+	}
+}
 
-if (params.bwa2) { bwa_index = params.genomes[ params.assembly ].bwa2_index } else { bwa_index = params.fasta }
+// CNVkit reference
+if (params.cnv_gz) {
+	ch_cnv_gz = Channel.fromPath(params.cnv_gz)
+} else if (params.genomes[ params.assembly ].kits[ params.kit ].cnv_ref) { 
+	ch_cnv_gz = params.genomes[ params.assembly ].kits[ params.kit ].cnv_ref 
+} else { 
+	ch_cnv_gz = Channel.empty() 
+}
 
 // Targets and bait file
-
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
 
@@ -92,13 +106,6 @@ if ('expansionhunter' in tools) {
         expansion_catalog = Channel.empty()
 }
 
-// CNVkit reference
-if ('cnvkit' in tools) {
-        cnv_ref = params.cnv_gz ?: file(params.genomes[params.assembly ].kits[params.kit].cnv_ref)
-} else {
-        cnv_ref = Channel.empty()
-}
-
 // Read sample file
 
 ch_samplesheet = file(params.samples, checkIfExists: true)
@@ -114,6 +121,7 @@ include { TRIM_AND_ALIGN } from "./../subworkflows/align"
 include { DV_VARIANT_CALLING } from "./../subworkflows/deepvariant"
 include { GATK_VARIANT_CALLING } from "./../subworkflows/gatk_variant_calling"
 include { GATK_BAM_RECAL } from "./../subworkflows/gatk_bqsr"
+include { GATK_MUTECT2_CALLING } from "./../subworkflows/gatk_mutect2_calling"
 include { STRELKA_SINGLE_CALLING } from "./../subworkflows/strelka/single"
 include { STRELKA_MULTI_CALLING } from "./../subworkflows/strelka/multi"
 include { GLNEXUS as MERGE_GVCFS } from "./../modules/glnexus"
@@ -128,12 +136,11 @@ include { BCFTOOLS_ANNOTATE_DBSNP as VCF_ADD_DBSNP } from "./../modules/bcftools
 include { BCFTOOLS_STATS as VCF_STATS } from "./../modules/bcftools/stats"
 include { TABIX as VCF_INDEX } from "./../modules/htslib/tabix"
 include { PANEL_QC } from "./../subworkflows/panels"
-include { CNVKIT } from "./../subworkflows/cnvkit"
 include { BCFTOOLS_CSQ as CSQ } from "./../modules/bcftools/csq"
 include { BCFTOOLS_CONCAT as CONCAT } from "./../modules/bcftools/concat"
 include { SEX_CHECK} from "./../modules/qc/main"
 include { XHLA } from "./../modules/xhla"
-include { GATK_MUTECT2_CALLING } from "./../subworkflows/gatk_mutect2_calling"
+include { CNVKIT } from "./../subworkflows/cnvkit"
 
 // Start the main workflow
 workflow EXOME_SEQ {
@@ -152,7 +159,7 @@ workflow EXOME_SEQ {
 		TRIM_AND_ALIGN(
 			ch_samplesheet,
 			ch_amplicon_bed,
-			bwa_index
+			genome_index
 		)
 		bam = TRIM_AND_ALIGN.out.bam
 		bam_nodedup = TRIM_AND_ALIGN.out.bam_nodedup
@@ -178,7 +185,7 @@ workflow EXOME_SEQ {
 				ch_dbsnp_combined
 			)
 			dv_vcf = DV_VARIANT_CALLING.out.vcf
-                	dv_merged_vcf = DV_VARIANT_CALLING.out.vcf_multi
+            dv_merged_vcf = DV_VARIANT_CALLING.out.vcf_multi
 			ch_vcfs = ch_vcfs.mix(dv_vcf,dv_merged_vcf)
 			ch_phased_vcfs = ch_phased_vcfs.mix(
 				DV_VARIANT_CALLING.out.vcf_phased_multi,
@@ -237,7 +244,7 @@ workflow EXOME_SEQ {
 		// STRELKA WORKFLOW
 		if ('strelka' in tools) {
 			// Call all samples together
-                        if (params.joint_calling) {
+            if (params.joint_calling) {
 				STRELKA_MULTI_CALLING(
 					bam.map {m,b,i -> [ b,i ] },
 					bedgz,
@@ -247,15 +254,15 @@ workflow EXOME_SEQ {
 				ch_vcfs = ch_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf,STRELKA_MULTI_CALLING.out.vcf_multi)
 				ch_phased_vcfs = ch_phased_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf_phased_multi)
 			// Call each sample individually and merge later
-                        } else {
-	        	        STRELKA_SINGLE_CALLING(
+            } else {
+				STRELKA_SINGLE_CALLING(
 					bam,
 					bedgz,
 					sample_names,
 					ch_fasta,
 					ch_dbsnp_combined
 				)
-        	        	strelka_vcf = STRELKA_SINGLE_CALLING.out.vcf
+				strelka_vcf = STRELKA_SINGLE_CALLING.out.vcf
 				strelka_merged_vcf = STRELKA_SINGLE_CALLING.out.vcf_multi
 				ch_vcfs = ch_vcfs.mix(strelka_vcf,strelka_merged_vcf)
 			}
@@ -264,15 +271,20 @@ workflow EXOME_SEQ {
 			strelka_merged_vcf = Channel.empty()
 		}
 		
-		// CNV Calling
-		if ('cnvkit' in tools) {
-			CNVKIT(padded_bed,bam,file(params.cnv_ref))
-		}
 		// HLA calling
 		if ('xhla' in tools) {
 			XHLA(bam)
 		}
+
+		// CNV calling
+		if ('cnvkit' in tools) {
+			CNVKIT(
+				bam,
+				ch_cnv_gz
+			)
+		}
 		// SV calling with Manta
+
 		if ('manta' in tools) {
 			MANTA(
 				bam,
@@ -285,8 +297,8 @@ workflow EXOME_SEQ {
 		}
 
 		// Expansions
-                if ('expansionhunter' in tools) {
-	 		EXPANSIONS(bam,expansion_catalog)
+        if ('expansionhunter' in tools) {
+			EXPANSIONS(bam,expansion_catalog)
 		}
 
 		// QC Metrics
@@ -330,12 +342,24 @@ workflow EXOME_SEQ {
 		}
 
 		// QC Reports
-		multiqc_fastq("FastQ",trim_report.collect())
-		multiqc_library("Library",dedup_report.collect())
-		multiqc_sample("Sample",bam_qc.mix(vcf_qc,SEX_CHECK.out.yaml).collect())
+		multiqc_fastq(
+			"FastQ",
+			trim_report.collect()
+		)
+		multiqc_library(
+			"Library",
+			dedup_report.collect()
+		)
+		multiqc_sample(
+			"Sample",
+			bam_qc.mix(
+				vcf_qc,
+				SEX_CHECK.out.yaml
+			).collect()
+		)
 
 
 	emit:
-		qc = multiqc_sample.out.report.toList()
+		qc = multiqc_sample.out.report
 
 }

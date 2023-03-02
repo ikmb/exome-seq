@@ -1,5 +1,7 @@
 process BCFTOOLS_CSQ {
 
+        tag "${meta.patient_id}|${meta.sample_id}"
+
 	container 'quay.io/biocontainers/bcftools:1.14--hde04aa1_1'
 
         publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/${meta.variantcaller}", mode: 'copy'

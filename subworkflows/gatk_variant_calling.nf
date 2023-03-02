@@ -34,20 +34,22 @@ workflow GATK_VARIANT_CALLING {
 			intervals.collect(),
 			"gvcf",
 			fasta.collect()
-		)	
+		)
+
 		// Combine all gVCFs into one multi-sample gVCF
 		GATK_COMBINEGVCFS(
 			GATK_HAPLOTYPECALLER_GVCF.out.vcf.map { m,v,t -> v }.collect(),
-                	GATK_HAPLOTYPECALLER_GVCF.out.vcf.map { m,v,t -> t }.collect(),
+				GATK_HAPLOTYPECALLER_GVCF.out.vcf.map { m,v,t -> t }.collect(),
 			intervals.collect(),
 			fasta.collect()
-        	)
+        )
+
 		// Call genotypes from gVCF(s)
 		GATK_GENOTYPEGVCFS(
-                	GATK_COMBINEGVCFS.out.gvcf,
-	                intervals.collect(),
+			GATK_COMBINEGVCFS.out.gvcf,
+			intervals.collect(),
 			fasta.collect()
-        	)
+        )
 
 		GATK_GENOTYPEGVCFS.out.vcf.map { v,t ->
                         new_meta = [ id: "all", sample_id: "UNDEFINED", patient_id: "UNDEFINED", variantcaller: "GATK" ]
@@ -58,24 +60,29 @@ workflow GATK_VARIANT_CALLING {
 		GATK_VARIANTFILTRATION(
 			ch_variants_pass
 		)
-		GATK_VARIANTFILTRATION.out.vcf.map { v,t ->
+
+		ch_multi_vcf_filtered = GATK_VARIANTFILTRATION.out.vcf.map { v,t ->
 			def new_meta = [ id: "all", sample_id: "GATK", patient_id: "MergedCallset", variantcaller: "GATK"]
 			tuple(new_meta,v,t)
-		}.set { ch_multi_vcf_filtered }		
+		}
+		
 		// Produce a sites-only vcf to speed up variant recalibration
 		GATK_MAKESITESONLYVCF(
 			ch_multi_vcf_filtered
 		)
+
 		// Compute indel recalibration
 		GATK_INDEL_RECALIBRATOR(
 			GATK_MAKESITESONLYVCF.out.vcf,
 			"INDEL"
 		)	
+
 		// Compute snp recalibration
 		GATK_SNP_RECALIBRATOR(
 			GATK_MAKESITESONLYVCF.out.vcf,
 			"SNP"
 		)
+
 		// Apply indel recalibration
 		GATK_INDEL_VQSR(
 			ch_multi_vcf_filtered,
@@ -83,6 +90,7 @@ workflow GATK_VARIANT_CALLING {
 			GATK_INDEL_RECALIBRATOR.out.tranches,
 			"INDEL"
 		)
+
 		// Apply snp recalibration
 		GATK_SNP_VQSR(
 			ch_multi_vcf_filtered,
@@ -90,27 +98,29 @@ workflow GATK_VARIANT_CALLING {
 			GATK_SNP_RECALIBRATOR.out.tranches,
 			"SNP"
 		)
+
 		// Merge indel snd snp recalibrated vcfs
 		GATK_MERGEVCFS(
 			GATK_SNP_VQSR.out.vcf.map { m,v,t -> [ m,v ] }.join(
 				GATK_INDEL_VQSR.out.vcf.map { m,v,t -> [ m,v ] }
 			),
 			GATK_SNP_VQSR.out.vcf.map { m,v,t -> [ m,t ] }.join(
-                	        GATK_INDEL_VQSR.out.vcf.map { m,v,t -> [ m,t ] }
-	                )
+				GATK_INDEL_VQSR.out.vcf.map { m,v,t -> [ m,t ] }
+			)
 		)
-	
+
 		ch_vcf_multi = ch_vcf_multi.mix(GATK_MERGEVCFS.out.vcf)
 	
 	} else {
 
 		// Call single samples
-	        GATK_HAPLOTYPECALLER_SINGLE(
-        	        bam,
-	                intervals.collect(),
-                	"single",
+		GATK_HAPLOTYPECALLER_SINGLE(
+			bam,
+			intervals.collect(),
+			"single",
 			fasta.collect()
-        	)
+		)
+
 		// Filter VCF using GATK neural networks
 		GATK_CNNSCOREVARIANTS(
 			GATK_HAPLOTYPECALLER_SINGLE.out.vcf.join(
@@ -119,6 +129,7 @@ workflow GATK_VARIANT_CALLING {
 			intervals.collect(),
 			fasta.collect()
 		)
+
 		GATK_FILTERVARIANTTRANCHES(
 			GATK_CNNSCOREVARIANTS.out.vcf,
 			known_snps.collect(),

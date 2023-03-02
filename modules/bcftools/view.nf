@@ -11,7 +11,7 @@ process BCFTOOLS_VIEW {
         tuple val(meta),path(vcf_pass), path(vcf_pass_index), emit: vcf
 
         script:
-        vcf_pass = vcf.getSimpleName() + "_pass.vcf.gz"
+        vcf_pass = vcf.getBaseName() + "_pass.vcf.gz"
         vcf_pass_index = vcf_pass + ".tbi"
 
         """

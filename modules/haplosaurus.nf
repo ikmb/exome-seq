@@ -2,6 +2,8 @@ process HAPLOSAURUS {
 
 	container 'quay.io/biocontainers/ensembl-vep:99.2--pl526hecc5488_0'
 
+        tag "${meta.patient_id}|${meta.sample_id}"
+
         publishDir "${params.outdir}/VEP/${meta.variantcaller}", mode: 'copy'
 
         input:

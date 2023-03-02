@@ -1,16 +1,19 @@
 include { FASTP as TRIM } from "./../modules/fastp.nf"
 include { BWA_MEM as ALIGN } from "./../modules/bwa/mem.nf"
+include { DRAGMAP_ALIGN } from "./../modules/dragmap/align"
 include { SAMTOOLS_MERGE as MERGE_MULTI_LANE } from "./../modules/samtools/merge.nf" 
 include { SAMTOOLS_INDEX as BAM_INDEX; SAMTOOLS_INDEX as BAM_INDEX_FILTERED } from "./../modules/samtools/index.nf"
 include { SAMTOOLS_MARKDUP as DEDUP } from "./../modules/samtools/markdup.nf"
 include { SAMTOOLS_AMPLICONCLIP as AMPLICON_CLIP } from "./../modules/samtools/ampliconclip.nf"
+
+ch_align_log = Channel.from([])
 
 workflow TRIM_AND_ALIGN {
 
 	take:
 		samplesheet
 		amplicon_bed
-		bwa_index
+		genome_index
 	main:
 
 		Channel.fromPath(samplesheet)
@@ -20,12 +23,28 @@ workflow TRIM_AND_ALIGN {
 
 		TRIM(
 			reads
-                )
-		ALIGN( 
-			TRIM.out.reads, 
-			bwa_index
-		)
-		bam_mapped = ALIGN.out.bam.map { meta, bam ->
+        )
+
+		ch_aligned_bams = Channel.from([])
+
+		// run Dragen aligner or BWA/BWA2
+		if (params.dragmap) {
+			DRAGMAP_ALIGN(
+				TRIM.out.reads,
+				genome_index
+			)
+			ch_aligned_bams = ch_aligned_bams.mix(DRAGMAP_ALIGN.out.bam)
+			ch_sample_names = DRAGMAP_ALIGN.out.sample_name
+			ch_align_log = ch_align_log.mix(DRAGMAP_ALIGN.out.log)
+		} else {
+			ALIGN( 
+				TRIM.out.reads, 
+				genome_index
+			)
+			ch_aligned_bams = ch_aligned_bams.mix(ALIGN.out.bam)
+			ch_sample_names = ALIGN.out.sample_name
+		}
+		bam_mapped = ch_aligned_bams.map { meta, bam ->
                         new_meta = [:]
 			new_meta.patient_id = meta.patient_id
 			new_meta.sample_id = meta.sample_id
@@ -34,9 +53,9 @@ workflow TRIM_AND_ALIGN {
 		}.groupTuple(by: [0,1]).map { g ,new_meta ,bam -> [ new_meta, bam ] }
 			
 		bam_mapped.branch {
-		        single:   it[1].size() == 1
-		        multiple: it[1].size() > 1
-	        }.set { bam_to_merge }
+			single:   it[1].size() == 1
+			multiple: it[1].size() > 1
+		}.set { bam_to_merge }
 
 		MERGE_MULTI_LANE( bam_to_merge.multiple )
 		BAM_INDEX(MERGE_MULTI_LANE.out.bam.mix( bam_to_merge.single ))
@@ -59,8 +78,9 @@ workflow TRIM_AND_ALIGN {
 		bam_nodedup = BAM_INDEX.out.bam
 		bam = ch_final_bam
 		qc = TRIM.out.json
+		logs = ch_align_log
 		dedup_report = ch_report
-		sample_names = ALIGN.out.sample_name.unique()
+		sample_names =ch_sample_names.unique()
 		metas = MERGE_MULTI_LANE.out.meta_data
 }
 

@@ -14,7 +14,7 @@ process BCFTOOLS_ANNOTATE {
 
         script:
 
-        vcf_r = vcf.getSimpleName() + "-final.vcf.gz"
+        vcf_r = vcf.getBaseName() + "-final.vcf.gz"
         tbi_r = vcf_r + ".tbi"
 
         """

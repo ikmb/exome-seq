@@ -1,25 +1,25 @@
 process MULTIQC {
-   
-    container 'quay.io/biocontainers/multiqc:1.14--pyhdfd78af_0'
+
+        container 'quay.io/biocontainers/multiqc:1.14--pyhdfd78af_0'
 
 
-    publishDir "${params.outdir}/Summary/${cname}", mode: 'copy'
+        publishDir "${params.outdir}/Summary/${cname}", mode: 'copy'
 
-    input:
-    val(cname)
-    path('*')
+        input:
+        val(cname)
+        path('*')
 
-    output:
-    path("${cname}_multiqc.html"), emit: report
+        output:
+        path("${cname}_multiqc.html"), emit: report
 
-    script:
+        script:
 
-    """
-    cp $params.logo .
-    cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
-    multiqc -n ${cname}_multiqc *
+        """
+        cp $params.logo .
+        cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
+        multiqc -n ${cname}_multiqc *
 
-    """
+        """
 }
 
 process MULTIQC_PANEL {

@@ -14,7 +14,7 @@ process BCFTOOLS_ANNOTATE_DBSNP {
         tuple val(meta),path(vcf_annotated), path(vcf_annotated_index), emit: vcf
 
         script:
-        vcf_annotated = vcf.getSimpleName() + "_rsids.vcf.gz"
+        vcf_annotated = vcf.getBaseName() + "_rsids.vcf.gz"
         vcf_annotated_index = vcf_annotated + ".tbi"
 
         """

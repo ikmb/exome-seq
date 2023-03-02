@@ -1,25 +1,24 @@
-process GATK_MUTECT2 {
+process GATK_MUTECT2_MULTI {
 
 	tag "${meta.patient_id}|${meta.sample_id}"
-
-	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/MUTECT2/raw", mode: 'copy'
+	
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/MUTECT2", mode: 'copy'
 
 	label 'gatk'
 
 	input:
-	tuple val(meta),path(bam),path(bai)
+	val(meta)
+	path(bams)
+	path(bais)
 	path(intervals)
 	tuple path(fasta),path(fai),path(dict)
 
 	output:
-	tuple val(meta),path(vcf),path(tbi),path(stats), emit: vcf
-	tuple val(meta),path(f1r2), emit: f1r2
+	tuple path(vcf),path(tbi), emit: vcf
 
 	script:
-	vcf = bam.getBaseName() + ".mutect2.vcf.gz"
+	vcf = params.run_name + ".mutect2.joint-calling.vcf.gz"
 	tbi = vcf + ".tbi"
-	stats = vcf + ".stats"
-	f1r2 =  bam.getBaseName() + "_f1r2.tar.gz"
 
 	def options = ""
 	if (params.mutect_normals) {
@@ -32,10 +31,9 @@ process GATK_MUTECT2 {
 	"""
 		gatk Mutect2 \
 		-R $fasta \
-		-I $bam \
+		-I ${bams.join(' -I ')} \
 		-O $vcf \
 		-L $intervals \
-		--f1r2-tar-gz $f1r2 \
 		-OVI \
 		$options
 	"""	
