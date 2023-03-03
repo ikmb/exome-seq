@@ -9,20 +9,21 @@ process GATK_CNNSCOREVARIANTS {
 	input:
 	tuple val(meta),path(vcf),path(tbi),path(bam),path(bai)
 	path(intervals)
+	tuple path(fasta),path(fai),path(dict)
 
 	output:
 	tuple val(meta),path(cnn_vcf),path(cnn_vcf_tbi), emit: vcf
 	
 	script:
 	
-	cnn_vcf = vcf.getBaseName() + ".cnn.vcf.gz"
+	cnn_vcf = vcf.getSimpleName() + "-cnn.vcf.gz"
 	cnn_vcf_tbi = cnn_vcf + ".tbi"
 
 	"""
 		gatk CNNScoreVariants \
 			--variant $vcf \
 			--output $cnn_vcf \
-			--reference $params.fasta \
+			--reference $fasta \
 			--intervals $intervals \
 	"""
 	

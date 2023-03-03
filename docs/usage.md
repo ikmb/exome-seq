@@ -36,6 +36,13 @@ The following human genome assembly versions are supported on MedCluster (see re
 - GRCh38 (the GRCh38 human reference assembly without ALT loci)
 - GRCh38_p14 (the latest GRCh38 human reference assembly without ALT loci [patch 14])
 
+### `--aligner` [default = "bwa2"]
+The following alignment algorithms are supported
+
+- [BWA](https://github.com/lh3/bwa) (bwa)
+- [BWA-MEM2](https://github.com/bwa-mem2/bwa-mem2) (bwa2)
+- [DRAGMAP](https://github.com/Illumina/DRAGMAP) (dragmap)
+
 ### `--tools`
 The pipeline offers various tools for the analysis of variant information. Specifically:
 
@@ -51,8 +58,11 @@ The pipeline offers various tools for the analysis of variant information. Speci
    - [CNVkit](https://cnvkit.readthedocs.io/en/stable/) (cnvkit)
 5. Protein-level haplotypes
    - [Haplosaurus](https://www.ensembl.org/info/docs/tools/vep/haplo/index.html) (haplosaurus)
+   - [CSQ](https://samtools.github.io/bcftools/howtos/csq-calling.html) (csq)
 6. HLA calling
    - [xHLA](https://github.com/humanlongevity/HLA) (xhla)
+7. Variant effects:
+   - [VEP](https://www.ensembl.org/info/docs/tools/vep/script/vep_options.html)  (vep)
 
 Your tools of choice can be provided like so:
 

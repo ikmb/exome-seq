@@ -3,6 +3,7 @@ process SEX_CHECK {
 
         input:
         path(bams)
+	path(sry_region)
 
         output:
         path(sex_check_yaml), emit: yaml
@@ -11,7 +12,7 @@ process SEX_CHECK {
         sex_check_yaml = "sex_check_mqc.yaml"
 
         """
-                parse_sry_coverage.pl --fasta ${params.fasta} --region ${params.sry_region} > $sex_check_yaml
+                parse_sry_coverage.pl --fasta ${params.fasta} --region ${sry_region} > $sex_check_yaml
         """
 }
 
