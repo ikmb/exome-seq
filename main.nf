@@ -56,6 +56,11 @@ def multiqc_report = Channel.from([])
 
 include { EXOME_SEQ } from "./workflows/exome-seq.nf" params(params)
 
+log.info "IKMB Exome-seq Pipeline - ${workflow.manifest.version}"
+log.info "--------------------------------"
+log.info "Best practice variant calling"
+log.info ""
+
 workflow {
 
 	EXOME_SEQ()

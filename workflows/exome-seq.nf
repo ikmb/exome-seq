@@ -4,8 +4,9 @@
 // Modules and workflows to include
 //
 
+// ************************************
 // Input Channels and data
-//
+// ************************************
 
 ch_dbsnp = Channel.fromPath(params.dbsnp)
 ch_dbsnp_tbi = Channel.fromPath(params.dbsnp + ".tbi")
@@ -20,11 +21,17 @@ ch_g1k_tbi = Channel.fromPath(params.g1k + ".tbi")
 ch_axiom = Channel.fromPath(params.axiom)
 ch_axiom_tbi = Channel.fromPath(params.axiom + ".tbi")
 
+// ************************************
 // combine all SNPs, for GATK calibration
+// ************************************
+
 ch_known_snps = ch_dbsnp.mix(ch_hapmap, ch_omni, ch_g1k)
 ch_known_snps_tbi = ch_dbsnp_tbi.mix(ch_hapmap_tbi, ch_omni_tbi, ch_g1k_tbi)
 
+// ************************************
 // combine all INDELs, for GATK calibration
+// ************************************
+
 ch_known_indels = ch_mills.mix(ch_axiom)
 ch_known_indels_tbi = ch_mills_tbi.mix(ch_axiom_tbi)
 
@@ -38,18 +45,28 @@ ch_fasta = Channel.fromList( [ file(params.fasta , checkIfExists: true), file(pa
 
 deepvariant_ref = Channel.from( [ params.fasta_fai,params.fasta_gz,params.fasta_gzfai,params.fasta_gzi ] )
 
+// ************************************
 // Mapping tool and corresponding index
-if (params.dragmap) {
+// ************************************
+
+if (!params.aligners_allowed.contains(params.aligner)) {
+	exit 1, "Invalid aligner specified - valid options are: ${params.aligners_allowed.join(',')}"
+}
+
+if (params.aligner == "dragmap") {
 	genome_index = params.dragmap_index
 } else {
-	if (params.bwa2) {
+	if (params.aligner == "bwa2") {
 		genome_index = params.bwa2_index
 	} else {
 		genome_index = params.fasta
 	}
 }
 
+// ************************************
 // CNVkit reference
+// ************************************
+
 if (params.cnv_gz) {
 	ch_cnv_gz = Channel.fromPath(params.cnv_gz)
 } else if (params.genomes[ params.assembly ].kits[ params.kit ].cnv_ref) { 
@@ -58,7 +75,10 @@ if (params.cnv_gz) {
 	ch_cnv_gz = Channel.empty() 
 }
 
+// ************************************
 // Targets and bait file
+// ************************************
+
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
 
@@ -67,9 +87,9 @@ if (TARGETS==BAITS) { exit 1, "Target and bait files must not have the same name
 targets = Channel.from(file(TARGETS, checkIfExists: true))
 baits = Channel.from(file(BAITS, checkIfExists: true))
 
-/*
-PANEL COVERAGE - pick the correct panel for reporting
-*/
+// ************************************
+//PANEL COVERAGE - pick the correct panel for reporting
+// ************************************
 
 if (params.panel) {
         panel = params.genomes[params.assembly].panels[params.panel].intervals
@@ -90,13 +110,24 @@ if (params.panel) {
         panels = Channel.empty()
 }
 
+// ************************************
 // A single exon only covered in male samples - simple sex check
+// ************************************
+
 sry_region  = params.sry_bed ?: params.genomes[params.assembly].sry_bed
 
+
+// ************************************
 // List of tools to run
+// ************************************
+
 tools = params.tools ? params.tools.split(',').collect{it.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '')} : []
 
+
+// ************************************
 // Expansion hunter references
+// ************************************
+
 if ('expansionhunter' in tools) {
         ecatalog = file(params.genomes[params.assembly].expansion_catalog, checkIfExists: true )
         Channel.fromPath(ecatalog)
@@ -106,16 +137,24 @@ if ('expansionhunter' in tools) {
         expansion_catalog = Channel.empty()
 }
 
+// ************************************
 // Read sample file
+// ************************************
 
 ch_samplesheet = file(params.samples, checkIfExists: true)
 
+// ************************************
 // set optional channels
+// ************************************
+
 ch_vcfs = Channel.from([])
 ch_phased_vcfs = Channel.from([])
 ch_recal_bam = Channel.from([])
 
+// ************************************
 // import subworkflows and modules
+// ************************************
+
 include { CONVERT_BED } from "./../subworkflows/bed"
 include { TRIM_AND_ALIGN } from "./../subworkflows/align"
 include { DV_VARIANT_CALLING } from "./../subworkflows/deepvariant"

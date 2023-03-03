@@ -1,10 +1,11 @@
-include { FASTP as TRIM } from "./../modules/fastp.nf"
-include { BWA_MEM as ALIGN } from "./../modules/bwa/mem.nf"
+include { FASTP as TRIM } from "./../modules/fastp"
+include { BWA_MEM } from "./../modules/bwa/mem"
+include { BWA2_MEM } from "./../modules/bwa2/mem"
 include { DRAGMAP_ALIGN } from "./../modules/dragmap/align"
-include { SAMTOOLS_MERGE as MERGE_MULTI_LANE } from "./../modules/samtools/merge.nf" 
-include { SAMTOOLS_INDEX as BAM_INDEX; SAMTOOLS_INDEX as BAM_INDEX_FILTERED } from "./../modules/samtools/index.nf"
-include { SAMTOOLS_MARKDUP as DEDUP } from "./../modules/samtools/markdup.nf"
-include { SAMTOOLS_AMPLICONCLIP as AMPLICON_CLIP } from "./../modules/samtools/ampliconclip.nf"
+include { SAMTOOLS_MERGE as MERGE_MULTI_LANE } from "./../modules/samtools/merge" 
+include { SAMTOOLS_INDEX as BAM_INDEX; SAMTOOLS_INDEX as BAM_INDEX_FILTERED } from "./../modules/samtools/index"
+include { SAMTOOLS_MARKDUP as DEDUP } from "./../modules/samtools/markdup"
+include { SAMTOOLS_AMPLICONCLIP as AMPLICON_CLIP } from "./../modules/samtools/ampliconclip"
 
 ch_align_log = Channel.from([])
 
@@ -28,7 +29,7 @@ workflow TRIM_AND_ALIGN {
 		ch_aligned_bams = Channel.from([])
 
 		// run Dragen aligner or BWA/BWA2
-		if (params.dragmap) {
+		if (params.aligner == "dragmap") {
 			DRAGMAP_ALIGN(
 				TRIM.out.reads,
 				genome_index
@@ -36,14 +37,23 @@ workflow TRIM_AND_ALIGN {
 			ch_aligned_bams = ch_aligned_bams.mix(DRAGMAP_ALIGN.out.bam)
 			ch_sample_names = DRAGMAP_ALIGN.out.sample_name
 			ch_align_log = ch_align_log.mix(DRAGMAP_ALIGN.out.log)
-		} else {
-			ALIGN( 
+		} else if (params.aligner == "bwa") {
+			
+			BWA_MEM( 
 				TRIM.out.reads, 
 				genome_index
 			)
-			ch_aligned_bams = ch_aligned_bams.mix(ALIGN.out.bam)
-			ch_sample_names = ALIGN.out.sample_name
+			ch_aligned_bams = ch_aligned_bams.mix(BWA_MEM.out.bam)
+			ch_sample_names = BWA_MEM.out.sample_name
+		} else if (params.aligner == "bwa2") {
+			BWA2_MEM(
+                                TRIM.out.reads,
+                                genome_index
+                        )
+                        ch_aligned_bams = ch_aligned_bams.mix(BWA2_MEM.out.bam)
+                        ch_sample_names = BWA2_MEM.out.sample_name
 		}
+
 		bam_mapped = ch_aligned_bams.map { meta, bam ->
                         new_meta = [:]
 			new_meta.patient_id = meta.patient_id

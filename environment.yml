@@ -1,15 +1,14 @@
 # You can use this file to create a conda environment for this pipeline:
 #   conda env create -f environment.yml
-name: exome-seq-3.2
+name: exome-seq-4.3
 channels:
   - defaults
   - conda-forge
   - bioconda
 dependencies:
   - bioconda::fastqc=0.11.9
-  - bioconda::bwa-mem2=2.2.1
   - bioconda::bwa=0.7.17
-  - bioconda::samtools=1.16
+  - bioconda::samtools=1.16.1
   - bioconda::htslib=1.16
   - bioconda::perl-excel-writer-xlsx
   - bioconda::perl-json-parse=0.55

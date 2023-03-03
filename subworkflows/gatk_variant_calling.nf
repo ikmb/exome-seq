@@ -39,7 +39,7 @@ workflow GATK_VARIANT_CALLING {
 		// Combine all gVCFs into one multi-sample gVCF
 		GATK_COMBINEGVCFS(
 			GATK_HAPLOTYPECALLER_GVCF.out.vcf.map { m,v,t -> v }.collect(),
-				GATK_HAPLOTYPECALLER_GVCF.out.vcf.map { m,v,t -> t }.collect(),
+			GATK_HAPLOTYPECALLER_GVCF.out.vcf.map { m,v,t -> t }.collect(),
 			intervals.collect(),
 			fasta.collect()
         )
@@ -52,7 +52,7 @@ workflow GATK_VARIANT_CALLING {
         )
 
 		GATK_GENOTYPEGVCFS.out.vcf.map { v,t ->
-                        new_meta = [ id: "all", sample_id: "UNDEFINED", patient_id: "UNDEFINED", variantcaller: "GATK" ]
+                        def new_meta = [ id: "all", sample_id: "GATK_JOINT_CALLING", patient_id: "MergedCallset", variantcaller: "GATK" ]
                         tuple(new_meta,v,t)
                 }.set { ch_variants_pass }
 
@@ -62,8 +62,8 @@ workflow GATK_VARIANT_CALLING {
 		)
 
 		ch_multi_vcf_filtered = GATK_VARIANTFILTRATION.out.vcf.map { v,t ->
-			def new_meta = [ id: "all", sample_id: "GATK", patient_id: "MergedCallset", variantcaller: "GATK"]
-			tuple(new_meta,v,t)
+			def multi_meta = [ id: "all", sample_id: "GATK_JOINT_CALLING", patient_id: "MergedCallset", variantcaller: "GATK" ]
+			tuple(multi_meta,v,t)
 		}
 		
 		// Produce a sites-only vcf to speed up variant recalibration

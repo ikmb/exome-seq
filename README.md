@@ -4,21 +4,23 @@
 
 This pipeline offers a end-to-end workflow for exome analysis using several toolchains
 
-- trimming with Fastp
+- trimming with [fastp](https://github.com/OpenGene/fastp)
 
-- read alignment with BWA
+- short read alignment using [BWA](https://github.com/lh3/bwa), [BWA2](https://github.com/bwa-mem2/bwa-mem2) or [Dragmap](https://github.com/Illumina/DRAGMAP)
 
-- duplicate marking using Samtools
+- duplicate marking using [Samtools](https://github.com/samtools/samtools)
 
-- vcf/gvcf calling with Deepvariant, Strelka and/or GATK
+- germline SNP/INDEL calling with [Deepvariant](https://github.com/google/deepvariant), Strelka[https://github.com/Illumina/strelka] and/or [GATK](https://github.com/broadinstitute/gatk)
 
-- Effect prediction with VEP and/or Haplosaurus
+- somatic SNP/INDEL calling with [Mutect2](https://github.com/broadinstitute/gatk)
 
-- SV calling using Manta
+- effect prediction with [VEP](https://www.ensembl.org/info/docs/tools/vep/index.html) and/or [Haplosaurus](https://www.ensembl.org/info/docs/tools/vep/haplo/index.html)
 
-- CNV calling using CNVkit
+- germline SV calling using [Manta](https://github.com/Illumina/manta)
 
-- Expansion detection using ExpansionHunter
+- germline CNV calling using [CNVkit](https://github.com/etal/cnvkit)
+
+- Expansion detection using [ExpansionHunter](https://github.com/Illumina/ExpansionHunter)
 
 The result will be a multi-sample VCF file as well as a list of VCF files for each sample.
 
@@ -32,7 +34,9 @@ The result will be a multi-sample VCF file as well as a list of VCF files for ea
 
 ## Benchmarking
 
-Benchmarking of release 3.0  against genome-in-a-bottle NA12878
+Benchmarking of release 4.3  against genome-in-a-bottle NA12878
+
+### DeepVariant
 
 IDT xGEN, in-house:
 

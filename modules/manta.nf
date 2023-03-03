@@ -4,7 +4,7 @@ process MANTA {
 
 	container 'quay.io/biocontainers/manta:1.6.0--h9ee0642_1'
 
-	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Manta", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/MANTA", mode: 'copy'
 
 	input:
 	tuple val(meta),path(bam),path(bai)
