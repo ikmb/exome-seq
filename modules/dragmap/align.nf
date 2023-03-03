@@ -12,7 +12,7 @@ process DRAGMAP_ALIGN {
 	path(log_file), emit: log
 
 	script:	
-	bam = "${meta.sample_id}_${meta.library_id}_${meta.readgroup_id}.dragmap-aligned.fm.bam"
+	bam = "${meta.sample_id}_${meta.library_id}_${meta.readgroup_id}-dragmap_aligned-fm.bam"
         sample = "${meta.patient_id}_${meta.sample_id}"
 	log_file = sample + "-dragmap.txt"
 	"""

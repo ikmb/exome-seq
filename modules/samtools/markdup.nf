@@ -15,7 +15,7 @@ process SAMTOOLS_MARKDUP {
         path(outfile_metrics), emit: report
 
         script:
-        def prefix = "${meta.patient_id}_${meta.sample_id}.dedup"
+        def prefix = "${meta.patient_id}_${meta.sample_id}-dedup"
         outfile_bam = prefix + ".bam"
         outfile_bai = prefix + ".bam.bai"
         outfile_md5 = prefix + ".bam.md5"

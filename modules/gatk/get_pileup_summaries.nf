@@ -12,7 +12,7 @@ process GATK_GET_PILEUP_SUMMARIES {
 	tuple val(meta),path(stable), emit: table
 
 	script:
-	stable = bam.getBaseName() + "_pileup-summaries.table"
+	stable = bam.getBaseName() + "-pileup_summaries.table"
 
 	"""
 		gatk GetPileupSummaries \

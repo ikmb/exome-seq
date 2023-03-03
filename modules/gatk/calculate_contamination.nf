@@ -11,7 +11,7 @@ process GATK_CALCULATE_CONTAMINATION {
 	tuple val(meta),path(ctable), emit: table
 
 	script:
-	ctable = stable.getBaseName() + ".contamination.table"
+	ctable = stable.getBaseName() + "-contamination.table"
 
 	"""
 		gatk CalculateContamination \

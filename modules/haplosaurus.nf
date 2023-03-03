@@ -14,7 +14,7 @@ process HAPLOSAURUS {
         path(haplo)
 
         script:
-        haplo = vcf.getBaseName() + ".vep_haplo.txt"
+        haplo = vcf.getSimpleName() + "-vep_haplo.txt"
 
         """
                 haplo --offline \

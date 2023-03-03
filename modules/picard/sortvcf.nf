@@ -9,7 +9,7 @@ process PICARD_SORTVCF {
         tuple val(meta),path(vcf_sorted),path(tbi_sorted), emit: vcf
 
         script:
-        vcf_sorted = vcf.getSimpleName() + ".sorted.vcf.gz"
+        vcf_sorted = vcf.getSimpleName() + "-sorted.vcf.gz"
         tbi_sorted = vcf_sorted + ".tbi"
 
         """

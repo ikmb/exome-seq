@@ -51,10 +51,14 @@ workflow GATK_VARIANT_CALLING {
 			fasta.collect()
         )
 
-		GATK_GENOTYPEGVCFS.out.vcf.map { v,t ->
-                        def new_meta = [ id: "all", sample_id: "GATK_JOINT_CALLING", patient_id: "MergedCallset", variantcaller: "GATK" ]
-                        tuple(new_meta,v,t)
-                }.set { ch_variants_pass }
+		ch_variants_pass = GATK_GENOTYPEGVCFS.out.vcf.map { v,t ->
+			[[
+				id: "all", 
+				sample_id: "GATK_JOINT_CALLING", 
+				patient_id: "MergedCallset", 
+				variantcaller: "GATK"
+			],v,t ]
+                }
 
 		// Hard-filter variants on excess heterosygosity
 		GATK_VARIANTFILTRATION(
@@ -62,8 +66,13 @@ workflow GATK_VARIANT_CALLING {
 		)
 
 		ch_multi_vcf_filtered = GATK_VARIANTFILTRATION.out.vcf.map { v,t ->
-			def multi_meta = [ id: "all", sample_id: "GATK_JOINT_CALLING", patient_id: "MergedCallset", variantcaller: "GATK" ]
-			tuple(multi_meta,v,t)
+			[[
+				id: "all", 
+				sample_id: "GATK_JOINT_CALLING", 
+				patient_id: "MergedCallset", 
+				variantcaller: "GATK"
+			],v,t ]
+
 		}
 		
 		// Produce a sites-only vcf to speed up variant recalibration

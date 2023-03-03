@@ -12,7 +12,7 @@ process GLNEXUS {
         tuple path(merged_vcf),path(merged_tbi), emit: vcf
 
         script:
-        merged_vcf = "deepvariant.joint_merged." + params.run_name + ".vcf.gz"
+        merged_vcf = "deepvariant-joint_calling-" + params.run_name + ".vcf.gz"
         merged_tbi = merged_vcf + ".tbi"
 
         """

@@ -17,8 +17,8 @@ process HYBRID_CAPTURE_METRICS {
         path(outfile_per_target)
 
         script:
-        outfile = "${meta.patient_id}_${meta.sample_id}.hybrid_selection_metrics.txt"
-        outfile_per_target = "${meta.patient_id}_${meta.sample_id}.hybrid_selection_per_target_metrics.txt"
+        outfile = "${meta.patient_id}_${meta.sample_id}-hybrid_selection_metrics.txt"
+        outfile_per_target = "${meta.patient_id}_${meta.sample_id}-hybrid_selection_per_target_metrics.txt"
 
         """
         picard -Xmx${task.memory.toGiga()}G CollectHsMetrics \

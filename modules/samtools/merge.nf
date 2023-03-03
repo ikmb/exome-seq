@@ -12,7 +12,7 @@ process SAMTOOLS_MERGE {
 	val(meta), emit: meta_data
 
         script:
-        merged_bam = meta.patient_id + "_" + meta.sample_id + ".merged.bam"
+        merged_bam = meta.patient_id + "_" + meta.sample_id + "-merged.bam"
         merged_bam_index = merged_bam + ".bai"
 
         """

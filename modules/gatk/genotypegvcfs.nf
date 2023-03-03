@@ -11,7 +11,7 @@ process GATK_GENOTYPEGVCFS {
 	tuple path(vcf),path(tbi), emit: vcf
 
 	script:
-	vcf = gvcf.getSimpleName() + ".genotyped.vcf.gz"
+	vcf = gvcf.getSimpleName() + "-genotyped.vcf.gz"
 	tbi = vcf + ".tbi"
 
 	"""

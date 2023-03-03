@@ -19,13 +19,13 @@ process GATK_HAPLOTYPECALLER {
 	script:
 	def options = ""
 	if (modus == "single") {
-		vcf = bam.getBaseName() + ".hc.vcf.gz"
+		vcf = bam.getBaseName() + "-hc.vcf.gz"
 		tbi = vcf + ".tbi"
-		bam_out = bam.getBaseName() + ".hc.bam"
-		bai_out = bam.getBaseName() + ".hc.bai"
+		bam_out = bam.getBaseName() + "-hc.bam"
+		bai_out = bam.getBaseName() + "-hc.bai"
 		options = "--bam-output $bam_out -OBI true"
 	} else {
-		vcf = bam.getBaseName() + ".hc.vcf.gz"
+		vcf = bam.getBaseName() + "-hc.vcf.gz"
 		tbi = vcf + ".tbi"
 		options = "-ERC GVCF -G AS_StandardAnnotation"
 	}

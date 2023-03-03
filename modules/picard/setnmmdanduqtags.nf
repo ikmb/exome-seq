@@ -12,7 +12,7 @@ process PICARD_SET_BAM_TAGS {
         tuple val(meta),path(bam_fixed), emit: bam
 
         script:
-        bam_fixed = bam.getBaseName() + ".fixed.bam"
+        bam_fixed = bam.getBaseName() + "-fixed.bam"
         bai_fixed = bam_fixed + ".bai"
 
         """

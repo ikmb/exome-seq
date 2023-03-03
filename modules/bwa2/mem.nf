@@ -15,7 +15,7 @@ process BWA2_MEM {
         val(meta), emit: meta_data
     
 	script:
-	bam = "${meta.sample_id}_${meta.library_id}_${meta.readgroup_id}.bwa2-aligned.fm.bam"
+	bam = "${meta.sample_id}_${meta.library_id}_${meta.readgroup_id}_bwa2-aligned.fm.bam"
 	sample = "${meta.patient_id}_${meta.sample_id}"
 
 	"""

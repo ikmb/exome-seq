@@ -16,10 +16,10 @@ process GATK_MUTECT2 {
 	tuple val(meta),path(f1r2), emit: f1r2
 
 	script:
-	vcf = bam.getBaseName() + ".mutect2.vcf.gz"
+	vcf = bam.getBaseName() + "-mutect2.vcf.gz"
 	tbi = vcf + ".tbi"
 	stats = vcf + ".stats"
-	f1r2 =  bam.getBaseName() + "_f1r2.tar.gz"
+	f1r2 =  bam.getBaseName() + "-f1r2.tar.gz"
 
 	def options = ""
 	if (params.mutect_normals) {

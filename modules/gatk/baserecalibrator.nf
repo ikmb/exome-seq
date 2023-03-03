@@ -16,7 +16,7 @@ process GATK_BASERECALIBRATOR {
 	tuple val(meta),path(report), emit: report
 
 	script:
-	report = bam.getBaseName() + "-" + intervals.getBaseName() + "_recal.txt"	
+	report = bam.getBaseName() + "-" + intervals.getBaseName() + "-recal.txt"	
 
 	"""
 		gatk BaseRecalibrator -R ${fasta}  -I $bam -O $report \

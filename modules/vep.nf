@@ -16,8 +16,8 @@ process VEP {
         path('*.html')
 
         script:
-        vcf_vep = vcf.getBaseName() + ".vep.vcf"
-        vcf_alissa = vcf.getBaseName() + ".vep2alissa.vcf"
+        vcf_vep = vcf.getSimpleName() + "-vep.vcf"
+	vcf_alissa = vcf.getSimpleName() + "-vep2alissa.vcf"
 
         """
                 vep --offline \

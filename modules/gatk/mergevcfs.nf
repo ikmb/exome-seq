@@ -1,5 +1,7 @@
 process GATK_MERGEVCFS {
 
+	tag "ALL"
+
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/VQSR", mode: 'copy'	
 
 	label 'gatk'
@@ -12,7 +14,7 @@ process GATK_MERGEVCFS {
 	tuple val(meta),path(merged_vcf),path(merged_vcf_tbi), emit: vcf
 
 	script:
-	merged_vcf = "gatk-" + params.run_name + ".merged.vcf.gz"
+	merged_vcf = "gatk-" + params.run_name + "-merged.vcf.gz"
 	merged_vcf_tbi = merged_vcf + ".tbi"
 
 	"""

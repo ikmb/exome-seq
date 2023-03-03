@@ -13,9 +13,9 @@ process GATK_MARK_DUPLICATES {
 
 	script:
 
-	bam_md = bam.getBaseName() + ".dedup.bam"
-	bai_md = bam.getBaseName() + ".dedup.bam.bai"
-	metrics = bam.getBaseName() + ".dedup.stats"
+	bam_md = bam.getBaseName() + "-dedup.bam"
+	bai_md = bam.getBaseName() + "-dedup.bam.bai"
+	metrics = bam.getBaseName() + "-dedup.stats"
 
 	"""
 		gatk MarkDuplicatesSpark --java-options "-Xmx${task.memory.giga}g" \

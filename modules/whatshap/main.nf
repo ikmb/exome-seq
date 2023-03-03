@@ -15,7 +15,7 @@ process WHATSHAP {
 	tuple val(meta),path(phased_vcf),path(phased_tbi), emit: vcf
 
 	script:
-	phased_vcf = vcf.getSimpleName() + "_phased.vcf.gz"
+	phased_vcf = vcf.getSimpleName() + "-phased.vcf.gz"
 	phased_tbi = phased_vcf + ".tbi"
 
 	"""
@@ -41,7 +41,7 @@ process WHATSHAP_SINGLE {
         tuple val(meta),path(phased_vcf),path(phased_tbi), emit: vcf
 
         script:
-        phased_vcf = vcf.getSimpleName() + "_phased.vcf.gz"
+        phased_vcf = vcf.getSimpleName() + "-phased.vcf.gz"
         phased_tbi = phased_vcf + ".tbi"
 
         """

@@ -13,7 +13,7 @@ process GATK_SELECTVARIANTS {
 
         script:
         def prefix = meta.patient_id + "_" + meta.sample_id
-        vcf_sample = prefix + "-" + m_f.variantcaller + ".split.vcf.gz"
+        vcf_sample = prefix + "-" + m_f.variantcaller + "-split.vcf.gz"
         vcf_sample_index = vcf_sample + ".tbi"
 
         """

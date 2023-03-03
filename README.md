@@ -1,4 +1,4 @@
-![](images/ikmb_bfx_logo.png)
++![](images/ikmb_bfx_logo.png)
 
 # Exome-seq Pipeline
 
@@ -10,7 +10,7 @@ This pipeline offers a end-to-end workflow for exome analysis using several tool
 
 - duplicate marking using [Samtools](https://github.com/samtools/samtools)
 
-- germline SNP/INDEL calling with [Deepvariant](https://github.com/google/deepvariant), Strelka[https://github.com/Illumina/strelka] and/or [GATK](https://github.com/broadinstitute/gatk)
+- germline SNP/INDEL calling with [Deepvariant](https://github.com/google/deepvariant), [Strelka](https://github.com/Illumina/strelka) and/or [GATK](https://github.com/broadinstitute/gatk)
 
 - somatic SNP/INDEL calling with [Mutect2](https://github.com/broadinstitute/gatk)
 

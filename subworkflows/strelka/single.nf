@@ -34,8 +34,12 @@ workflow STRELKA_SINGLE_CALLING {
 		dbsnp.collect()
 	)
 	VCF_ADD_HEADER(VCF_ADD_DBSNP.out.vcf.map { meta,v,t ->
-			new_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "STRELKA" ]
-			tuple(new_meta,v,t)
+			[[
+				id: meta.id, 
+				sample_id: meta.sample_id, 
+				patient_id: meta.patient_id, 
+				variantcaller: "STRELKA" 
+			],v,t]
 		}
 	)
 	single_vcf = ch_vcf.mix(VCF_ADD_HEADER.out.vcf)
@@ -56,8 +60,12 @@ workflow STRELKA_SINGLE_CALLING {
 
 	// Fiddly work-around to determine whether we have 1 or multiple vcfs. No merging when n=1
 	VCF_FILTER_PASS.out.vcf.map { m,v,t ->
-		def new_meta = [ id: "all", sample_id: "UNDEFINED", patient_id: "UNDEFINED", variantcaller: "STRELKA" ]
-		tuple(new_meta,v,t)
+			[[
+				id: "all", 
+				sample_id: "UNDEFINED", 
+				patient_id: "UNDEFINED", 
+				variantcaller: "STRELKA" 
+			],v,t]
 	}
 	.groupTuple()
 	.branch { m,v,t ->
@@ -66,7 +74,14 @@ workflow STRELKA_SINGLE_CALLING {
         }.set { ch_grouped_vcfs }
 
 	MERGE_VCF(
-                ch_grouped_vcfs.multi.map { m,v,t -> [ [ id: "all", sample_id: "Bcftools", patient_id: "MergedCallset", variantcaller: "STRELKA"],v,t] }
+                ch_grouped_vcfs.multi.map { m,v,t -> 
+			[ [ 
+				id: "all", 
+				sample_id: "Bcftools", 
+				patient_id: "MergedCallset", 
+				variantcaller: "STRELKA"
+			],v,t] 
+		}
 	)
         ch_merged_vcf = ch_merged_vcf.mix(MERGE_VCF.out.vcf)
 

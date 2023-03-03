@@ -18,11 +18,11 @@ process MANTA {
 	path("manta")
 
 	script:
-	sv = "${meta.patient_id}_${meta.sample_id}.diploidSV.vcf.gz"
+	sv = "${meta.patient_id}_${meta.sample_id}-diploidSV.vcf.gz"
 	sv_tbi = sv + ".tbi"
-	indel = "${meta.patient_id}_${meta.sample_id}.candidateSmallIndels.vcf.gz"
+	indel = "${meta.patient_id}_${meta.sample_id}-candidateSmallIndels.vcf.gz"
 	indel_tbi = indel + ".tbi"
-	sv_can = "${meta.patient_id}_${meta.sample_id}.candidateSV.vcf.gz"
+	sv_can = "${meta.patient_id}_${meta.sample_id}-candidateSV.vcf.gz"
 	sv_can_tbi = sv_can + ".tbi"
 	"""
 		configManta.py --bam $bam --referenceFasta ${fasta} --runDir manta --callRegions $bed_gz --exome

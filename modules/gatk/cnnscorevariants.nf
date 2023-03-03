@@ -16,7 +16,7 @@ process GATK_CNNSCOREVARIANTS {
 	
 	script:
 	
-	cnn_vcf = vcf.getBaseName() + ".cnn.vcf.gz"
+	cnn_vcf = vcf.getSimpleName() + "-cnn.vcf.gz"
 	cnn_vcf_tbi = cnn_vcf + ".tbi"
 
 	"""

@@ -61,7 +61,7 @@ The pipeline offers various tools for the analysis of variant information. Speci
    - [CSQ](https://samtools.github.io/bcftools/howtos/csq-calling.html) (csq)
 6. HLA calling
    - [xHLA](https://github.com/humanlongevity/HLA) (xhla)
-7. Variant effects: VEP
+7. Variant effects:
    - [VEP](https://www.ensembl.org/info/docs/tools/vep/script/vep_options.html)  (vep)
 
 Your tools of choice can be provided like so:

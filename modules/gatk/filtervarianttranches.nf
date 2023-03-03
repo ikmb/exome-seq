@@ -18,7 +18,7 @@ process GATK_FILTERVARIANTTRANCHES {
 
 	script:
 	
-	vcf_filtered = vcf.getBaseName() + ".filtered_tranches.vcf.gz"
+	vcf_filtered = vcf.getSimpleName() + "-filtered_tranches.vcf.gz"
 	vcf_filtered_tbi = vcf_filtered + ".tbi"
 
 	"""

@@ -2,7 +2,7 @@ process DEEPVARIANT {
 
 	tag "${meta.patient_id}|${meta.sample_id}"
 
-	container 'google/deepvariant:1.4.0'
+	container 'google/deepvariant:1.5.0'
 
         publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/DEEPVARIANT", mode: 'copy'
 

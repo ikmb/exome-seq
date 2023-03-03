@@ -14,7 +14,7 @@ process SAMTOOLS_AMPLICONCLIP {
         tuple val(meta),path(bam_masked),path(bam_masked_bai), emit: bam
 
         script:
-        bam_masked = bam.getBaseName() + ".amplicon_clipped.bam"
+        bam_masked = bam.getBaseName() + "-amplicon_clipped.bam"
         bam_masked_bai = bam_masked + ".bai"
 
         """

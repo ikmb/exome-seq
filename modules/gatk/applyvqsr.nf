@@ -14,7 +14,7 @@ process GATK_APPLYVQSR {
 	tuple val(meta),path(vcf_recal),path(vcf_recal_tbi), emit: vcf
 
 	script:
-	vcf_recal = vcf.getBaseName() + "." + modus + "_recal.vcf.gz"
+	vcf_recal = vcf.getSimpleName() + "-" + modus + "-recal.vcf.gz"
 	vcf_recal_tbi = vcf_recal + ".tbi"
 
 	"""

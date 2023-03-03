@@ -11,7 +11,7 @@ process GATK_GATHERBQSRREPORTS {
 	tuple val(meta),path(merged_report), emit: report
 
 	script:
-	merged_report = meta.patient_id + "_" + meta.sample_id + "_recal.txt"
+	merged_report = meta.patient_id + "_" + meta.sample_id + "-recal.txt"
 
 	"""
 		gatk GatherBQSRReports --input ${reports.join(' --input ')} --output $merged_report

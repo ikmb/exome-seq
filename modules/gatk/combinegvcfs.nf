@@ -12,7 +12,7 @@ process GATK_COMBINEGVCFS {
 	tuple path(merged_gvcf),path(merged_gvcf_tbi), emit: gvcf
 
 	script:
-	merged_gvcf = "GATK." + params.run_name + ".merged.g.vcf.gz"
+	merged_gvcf = "GATK_" + params.run_name + "-merged.g.vcf.gz"
 	merged_gvcf_tbi = merged_gvcf + ".tbi"
 
 	"""

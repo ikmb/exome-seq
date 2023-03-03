@@ -16,7 +16,7 @@ process BCFTOOLS_CONCAT {
         meta = [:]
         meta.variant_caller = "ConcatenatedCallsets"
 
-        merged_vcf = "merged_callset." + params.run_name + ".vcf.gz"
+        merged_vcf = "merged_callset_" + params.run_name + ".vcf.gz"
         merged_vcf_tbi = merged_vcf + ".tbi"
 
         """

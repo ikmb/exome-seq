@@ -13,8 +13,8 @@ process GATK_APPLYBQSR {
 	tuple val(meta),path(recal_bam),path(recal_bai), emit: bam
 
 	script:
-	recal_bam = bam.getBaseName() + ".recal.bam"
-	recal_bai = bam.getBaseName() + ".recal.bai"
+	recal_bam = bam.getBaseName() + "-recal.bam"
+	recal_bai = bam.getBaseName() + "-recal.bai"
 
 	"""
 		gatk ApplyBQSR -R $fasta -I $bam -O $recal_bam -L $intervals -bqsr $recal \

@@ -13,7 +13,7 @@ process GATK_FILTER_MUTECT_CALLS {
 
 	script:
 
-	vcf_filtered = vcf.getBaseName() + ".filtered.vcf.gz"
+	vcf_filtered = vcf.getSimpleName() + "-filtered.vcf.gz"
 	tbi_filtered = vcf_filtered + ".tbi"
 
 	"""

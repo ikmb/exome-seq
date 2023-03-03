@@ -9,7 +9,7 @@ process BCFTOOLS_NORMALIZE {
         tuple val(meta),path(vcf_norm),path(tbi_norm), emit: vcf
 
         script:
-        vcf_norm = vcf.getSimpleName() + ".normalized.vcf.gz"
+        vcf_norm = vcf.getSimpleName() + "_normalized.vcf.gz"
         tbi_norm = vcf_norm + ".tbi"
 
         """
