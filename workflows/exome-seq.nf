@@ -37,10 +37,19 @@ ch_known_indels_tbi = ch_mills_tbi.mix(ch_axiom_tbi)
 
 ch_dbsnp_combined = Channel.fromList( [ params.dbsnp, params.dbsnp + ".tbi" ] )
 
+// ************************************
+// Provide a BED file with amplicon locations
+// ************************************
 if (params.amplicon_bed) { ch_amplicon_bed = Channel.fromPath(file(params.amplicon_bed, checkIfExists: true)) } else { ch_amplicon_bed = Channel.from([]) }
 
+// *************************************
+// A GTF file for protein-level effect prediction
+// *************************************
 ch_gtf = Channel.fromPath(params.csq_gtf)
 
+// *************************************
+// The reference genome with relevant helper files
+// *************************************
 ch_fasta = Channel.fromList( [ file(params.fasta , checkIfExists: true), file(params.fasta_fai, checkIfExits: true), file(params.dict, checkIfExists: true) ] )
 
 deepvariant_ref = Channel.from( [ params.fasta_fai,params.fasta_gz,params.fasta_gzfai,params.fasta_gzi ] )
@@ -53,6 +62,9 @@ if (!params.aligners_allowed.contains(params.aligner)) {
 	exit 1, "Invalid aligner specified - valid options are: ${params.aligners_allowed.join(',')}"
 }
 
+// ************************************
+// Choose your aligner
+// ************************************
 if (params.aligner == "dragmap") {
 	genome_index = params.dragmap_index
 } else {
@@ -141,7 +153,7 @@ if ('expansionhunter' in tools) {
 // Read sample file
 // ************************************
 
-ch_samplesheet = file(params.samples, checkIfExists: true)
+ch_samplesheet = Channel.fromPath(params.samples)
 
 // ************************************
 // set optional channels
@@ -180,6 +192,7 @@ include { BCFTOOLS_CONCAT as CONCAT } from "./../modules/bcftools/concat"
 include { SEX_CHECK} from "./../modules/qc/main"
 include { XHLA } from "./../modules/xhla"
 include { CNVKIT } from "./../subworkflows/cnvkit"
+include { VALIDATE_SAMPLESHEET } from "./../modules/validate_samplesheet"
 
 // Start the main workflow
 workflow EXOME_SEQ {
@@ -194,9 +207,14 @@ workflow EXOME_SEQ {
 		padded_bed = CONVERT_BED.out.bed
 		bedgz = CONVERT_BED.out.bed_gz
 
+		// Make sure the format of the samplesheet is correct
+		VALIDATE_SAMPLESHEET(
+			ch_samplesheet
+		)
+
 		// align reads against genome
 		TRIM_AND_ALIGN(
-			ch_samplesheet,
+			VALIDATE_SAMPLESHEET.out.csv,
 			ch_amplicon_bed,
 			genome_index
 		)
@@ -283,7 +301,7 @@ workflow EXOME_SEQ {
 		// STRELKA WORKFLOW
 		if ('strelka' in tools) {
 			// Call all samples together
-            if (params.joint_calling) {
+			if (params.joint_calling) {
 				STRELKA_MULTI_CALLING(
 					bam.map {m,b,i -> [ b,i ] },
 					bedgz,
@@ -293,7 +311,7 @@ workflow EXOME_SEQ {
 				ch_vcfs = ch_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf,STRELKA_MULTI_CALLING.out.vcf_multi)
 				ch_phased_vcfs = ch_phased_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf_phased_multi)
 			// Call each sample individually and merge later
-            } else {
+			} else {
 				STRELKA_SINGLE_CALLING(
 					bam,
 					bedgz,
@@ -336,7 +354,7 @@ workflow EXOME_SEQ {
 		}
 
 		// Expansions
-        if ('expansionhunter' in tools) {
+		if ('expansionhunter' in tools) {
 			EXPANSIONS(bam,expansion_catalog)
 		}
 

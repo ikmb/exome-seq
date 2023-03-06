@@ -22,6 +22,13 @@ If you try to run the pipeline on another system, you will need to configure a p
 Information to this pipeline is given in form of a CSV sample sheet. This is to allow relevant, and possibly quite important, metadata to be included (such
 as meaningful sample names, sequencing center etc).
 
+The structure looks as follows:
+
+```
+patient;sample;status;library;readgroup;platform_unit;center;date;R1;R2
+```
+where status refers to the tumor status (0 = normal, 1 = tumor).
+
 For convenience, we have included a simple script (bin/samplesheet_from_folder.rb) which accepts the path to a folder fill of PE exome data and automatically
 writes a basic sample sheet. Obviously, it cannot derive meaningful sample and patient IDs from such information; this you would have to edit manually, if
 you so choose.
