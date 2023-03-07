@@ -7,7 +7,7 @@ process BCFTOOLS_CSQ {
         publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/${meta.variantcaller}", mode: 'copy'
 
         input:
-        tuple val(meta),path(vcf),path(tbi)
+        tuple val(meta),path(vcf_in),path(tbi_in)
 	tuple path(fasta),path(fai),path(dict)
 	path(gtf)
 
@@ -15,11 +15,11 @@ process BCFTOOLS_CSQ {
         tuple val(meta),path(vcf_fixed),path(tbi_fixed), emit: vcf
 
         script:
-        vcf_fixed = vcf.getSimpleName() + "_csq.vcf.gz"
+        vcf_fixed = vcf_in.getSimpleName() + "_csq.vcf.gz"
         tbi_fixed = vcf_fixed + ".tbi"
 
         """
-                bcftools csq -f $fasta -g $gtf --phase a $vcf -o $vcf_fixed
+                bcftools csq -f $fasta -g $gtf --phase a $vcf_in -o $vcf_fixed
                 bcftools index -t $vcf_fixed
         """
 

@@ -22,6 +22,13 @@ If you try to run the pipeline on another system, you will need to configure a p
 Information to this pipeline is given in form of a CSV sample sheet. This is to allow relevant, and possibly quite important, metadata to be included (such
 as meaningful sample names, sequencing center etc).
 
+The structure looks as follows:
+
+```
+patient;sample;status;library;readgroup;platform_unit;center;date;R1;R2
+```
+where status refers to the tumor status (0 = normal, 1 = tumor).
+
 For convenience, we have included a simple script (bin/samplesheet_from_folder.rb) which accepts the path to a folder fill of PE exome data and automatically
 writes a basic sample sheet. Obviously, it cannot derive meaningful sample and patient IDs from such information; this you would have to edit manually, if
 you so choose.
@@ -50,12 +57,15 @@ The pipeline offers various tools for the analysis of variant information. Speci
    - [Deepvariant](https://github.com/google/deepvariant) (deepvariant)
    - [Strelka](https://github.com/Illumina/strelka) (strelka)
    - [GATK](https://github.com/broadinstitute/gatk) (gatk)
+2. Somatic variant calling
+   - [Mutect2](https://github.com/broadinstitute/gatk) (mutect2)
 2. Structural variants
    - [Manta](https://github.com/Illumina/manta) (manta)
 3. Repeat expansions
    - [Expansion Hunter](https://github.com/Illumina/ExpansionHunter) (expansionhunter)
 4. Copy number variants
    - [CNVkit](https://cnvkit.readthedocs.io/en/stable/) (cnvkit)
+   - [CNVnator](https://github.com/abyzovlab/CNVnator) (cnvnator)
 5. Protein-level haplotypes
    - [Haplosaurus](https://www.ensembl.org/info/docs/tools/vep/haplo/index.html) (haplosaurus)
    - [CSQ](https://samtools.github.io/bcftools/howtos/csq-calling.html) (csq)

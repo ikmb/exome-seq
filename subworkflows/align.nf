@@ -17,7 +17,7 @@ workflow TRIM_AND_ALIGN {
 		genome_index
 	main:
 
-		Channel.fromPath(samplesheet)
+		samplesheet
 		.splitCsv ( header: true, sep: ';')
 		.map { create_fastq_channel(it) }
 		.set {reads }
@@ -58,6 +58,7 @@ workflow TRIM_AND_ALIGN {
                         new_meta = [:]
 			new_meta.patient_id = meta.patient_id
 			new_meta.sample_id = meta.sample_id
+			new_meta.status = meta.status
 			def groupKey = meta.sample_id
 			tuple( groupKey, new_meta, bam)
 		}.groupTuple(by: [0,1]).map { g ,new_meta ,bam -> [ new_meta, bam ] }
@@ -96,16 +97,18 @@ workflow TRIM_AND_ALIGN {
 
 def create_fastq_channel(LinkedHashMap row) {
 
-    // IndivID;SampleID;libraryID;rgID;rgPU;platform;platform_model;Center;Date;R1;R2
+    // patient;sample;status;library;readgroup;platform_unit;center;date;R1;R2
 
     def meta = [:]
-    meta.patient_id = row.IndivID
-    meta.sample_id = row.SampleID
-    meta.library_id = row.libraryID
-    meta.readgroup_id = row.rgID
-    meta.center = row.Center
-    meta.date = row.Date
-    meta.platform_unit = row.rgPU
+	
+    meta.patient_id = row.patient
+    meta.status = row.status.toInteger()
+    meta.sample_id = row.sample
+    meta.library_id = row.library
+    meta.readgroup_id = row.readgroup
+    meta.center = row.center
+    meta.date = row.date
+    meta.platform_unit = row.platform_unit
 
     def array = []
     array = [ meta, file(row.R1), file(row.R2) ]

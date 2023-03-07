@@ -37,10 +37,19 @@ ch_known_indels_tbi = ch_mills_tbi.mix(ch_axiom_tbi)
 
 ch_dbsnp_combined = Channel.fromList( [ params.dbsnp, params.dbsnp + ".tbi" ] )
 
+// ************************************
+// Provide a BED file with amplicon locations
+// ************************************
 if (params.amplicon_bed) { ch_amplicon_bed = Channel.fromPath(file(params.amplicon_bed, checkIfExists: true)) } else { ch_amplicon_bed = Channel.from([]) }
 
+// *************************************
+// A GTF file for protein-level effect prediction
+// *************************************
 ch_gtf = Channel.fromPath(params.csq_gtf)
 
+// *************************************
+// The reference genome with relevant helper files
+// *************************************
 ch_fasta = Channel.fromList( [ file(params.fasta , checkIfExists: true), file(params.fasta_fai, checkIfExits: true), file(params.dict, checkIfExists: true) ] )
 
 deepvariant_ref = Channel.from( [ params.fasta_fai,params.fasta_gz,params.fasta_gzfai,params.fasta_gzi ] )
@@ -53,6 +62,9 @@ if (!params.aligners_allowed.contains(params.aligner)) {
 	exit 1, "Invalid aligner specified - valid options are: ${params.aligners_allowed.join(',')}"
 }
 
+// ************************************
+// Choose your aligner
+// ************************************
 if (params.aligner == "dragmap") {
 	genome_index = params.dragmap_index
 } else {
@@ -116,13 +128,11 @@ if (params.panel) {
 
 sry_region  = params.sry_bed ?: params.genomes[params.assembly].sry_bed
 
-
 // ************************************
 // List of tools to run
 // ************************************
 
 tools = params.tools ? params.tools.split(',').collect{it.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '')} : []
-
 
 // ************************************
 // Expansion hunter references
@@ -141,7 +151,7 @@ if ('expansionhunter' in tools) {
 // Read sample file
 // ************************************
 
-ch_samplesheet = file(params.samples, checkIfExists: true)
+ch_samplesheet = Channel.fromPath(params.samples)
 
 // ************************************
 // set optional channels
@@ -160,7 +170,8 @@ include { TRIM_AND_ALIGN } from "./../subworkflows/align"
 include { DV_VARIANT_CALLING } from "./../subworkflows/deepvariant"
 include { GATK_VARIANT_CALLING } from "./../subworkflows/gatk_variant_calling"
 include { GATK_BAM_RECAL } from "./../subworkflows/gatk_bqsr"
-include { GATK_MUTECT2_CALLING } from "./../subworkflows/gatk_mutect2_calling"
+include { GATK_MUTECT2_SINGLE } from "./../subworkflows/gatk_mutect2_single"
+include { GATK_MUTECT2_PAIRED } from "./../subworkflows/gatk_mutect2_paired"
 include { STRELKA_SINGLE_CALLING } from "./../subworkflows/strelka/single"
 include { STRELKA_MULTI_CALLING } from "./../subworkflows/strelka/multi"
 include { GLNEXUS as MERGE_GVCFS } from "./../modules/glnexus"
@@ -180,13 +191,15 @@ include { BCFTOOLS_CONCAT as CONCAT } from "./../modules/bcftools/concat"
 include { SEX_CHECK} from "./../modules/qc/main"
 include { XHLA } from "./../modules/xhla"
 include { CNVKIT } from "./../subworkflows/cnvkit"
+include { CNVNATOR_EXTRACT } from "./../modules/cnvnator/extract"
+include { VALIDATE_SAMPLESHEET } from "./../modules/validate_samplesheet"
 
 // Start the main workflow
 workflow EXOME_SEQ {
 
 	main:
 
-                ch_vcfs = Channel.empty()
+        ch_vcfs = Channel.empty()
 		ch_phased_vcfs = Channel.empty()
 
 		// create calling regions
@@ -194,9 +207,14 @@ workflow EXOME_SEQ {
 		padded_bed = CONVERT_BED.out.bed
 		bedgz = CONVERT_BED.out.bed_gz
 
+		// Make sure the format of the samplesheet is correct
+		VALIDATE_SAMPLESHEET(
+			ch_samplesheet
+		)
+
 		// align reads against genome
 		TRIM_AND_ALIGN(
-			ch_samplesheet,
+			VALIDATE_SAMPLESHEET.out.csv,
 			ch_amplicon_bed,
 			genome_index
 		)
@@ -224,7 +242,7 @@ workflow EXOME_SEQ {
 				ch_dbsnp_combined
 			)
 			dv_vcf = DV_VARIANT_CALLING.out.vcf
-            dv_merged_vcf = DV_VARIANT_CALLING.out.vcf_multi
+			dv_merged_vcf = DV_VARIANT_CALLING.out.vcf_multi
 			ch_vcfs = ch_vcfs.mix(dv_vcf,dv_merged_vcf)
 			ch_phased_vcfs = ch_phased_vcfs.mix(
 				DV_VARIANT_CALLING.out.vcf_phased_multi,
@@ -242,9 +260,9 @@ workflow EXOME_SEQ {
 				targets,
 				ch_fasta,
 				ch_known_snps,
-                                ch_known_snps_tbi,
-                                ch_known_indels,
-                                ch_known_indels_tbi
+                ch_known_snps_tbi,
+                ch_known_indels,
+                ch_known_indels_tbi
 			)
 			ch_recal_bam = ch_recal_bam.mix(GATK_BAM_RECAL.out.bam)
 		}
@@ -269,21 +287,58 @@ workflow EXOME_SEQ {
 			gatk_merged_vcf = Channel.empty()
 		}
 
-		// MUTECT2 workflow
+		// MUTECT2 workflow - only works with tumor or tumor-normal pairs. 
 		if ('mutect2' in tools) {
-			GATK_MUTECT2_CALLING(
-				ch_recal_bam,
+
+			ch_recal_bam.branch { m,b,i ->
+				normal: m.status == 0
+				tumor: m.status == 1
+			}.set { ch_bam_status }
+			
+			// Fetch tumor and normal samples and group by patient ID into channel for paired calling (if any)
+			ch_bam_normal = ch_bam_status.normal
+			ch_bam_tumor = ch_bam_status.tumor
+
+			ch_bam_normal_cross = ch_bam_normal.map {m,b,i -> [ m.patient_id, m, b,i]}
+			ch_bam_tumor_cross = ch_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
+
+			ch_bam_tumor_joined = ch_bam_tumor_cross.join(ch_bam_normal_cross, remainder: true)
+			ch_bam_tumor_joined_filtered = ch_bam_tumor_joined.filter{ it ->  !(it.last()) }
+			ch_bam_tumor_only = ch_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+
+			ch_bam_normal_cross.cross(ch_bam_tumor_cross).map { normal,tumor ->
+				def tmeta = [:]
+				tmeta.patient_id = normal[0]
+				tmeta.normal_id = "${normal[1].patient_id}_${normal[1].sample_id}"
+				tmeta.tumor_id = "${tumor[1].patient_id}_${tumor[1].sample_id}"
+				tmeta.sample_id = "${tmeta.tumor_id}_vs_${tmeta.normal_id}".toString()
+
+				tuple(tmeta,normal[2],normal[3],tumor[2],tumor[3] )
+			}.set { ch_bam_calling_pair }
+		
+			// Variant calling for paired tumor-normal samples
+			GATK_MUTECT2_PAIRED(
+				ch_bam_calling_pair,
 				targets,
 				ch_fasta,
 				ch_dbsnp_combined
 			)
-			ch_vcfs = ch_vcfs.mix(GATK_MUTECT2_CALLING.out.vcf)
+			ch_vcfs = ch_vcfs.mix(GATK_MUTECT2_PAIRED.out.vcf)
+
+			// Variant calling for tumor-only samples
+			GATK_MUTECT2_SINGLE(
+				ch_bam_tumor_only,
+				targets,
+				ch_fasta,
+				ch_dbsnp_combined
+			)
+			ch_vcfs = ch_vcfs.mix(GATK_MUTECT2_SINGLE.out.vcf)
 		}
 
 		// STRELKA WORKFLOW
 		if ('strelka' in tools) {
 			// Call all samples together
-            if (params.joint_calling) {
+			if (params.joint_calling) {
 				STRELKA_MULTI_CALLING(
 					bam.map {m,b,i -> [ b,i ] },
 					bedgz,
@@ -293,7 +348,7 @@ workflow EXOME_SEQ {
 				ch_vcfs = ch_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf,STRELKA_MULTI_CALLING.out.vcf_multi)
 				ch_phased_vcfs = ch_phased_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf_phased_multi)
 			// Call each sample individually and merge later
-            } else {
+			} else {
 				STRELKA_SINGLE_CALLING(
 					bam,
 					bedgz,
@@ -322,6 +377,14 @@ workflow EXOME_SEQ {
 				ch_cnv_gz
 			)
 		}
+
+		if ('cnvnator' in tools) {
+			CNVNATOR_EXTRACT(
+				bam,
+				ch_fasta.collect()
+			)
+
+		}
 		// SV calling with Manta
 
 		if ('manta' in tools) {
@@ -336,7 +399,7 @@ workflow EXOME_SEQ {
 		}
 
 		// Expansions
-        if ('expansionhunter' in tools) {
+		if ('expansionhunter' in tools) {
 			EXPANSIONS(bam,expansion_catalog)
 		}
 

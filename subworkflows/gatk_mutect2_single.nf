@@ -7,7 +7,7 @@ include { GATK_LEARN_READ_ORIENTATION_MODEL } from "./../modules/gatk/learn_read
 include { GATK_GET_PILEUP_SUMMARIES } from "./../modules/gatk/get_pileup_summaries"
 include { GATK_CALCULATE_CONTAMINATION } from "./../modules/gatk/calculate_contamination"
 
-workflow GATK_MUTECT2_CALLING {
+workflow GATK_MUTECT2_SINGLE {
 
 	take:
 		bam
