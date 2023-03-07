@@ -57,12 +57,15 @@ The pipeline offers various tools for the analysis of variant information. Speci
    - [Deepvariant](https://github.com/google/deepvariant) (deepvariant)
    - [Strelka](https://github.com/Illumina/strelka) (strelka)
    - [GATK](https://github.com/broadinstitute/gatk) (gatk)
+2. Somatic variant calling
+   - [Mutect2](https://github.com/broadinstitute/gatk) (mutect2)
 2. Structural variants
    - [Manta](https://github.com/Illumina/manta) (manta)
 3. Repeat expansions
    - [Expansion Hunter](https://github.com/Illumina/ExpansionHunter) (expansionhunter)
 4. Copy number variants
    - [CNVkit](https://cnvkit.readthedocs.io/en/stable/) (cnvkit)
+   - [CNVnator](https://github.com/abyzovlab/CNVnator) (cnvnator)
 5. Protein-level haplotypes
    - [Haplosaurus](https://www.ensembl.org/info/docs/tools/vep/haplo/index.html) (haplosaurus)
    - [CSQ](https://samtools.github.io/bcftools/howtos/csq-calling.html) (csq)

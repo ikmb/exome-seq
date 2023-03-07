@@ -14,9 +14,9 @@ process GATK_GENOMICSDBIMPORT {
 
 	"""
 		gatk --java-options "-Xmx4g -Xms4g" GenomicsDBImport \
+			--merge-input-intervals \
 			-V ${gvcfs.join(' -V ')} \
 			--genomicsdb-workspace-path $db \
-			-L chr22
 
 	"""	
 }

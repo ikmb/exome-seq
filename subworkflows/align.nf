@@ -58,6 +58,7 @@ workflow TRIM_AND_ALIGN {
                         new_meta = [:]
 			new_meta.patient_id = meta.patient_id
 			new_meta.sample_id = meta.sample_id
+			new_meta.status = meta.status
 			def groupKey = meta.sample_id
 			tuple( groupKey, new_meta, bam)
 		}.groupTuple(by: [0,1]).map { g ,new_meta ,bam -> [ new_meta, bam ] }
@@ -101,7 +102,7 @@ def create_fastq_channel(LinkedHashMap row) {
     def meta = [:]
 	
     meta.patient_id = row.patient
-    meta.status = row.status
+    meta.status = row.status.toInteger()
     meta.sample_id = row.sample
     meta.library_id = row.library
     meta.readgroup_id = row.readgroup
