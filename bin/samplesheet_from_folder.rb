@@ -14,6 +14,7 @@ opts.on("-f","--folder", "=FOLDER","Folder to scan") {|argument| options.folder 
 opts.on("-c","--centre", "=CENTRE","Name of sequencing centre") {|argument| options.centre = argument }
 opts.on("-p","--platform", "=PLATFORM","Name of sequencing instrument") {|argument| options.platform = argument }
 opts.on("-s","--sanity", "Perform sanity check of md5 sums") { options.sanity = true }
+opts.on("-l","--lookup", "=LOOKUP", "Lookup file with lib id <> other id") {|argument| options.lookup = argument }
 opts.on("-h","--help","Display the usage information") {
  puts opts
  exit
@@ -26,16 +27,24 @@ abort "Folder not found (#{options.folder})" unless File.directory?(options.fold
 date = Time.now.strftime("%Y-%m-%d")
 options.centre ? center = options.centre : center = "IKMB"
 
+lookup = {}
+if options.lookup
+	IO.readlines(options.lookup).each do |line|
+		key,value = line.strip.split("\t")
+		lookup[key] = value
+	end
+end
+
 fastq_files = Dir["#{options.folder}/*_R*.fastq.gz"]
 
-groups = fastq_files.group_by{|f| f.split("/")[-1].split(/_S/)[0] }
+groups = fastq_files.group_by{|f| f.split("/")[-1].split(/_/)[0..1].join("_") }
 
 warn "Building input sample sheet from FASTQ folder"
 warn "Performing sanity check on md5sums" if options.sanity
 
 options.platform ? sequencer = options.platform : sequencer = "NovaSeq6000"
 
-puts "patient;sample;status;library;readgroup;platform_unit;center;date;R1;R2""
+puts "patient;sample;status;library;readgroup;platform_unit;center;date;R1;R2"
 
 individuals = []
 samples = []
@@ -65,10 +74,14 @@ groups.each do |group, files|
 		end
 
 		# H26247-L3_S1_L001_R1_001_fastqc.html
-		lims_id = group.split("-")[0]
-        	library = group.split("-")[1..-1].join("-").split("_S")[0]
+		lims_id = group.split("_")[0]
+        	library = group.split("_")[1]
         	sample = library
 		individual = library
+
+		if lookup.has_key?(library)
+			sample = "#{lookup[library]}"
+		end
 
 		individuals << individual
 		samples << sample
