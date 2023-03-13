@@ -18,7 +18,8 @@ workflow DV_VARIANT_CALLING {
 
 	main:
                 merged_vcf = Channel.empty()
-		ch_phased_multi = Channel.empty()
+		ch_phased_multi = Channel.from([])
+		ch_phased = Channel.from([])
 
 		DEEPVARIANT(
 			bam,
@@ -43,19 +44,22 @@ workflow DV_VARIANT_CALLING {
 			}
 		)
 
-		// Phase single VCF
-		WHATSHAP_SINGLE(
-			VCF_ADD_HEADER.out.vcf.map {m,v,t ->
-				new_key = m.sample_id
-				tuple(new_key,m,v,t)
-			}.join(
-				bam.map { m,b,i ->
-					new_b_key = m.sample_id
-					tuple(new_b_key,b,i)
-				}
-			).map { n,m,v,t,b,i -> [ m,v,t,b,i ] },
-			fasta.collect()
-		)
+		if (params.phase) {
+			// Phase single VCF
+			WHATSHAP_SINGLE(
+				VCF_ADD_HEADER.out.vcf.map {m,v,t ->
+					new_key = m.sample_id
+					tuple(new_key,m,v,t)
+				}.join(
+					bam.map { m,b,i ->
+						new_b_key = m.sample_id
+						tuple(new_b_key,b,i)
+					}
+				).map { n,m,v,t,b,i -> [ m,v,t,b,i ] },
+				fasta.collect()
+			)
+			ch_phased = ch_phased.mix(WHATSHAP_SINGLE.out.vcf)
+		}
 
 		// Fiddly work-around to determine whether we have 1 or multiple vcfs. No merging when n=1
 		VCF_FILTER_PASS.out.vcf.map { m,v,t ->
@@ -88,13 +92,15 @@ workflow DV_VARIANT_CALLING {
 						variantcaller: "DEEPVARIANT"
 					],v,t]
 		 		}
-			)	
-			WHATSHAP(
-				merged_vcf,
-				bam.map{m,b,i -> tuple(b,i) }.collect(),
-				fasta.collect()
 			)
-			ch_phased_multi = ch_phased_multi.mix(WHATSHAP.out.vcf)
+			if (params.phase) {	
+				WHATSHAP(
+					merged_vcf,
+					bam.map{m,b,i -> tuple(b,i) }.collect(),
+					fasta.collect()
+				)
+				ch_phased_multi = ch_phased_multi.mix(WHATSHAP.out.vcf)
+			}
 	        } else {
        	                MERGE_VCF(
   				ch_grouped_vcfs.multi.map { m,v,t -> 
@@ -111,7 +117,7 @@ workflow DV_VARIANT_CALLING {
 
 	emit:
 		vcf = VCF_ADD_HEADER.out.vcf
-		vcf_phased_single = WHATSHAP_SINGLE.out.vcf
+		vcf_phased_single = ch_phased
 		sample_names = DEEPVARIANT.out.sample_name
 		gvcf = DEEPVARIANT.out.gvcf
 		vcf_multi = merged_vcf

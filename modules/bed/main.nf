@@ -1,5 +1,7 @@
 process BED_TO_BEDGZ {
 
+	tag "${bed}"
+
         executor 'local'
 
         input:
