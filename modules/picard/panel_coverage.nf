@@ -9,7 +9,7 @@ process PANEL_COVERAGE {
         path(targets)
 
         output:
-        tuple val(panel_name),path(coverage)
+        tuple val(panel_name),path(coverage), emit: coverage
         tuple val(meta.patient_id),val(meta.sample_id),path(target_coverage_xls)
         path(target_coverage)
 

@@ -35,6 +35,7 @@ process VEP {
                         --plugin UTRannotator \
                         --plugin Mastermind,${params.vep_mastermind} \
                         --plugin SpliceAI,${params.spliceai_fields} \
+			--af_gnomade \
                         --fasta $fasta \
                         --fork ${task.cpus} \
                         --vcf \

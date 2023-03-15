@@ -460,7 +460,6 @@ workflow EXOME_SEQ {
 			).collect()
 		)
 
-
 	emit:
 		qc = multiqc_sample.out.report
 

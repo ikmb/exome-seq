@@ -9,8 +9,13 @@ workflow PANEL_QC {
 		targets
 
 	main:
-		PANEL_COVERAGE(bam.combine(panels),targets.collect())
-		MULTIQC_PANEL(PANEL_COVERAGE.out[0].collect())
+		PANEL_COVERAGE(
+			bam.combine(panels),
+			targets.collect()
+		)
+		MULTIQC_PANEL(
+			PANEL_COVERAGE.out.coverage.groupTuple()
+		)
 	
 
 	emit:
