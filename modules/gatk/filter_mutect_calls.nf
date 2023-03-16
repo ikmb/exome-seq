@@ -1,5 +1,7 @@
 process GATK_FILTER_MUTECT_CALLS {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+	
 	label 'gatk'
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/MUTECT2", mode: 'copy'

@@ -1,5 +1,7 @@
 process GATK_CALCULATE_CONTAMINATION {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+	
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/MUTECT2/raw", mode: 'copy'
 
 	label 'gatk'

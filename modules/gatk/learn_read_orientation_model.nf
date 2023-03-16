@@ -1,5 +1,7 @@
 process GATK_LEARN_READ_ORIENTATION_MODEL {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
 	label 'gatk'
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/MUTECT2/raw", mode: 'copy'

@@ -1,5 +1,7 @@
 process GATK_GET_PILEUP_SUMMARIES {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/MUTECT2/raw", mode: 'copy'
 
 	label 'gatk'

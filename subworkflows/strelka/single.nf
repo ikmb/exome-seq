@@ -10,8 +10,8 @@ include { BCFTOOLS_NORMALIZE as VCF_INDEL_NORMALIZE } from './../../modules/bcft
 
 workflow STRELKA_SINGLE_CALLING {
 
-        ch_merged_vcf = Channel.empty()
-        ch_vcf = Channel.empty()
+    ch_merged_vcf = Channel.empty()
+    ch_vcf = Channel.empty()
 
 	take:
 	bam
@@ -27,9 +27,13 @@ workflow STRELKA_SINGLE_CALLING {
 		bed.collect(),
 		fasta.collect()
 	)
-	VCF_INDEX(STRELKA.out.vcf)
-        VCF_FILTER_PASS(VCF_INDEX.out.vcf)
-        VCF_ADD_DBSNP(
+	VCF_INDEX(
+		STRELKA.out.vcf
+	)
+    VCF_FILTER_PASS(
+		VCF_INDEX.out.vcf
+	)
+    VCF_ADD_DBSNP(
 		VCF_FILTER_PASS.out.vcf,
 		dbsnp.collect()
 	)
