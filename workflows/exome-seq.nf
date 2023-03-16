@@ -147,6 +147,9 @@ if ('expansionhunter' in tools) {
         expansion_catalog = Channel.empty()
 }
 
+if ('strelka' in tools && 'manta' !in tools) {
+	log.info "Requested Strelka but not Manta - will not run Strelka on tumor/normal pairs!"
+}
 // ************************************
 // Read sample file
 // ************************************
@@ -160,6 +163,7 @@ ch_samplesheet = Channel.fromPath(params.samples)
 ch_vcfs = Channel.from([])
 ch_phased_vcfs = Channel.from([])
 ch_recal_bam = Channel.from([])
+ch_manta_indels = Channel.from([])
 
 // ************************************
 // import subworkflows and modules
@@ -174,6 +178,7 @@ include { GATK_MUTECT2_SINGLE } from "./../subworkflows/gatk_mutect2_single"
 include { GATK_MUTECT2_PAIRED } from "./../subworkflows/gatk_mutect2_paired"
 include { STRELKA_SINGLE_CALLING } from "./../subworkflows/strelka/single"
 include { STRELKA_MULTI_CALLING } from "./../subworkflows/strelka/multi"
+include { STRELKA_SOMATIC_CALLING } from "./../subworkflows/strelka/somatic"
 include { GLNEXUS as MERGE_GVCFS } from "./../modules/glnexus"
 include { MANTA } from "./../modules/manta.nf"
 include { PICARD_METRICS } from "./../subworkflows/picard"
@@ -212,14 +217,14 @@ workflow EXOME_SEQ {
 			ch_samplesheet
 		)
 
-		// align reads against genome
+		// Trim and align reads against genome
 		TRIM_AND_ALIGN(
 			VALIDATE_SAMPLESHEET.out.csv,
 			ch_amplicon_bed,
 			genome_index
 		)
-		bam = TRIM_AND_ALIGN.out.bam
-		bam_nodedup = TRIM_AND_ALIGN.out.bam_nodedup
+		ch_bam = TRIM_AND_ALIGN.out.bam
+		ch_bam_nodedup = TRIM_AND_ALIGN.out.bam_nodedup
 		trim_report = TRIM_AND_ALIGN.out.qc
 		dedup_report = TRIM_AND_ALIGN.out.dedup_report
 		sample_names = TRIM_AND_ALIGN.out.sample_names
@@ -227,7 +232,7 @@ workflow EXOME_SEQ {
 		// Create a sub-set of the BAM file using a target BED file
 		if ('intersect' in tools) {
 			BAM_INTERSECT(
-				bam,
+				ch_bam,
 				padded_bed
 			)
 		}
@@ -235,7 +240,7 @@ workflow EXOME_SEQ {
 		// DEEPVARIANT WORKFLOW
 		if ('deepvariant' in tools) {
 			DV_VARIANT_CALLING(
-				bam,
+				ch_bam,
 				padded_bed,
 				deepvariant_ref,
 				ch_fasta,
@@ -253,10 +258,10 @@ workflow EXOME_SEQ {
 			dv_merged_vcf = Channel.empty()
 		}
 
-		// Make GATK compliant BAM file
+		// Make GATK-compliant BAM file
 		if ('gatk' in tools || 'mutect2' in tools) {
 			GATK_BAM_RECAL(
-				bam,
+				ch_bam,
 				targets,
 				ch_fasta,
 				ch_known_snps,
@@ -267,7 +272,7 @@ workflow EXOME_SEQ {
 			ch_recal_bam = ch_recal_bam.mix(GATK_BAM_RECAL.out.bam)
 		}
 				
-		// GATK WORKFLOW
+		// GATK HAPLOTYPECALLER WORKFLOW
 		if ('gatk' in tools) {
 			GATK_VARIANT_CALLING(
 				ch_recal_bam,
@@ -293,6 +298,67 @@ workflow EXOME_SEQ {
 			ch_recal_bam.branch { m,b,i ->
 				normal: m.status == 0
 				tumor: m.status == 1
+			}.set { ch_recal_bam_status }
+			
+			// Fetch tumor and normal samples and group by patient ID into channel for paired calling (if any)
+			ch_recal_bam_normal = ch_recal_bam_status.normal
+			ch_recal_bam_tumor = ch_recal_bam_status.tumor
+
+			ch_recal_bam_normal_cross = ch_recal_bam_normal.map {m,b,i -> [ m.patient_id, m, b,i]}
+			ch_recal_bam_tumor_cross = ch_recal_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
+
+			ch_recal_bam_tumor_joined = ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
+			ch_recal_bam_tumor_joined_filtered = ch_recal_bam_tumor_joined.filter{ it ->  !(it.last()) }
+			ch_recal_bam_tumor_only = ch_recal_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+
+			ch_recal_bam_normal_cross.cross(ch_recal_bam_tumor_cross).map { normal,tumor ->
+				[[
+					patient_id: normal[0],
+					normal_id: "${normal[1].patient_id}_${normal[1].sample_id}",
+					tumor_id: "${tumor[1].patient_id}_${tumor[1].sample_id}",
+					sample_id: "${tumor[1].sample_id}_vs_${normal[1].sample_id}".toString()	
+				],normal[2],normal[3],tumor[2],tumor[3]]
+		
+			}.set { ch_recal_bam_calling_pair }
+		
+			// Variant calling for paired tumor-normal samples
+			GATK_MUTECT2_PAIRED(
+				ch_recal_bam_calling_pair,
+				targets,
+				ch_fasta,
+				ch_dbsnp_combined
+			)
+			ch_vcfs = ch_vcfs.mix(GATK_MUTECT2_PAIRED.out.vcf)
+
+			// Variant calling for tumor-only samples
+			GATK_MUTECT2_SINGLE(
+				ch_recal_bam_tumor_only,
+				targets,
+				ch_fasta,
+				ch_dbsnp_combined
+			)
+			ch_vcfs = ch_vcfs.mix(GATK_MUTECT2_SINGLE.out.vcf)
+		}
+
+		// SV calling with Manta
+		if ('manta' in tools) {
+			MANTA(
+				ch_bam,
+				bedgz.collect(),
+				ch_fasta.collect()
+			)
+			ch_manta_indels = ch_manta_indels.mix(MANTA.out.small_indels)
+			manta_vcf = MANTA.out.diploid_sv.mix(MANTA.out.candidate_sv,MANTA.out.small_indels)
+		} else {
+			manta_vcf = Channel.empty()
+		}
+
+		// STRELKA WORKFLOW
+		if ('strelka' in tools) {
+
+			ch_bam.branch { m,b,i ->
+				normal: m.status == 0
+				tumor: m.status == 1
 			}.set { ch_bam_status }
 			
 			// Fetch tumor and normal samples and group by patient ID into channel for paired calling (if any)
@@ -307,40 +373,44 @@ workflow EXOME_SEQ {
 			ch_bam_tumor_only = ch_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
 
 			ch_bam_normal_cross.cross(ch_bam_tumor_cross).map { normal,tumor ->
-				def tmeta = [:]
-				tmeta.patient_id = normal[0]
-				tmeta.normal_id = "${normal[1].patient_id}_${normal[1].sample_id}"
-				tmeta.tumor_id = "${tumor[1].patient_id}_${tumor[1].sample_id}"
-				tmeta.sample_id = "${tmeta.tumor_id}_vs_${tmeta.normal_id}".toString()
-
-				tuple(tmeta,normal[2],normal[3],tumor[2],tumor[3] )
+				[[
+					patient_id: normal[0],
+					normal_id: "${normal[1].patient_id}_${normal[1].sample_id}",
+					tumor_id: "${tumor[1].patient_id}_${tumor[1].sample_id}",
+					sample_id: "${tumor[1].sample_id}_vs_${normal[1].sample_id}".toString()
+				],normal[2],normal[3],tumor[2],tumor[3]]
 			}.set { ch_bam_calling_pair }
-		
-			// Variant calling for paired tumor-normal samples
-			GATK_MUTECT2_PAIRED(
-				ch_bam_calling_pair,
-				targets,
+
+			// Fetch Manta indels from normal sample
+			ch_manta_indels.branch { m,v,t ->
+				normal: m.status == 0
+				tumor: m.status == 1
+			}.set { ch_manta_indels_status }
+
+			// Join Manta normal Indel calls to tumor-normal pair via the normal_id/sample_id
+			ch_bam_calling_pair.map { m,n,nt,t,tt ->
+				[ m.normal_id , m,n,nt,t,tt ]
+			}.join(
+				ch_manta_indels_status.normal.map { m,v,t ->
+					[ "${m.patient_id}_${m.sample_id}", v, t ]
+				}, remainder: false
+			).map { k,m,n,nt,t,tt,v,vt ->
+				tuple(m,n,nt,t,tt,v,vt)
+			}.set { ch_bam_calling_pair_manta }
+
+			// Tumor-normal pairs only with Manta
+			STRELKA_SOMATIC_CALLING(
+				ch_bam_calling_pair_manta,
+				bedgz,
 				ch_fasta,
 				ch_dbsnp_combined
 			)
-			ch_vcfs = ch_vcfs.mix(GATK_MUTECT2_PAIRED.out.vcf)
+			ch_vcfs = ch_vcfs.mix(STRELKA_SOMATIC_CALLING.out.vcf)
 
-			// Variant calling for tumor-only samples
-			GATK_MUTECT2_SINGLE(
-				ch_bam_tumor_only,
-				targets,
-				ch_fasta,
-				ch_dbsnp_combined
-			)
-			ch_vcfs = ch_vcfs.mix(GATK_MUTECT2_SINGLE.out.vcf)
-		}
-
-		// STRELKA WORKFLOW
-		if ('strelka' in tools) {
 			// Call all samples together
 			if (params.joint_calling) {
 				STRELKA_MULTI_CALLING(
-					bam.map {m,b,i -> [ b,i ] },
+					ch_bam.map {m,b,i -> [ b,i ] },
 					bedgz,
 					TRIM_AND_ALIGN.out.metas,
 					ch_fasta
@@ -350,7 +420,7 @@ workflow EXOME_SEQ {
 			// Call each sample individually and merge later
 			} else {
 				STRELKA_SINGLE_CALLING(
-					bam,
+					ch_bam,
 					bedgz,
 					sample_names,
 					ch_fasta,
@@ -367,46 +437,37 @@ workflow EXOME_SEQ {
 		
 		// HLA calling
 		if ('xhla' in tools) {
-			XHLA(bam)
+			XHLA(ch_bam)
 		}
 
 		// CNV calling
 		if ('cnvkit' in tools) {
 			CNVKIT(
-				bam,
+				ch_bam,
 				ch_cnv_gz
 			)
 		}
 
 		if ('cnvnator' in tools) {
 			CNVNATOR_EXTRACT(
-				bam,
+				ch_bam,
 				ch_fasta.collect()
 			)
-
 		}
-		// SV calling with Manta
-
-		if ('manta' in tools) {
-			MANTA(
-				bam,
-				bedgz.collect(),
-				ch_fasta.collect()
-			)
-			manta_vcf = MANTA.out.diploid_sv.mix(MANTA.out.candidate_sv,MANTA.out.small_indels)
-		} else {
-			manta_vcf = Channel.empty()
-		}
-
+		
 		// Expansions
 		if ('expansionhunter' in tools) {
 			EXPANSIONS(bam,expansion_catalog)
 		}
 
 		// QC Metrics
-		PANEL_QC(bam,panels,targets)
+		PANEL_QC(
+			ch_bam,
+			panels,
+			targets
+		)
 		PICARD_METRICS(
-			bam,
+			ch_bam,
 			targets,
 			baits,
 			ch_fasta,
@@ -418,7 +479,7 @@ workflow EXOME_SEQ {
 
 		// Coverage of SRY gene
 		SEX_CHECK(
-			bam.map { m,b,i -> tuple(b,i) }.collect(),
+			ch_bam.map { m,b,i -> tuple(b,i) }.collect(),
 			sry_region
 		)
 
@@ -459,7 +520,6 @@ workflow EXOME_SEQ {
 				SEX_CHECK.out.yaml
 			).collect()
 		)
-
 
 	emit:
 		qc = multiqc_sample.out.report

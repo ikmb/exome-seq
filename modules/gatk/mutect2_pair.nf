@@ -2,7 +2,7 @@ process GATK_MUTECT2_PAIR {
 
 	tag "${meta.patient_id}|${meta.sample_id}"
 	
-	publishDir "${params.outdir}/${meta.patient_id}/MUTECT2", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/MUTECT2", mode: 'copy'
 
 	label 'gatk'
 
@@ -16,7 +16,7 @@ process GATK_MUTECT2_PAIR {
 	tuple val(meta),path(f1r2), emit: f1r2
 
 	script:
-	vcf = tumor_bam.getBaseName() + "-somatic.vcf.gz"
+	vcf = meta.sample_id + "-somatic.vcf.gz"
 	tbi = vcf + ".tbi"
 	stats = vcf + ".stats"
 	f1r2 =  meta.sample_id + "-f1r2.tar.gz"

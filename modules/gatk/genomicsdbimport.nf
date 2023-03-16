@@ -1,5 +1,7 @@
 process GATK_GENOMICSDBIMPORT {
 
+	tag "ALL"
+	
 	label 'gatk'
 
 	input:

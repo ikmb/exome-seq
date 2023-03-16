@@ -1,5 +1,7 @@
 process GATK_APPLYVQSR {
 
+	tag "${meta.patient_id}|${meta.sample_id}"
+	
 	label 'gatk'
 
 	//publishDir "${params.outdir}/GATK", mode: 'copy'

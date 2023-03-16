@@ -80,6 +80,10 @@ Your tools of choice can be provided like so:
 
 If no tools are selected, the pipeline will stop after the deduplication of read alignments. 
 
+Please also note that certain parts of the pipeline will be silently ommitted if you are not requesting the "right" tools. Specifically, no tumor-normal calling will be performed using Strelka (strelka) unless
+you also request structural variant calling with Manta (manta). This is because the candidate indels from Manta are required by the somatic calling workflow in Strelka. However, since these tools can be otherwise run
+independently, there is no strict link to force them to run simultaneously. 
+
 ### `--joint_calling`
 The pipeline produces multi-vcf files through merging of the single-sample callsets. However, you can alternatively request for the samples to be called jointly, i.e. all in one process. This will
 cause individual callsets to take into consideration information from other samples, and result in numerous ref calls in the individual VCF files. An advantage of this approach is 
