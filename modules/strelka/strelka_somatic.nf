@@ -2,7 +2,7 @@ process STRELKA_SOMATIC {
 
 	tag "${meta.patient_id}|${meta.sample_id}"
 
-	publishDir "${params.outdir}/${meta.patient_id}/STRELKA/", mode: 'copy'
+	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/STRELKA/", mode: 'copy'
 
 	container 'quay.io/biocontainers/strelka:2.9.10--h9ee0642_1'
 
@@ -12,8 +12,8 @@ process STRELKA_SOMATIC {
 	tuple path(fasta),path(fai),path(dict)
 
 	output:
-	tuple val(meta),path(vcf), emit: vcf
-	tuple val(meta),path(vcf_indels), emit: indels
+	tuple val(meta),path(vcf),path(tbi), emit: vcf
+	tuple val(meta),path(vcf_indels),path(vcf_indels_tbi), emit: indels
 
 	script:
 	run_dir = "strelka_out"

@@ -1,5 +1,7 @@
 process EXPANSION_HUNTER {
 
+	label 'medium_single'
+
 	container 'quay.io/biocontainers/expansionhunter:4.0.2--he785bd8_0'
 
         publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/ExpansionHunter", mode: 'copy'

@@ -30,18 +30,18 @@ workflow DV_VARIANT_CALLING {
 		VCF_INDEX(DEEPVARIANT.out.vcf)
 		VCF_FILTER_PASS(VCF_INDEX.out.vcf)
 		VCF_ADD_DBSNP(
-			VCF_FILTER_PASS.out.vcf,
+			VCF_FILTER_PASS.out.vcf.map { meta,v,t ->
+                                [[
+                                id: meta.id,
+                                sample_id: meta.sample_id,
+                                patient_id: meta.patient_id,
+                                variantcaller: "DEEPVARIANT"
+                                ],v,t]
+                        },
 			dbsnp.collect()	
 		)
 		VCF_ADD_HEADER(
-			VCF_ADD_DBSNP.out.vcf.map { meta,v,t ->
-				[[
-				id: meta.id, 
-				sample_id: meta.sample_id, 
-				patient_id: meta.patient_id, 
-				variantcaller: "DEEPVARIANT"
-				],v,t]
-			}
+			VCF_ADD_DBSNP.out.vcf
 		)
 
 		if (params.phase) {

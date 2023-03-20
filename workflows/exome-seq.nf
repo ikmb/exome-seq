@@ -196,7 +196,6 @@ include { BCFTOOLS_CONCAT as CONCAT } from "./../modules/bcftools/concat"
 include { SEX_CHECK} from "./../modules/qc/main"
 include { XHLA } from "./../modules/xhla"
 include { CNVKIT } from "./../subworkflows/cnvkit"
-include { CNVNATOR_EXTRACT } from "./../modules/cnvnator/extract"
 include { VALIDATE_SAMPLESHEET } from "./../modules/validate_samplesheet"
 
 // Start the main workflow
@@ -221,7 +220,8 @@ workflow EXOME_SEQ {
 		TRIM_AND_ALIGN(
 			VALIDATE_SAMPLESHEET.out.csv,
 			ch_amplicon_bed,
-			genome_index
+			genome_index,
+			ch_fasta
 		)
 		ch_bam = TRIM_AND_ALIGN.out.bam
 		ch_bam_nodedup = TRIM_AND_ALIGN.out.bam_nodedup
@@ -457,7 +457,7 @@ workflow EXOME_SEQ {
 		
 		// Expansions
 		if ('expansionhunter' in tools) {
-			EXPANSIONS(bam,expansion_catalog)
+			EXPANSIONS(ch_bam,expansion_catalog)
 		}
 
 		// QC Metrics

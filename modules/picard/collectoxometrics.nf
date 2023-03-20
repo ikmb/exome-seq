@@ -2,7 +2,7 @@ process OXO_METRICS {
 
         tag "${meta.patient_id}|${meta.sample_id}"
 
-	container 'quay.io/biocontainers/picard:2.20.4--1'
+	container 'quay.io/biocontainers/picard:3.0.0--hdfd78af_1'
 
         publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Processing/Picard_Metrics", mode: 'copy'
 

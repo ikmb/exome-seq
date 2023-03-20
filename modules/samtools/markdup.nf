@@ -8,6 +8,7 @@ process SAMTOOLS_MARKDUP {
 
         input:
         tuple val(meta),path(merged_bam),path(merged_bam_index)
+	tuple path(fasta),path(fai),path(dict)
 
         output:
         tuple val(meta), path(outfile_bam),path(outfile_bai), emit: bam
@@ -16,13 +17,13 @@ process SAMTOOLS_MARKDUP {
 
         script:
         def prefix = "${meta.patient_id}_${meta.sample_id}-dedup"
-        outfile_bam = prefix + ".bam"
-        outfile_bai = prefix + ".bam.bai"
-        outfile_md5 = prefix + ".bam.md5"
+        outfile_bam = prefix + ".cram"
+        outfile_bai = prefix + ".cram.crai"
+        outfile_md5 = prefix + ".cram.md5"
         outfile_metrics = prefix + "_duplicate_metrics.txt"
 
         """
-                samtools markdup -@ ${task.cpus} $merged_bam $outfile_bam
+                samtools markdup -@ ${task.cpus} --reference $fasta $merged_bam $outfile_bam
                 samtools index $outfile_bam
                 samtools stats $outfile_bam > $outfile_metrics
                 md5sum $outfile_bam > $outfile_md5

@@ -2,7 +2,9 @@ process GATK_APPLYBQSR {
 
 	tag "${meta.patient_id}|${meta.sample_id}"
 
-	label 'gatk'
+	container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
+
+	label 'medium_parallel'
 
 	input:
 	tuple val(meta),path(bam),path(bai),path(recal)
@@ -13,8 +15,8 @@ process GATK_APPLYBQSR {
 	tuple val(meta),path(recal_bam),path(recal_bai), emit: bam
 
 	script:
-	recal_bam = bam.getBaseName() + "-recal.bam"
-	recal_bai = bam.getBaseName() + "-recal.bai"
+	recal_bam = bam.getBaseName() + "-recal.cram"
+	recal_bai = bam.getBaseName() + "-recal.cram.bai"
 
 	"""
 		gatk ApplyBQSR -R $fasta -I $bam -O $recal_bam -L $intervals -bqsr $recal \

@@ -38,7 +38,8 @@ workflow GATK_MUTECT2_PAIRED {
 
 		GATK_GET_PILEUP_SUMMARIES(
 			ch_bam_tumor,
-			targets.collect()
+			targets.collect(),
+			fasta.collect()
 		)
 
 		GATK_CALCULATE_CONTAMINATION(
@@ -59,16 +60,16 @@ workflow GATK_MUTECT2_PAIRED {
 		BCFTOOLS_VIEW(ch_vcfs)
 
 		BCFTOOLS_ANNOTATE_DBSNP(
-            BCFTOOLS_VIEW.out.vcf,
-            dbsnp.collect()
-        )
+			BCFTOOLS_VIEW.out.vcf.map { meta,v,t ->
+                                def s_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "MUTECT2" ]
+                                tuple(s_meta,v,t)
+                        },
+			dbsnp.collect()
+		)
 		
 		BCFTOOLS_ANNOTATE(
-			BCFTOOLS_ANNOTATE_DBSNP.out.vcf.map { meta,v,t ->
-				def s_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "MUTECT2" ]
-				tuple(s_meta,v,t)
-			}
-        )
+			BCFTOOLS_ANNOTATE_DBSNP.out.vcf
+        	)
 
 	emit:
 

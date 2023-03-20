@@ -1,5 +1,7 @@
 process CNVKIT_BATCH {
 
+    label 'medium_parallel'
+
     tag "${meta.patient_id}|${meta.sample_id}"
 
     publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CNVkit", mode: 'copy'

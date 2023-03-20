@@ -19,7 +19,7 @@ process WHATSHAP {
 	phased_tbi = phased_vcf + ".tbi"
 
 	"""
-		whatshap phase -o $phased_vcf --tag=PS --reference $fasta $vcf *.bam
+		whatshap phase -o $phased_vcf --tag=PS --reference $fasta $vcf *.cram
 		tabix $phased_vcf
 	"""
 		
@@ -45,7 +45,7 @@ process WHATSHAP_SINGLE {
         phased_tbi = phased_vcf + ".tbi"
 
         """
-                whatshap phase -o $phased_vcf --tag=PS --reference $fasta $vcf *.bam
+                whatshap phase -o $phased_vcf --tag=PS --reference $fasta $vcf *.cram
                 tabix $phased_vcf
         """
 

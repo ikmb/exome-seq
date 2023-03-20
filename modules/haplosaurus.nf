@@ -1,6 +1,6 @@
 process HAPLOSAURUS {
 
-	container 'quay.io/biocontainers/ensembl-vep:99.2--pl526hecc5488_0'
+	container 'quay.io/biocontainers/ensembl-vep:109.3--pl5321h4a94de4_0'
 
         tag "${meta.patient_id}|${meta.sample_id}"
 

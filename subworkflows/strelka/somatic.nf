@@ -1,5 +1,4 @@
 include { STRELKA_SOMATIC } from "./../../modules/strelka/strelka_somatic"
-include { TABIX  } from "./../../modules/htslib/tabix"
 include { BCFTOOLS_VIEW } from "./../../modules/bcftools/view"
 include { BCFTOOLS_ANNOTATE_DBSNP } from "./../../modules/bcftools/annotate_dbsnp"
 
@@ -19,12 +18,8 @@ workflow STRELKA_SOMATIC_CALLING {
             fasta.collect()
         )
 
-        TABIX(
-            STRELKA_SOMATIC.out.vcf
-        )
-
         BCFTOOLS_VIEW(
-            TABIX.out.vcf
+            STRELKA_SOMATIC.out.vcf
         )
 
         BCFTOOLS_ANNOTATE_DBSNP(

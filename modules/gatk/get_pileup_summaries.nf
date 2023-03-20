@@ -9,6 +9,7 @@ process GATK_GET_PILEUP_SUMMARIES {
 	input:
 	tuple val(meta),path(bam),path(bai)
 	path(intervals)
+	tuple path(fasta),path(fai),path(dict)
 
 	output:
 	tuple val(meta),path(stable), emit: table
@@ -21,6 +22,7 @@ process GATK_GET_PILEUP_SUMMARIES {
 			-I $bam \
 			-V $params.gnomad_af_vcf \
 			-L $intervals \
+			-R $fasta \
 			-O $stable
 	"""
 	

@@ -15,6 +15,7 @@ workflow TRIM_AND_ALIGN {
 		samplesheet
 		amplicon_bed
 		genome_index
+		fasta
 	main:
 
 		samplesheet
@@ -80,7 +81,10 @@ workflow TRIM_AND_ALIGN {
 			//ch_final_bam = AMPLICON_CLIP.out.bam
 			ch_final_bam = BAM_INDEX.out.bam
 		} else {
-			DEDUP(BAM_INDEX.out.bam)
+			DEDUP(
+				BAM_INDEX.out.bam,
+				fasta.collect()
+			)
 			ch_final_bam = DEDUP.out.bam
 			ch_report = ch_report.mix(DEDUP.out.report)
 		}

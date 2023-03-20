@@ -1,6 +1,6 @@
 process VEP {
 
-	container 'quay.io/biocontainers/ensembl-vep:99.2--pl526hecc5488_0'
+	container 'quay.io/biocontainers/ensembl-vep:109.3--pl5321h4a94de4_0'
 
         tag "${meta.patient_id}|${meta.sample_id}"
         
@@ -35,7 +35,7 @@ process VEP {
                         --plugin UTRannotator \
                         --plugin Mastermind,${params.vep_mastermind} \
                         --plugin SpliceAI,${params.spliceai_fields} \
-			--af_gnomad \
+			--af_gnomade \
                         --fasta $fasta \
                         --fork ${task.cpus} \
                         --vcf \

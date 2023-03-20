@@ -2,7 +2,7 @@ process PICARD_SET_BAM_TAGS {
 
         tag "${meta.patient_id}|${meta.sample_id}"
 
-	container 'quay.io/biocontainers/picard:2.20.4--1'
+	container 'quay.io/biocontainers/picard:3.0.0--hdfd78af_1'
 	
         input:
         tuple val(meta),path(bam),path(bai)

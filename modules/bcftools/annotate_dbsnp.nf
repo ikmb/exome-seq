@@ -2,9 +2,9 @@ process BCFTOOLS_ANNOTATE_DBSNP {
 
 	container 'quay.io/biocontainers/bcftools:1.14--hde04aa1_1'
 
-        tag "${meta.patient_id}|${meta.sample_id}"
+        tag "${meta.patient_id}|${meta.sample_id}|${meta.variantcaller}"
 
-        //publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Variants", mode: 'copy'
+        publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/${meta.variantcaller}", mode: 'copy'
 
         input:
         tuple val(meta),path(vcf),path(tbi)
