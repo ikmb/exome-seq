@@ -26,7 +26,7 @@ workflow TRIM_AND_ALIGN {
 
 		TRIM(
 			reads
-        	)
+        )
 
 		ch_versions = ch_versions.mix(TRIM.out.versions)
 
@@ -40,7 +40,7 @@ workflow TRIM_AND_ALIGN {
 			)
 			ch_aligned_bams = ch_aligned_bams.mix(DRAGMAP_ALIGN.out.bam)
 			ch_sample_names = DRAGMAP_ALIGN.out.sample_name
-			ch_align_log = ch_align_log.mix(DRAGMAP_ALIGN.out.log)
+			ch_align_log	= ch_align_log.mix(DRAGMAP_ALIGN.out.log)
 
 			ch_versions = ch_versions.mix(DRAGMAP_ALIGN.out.versions)
 
@@ -81,6 +81,7 @@ workflow TRIM_AND_ALIGN {
 		}.set { bam_to_merge }
 
 		MERGE_MULTI_LANE( bam_to_merge.multiple )
+
 		ch_versions = ch_versions.mix(MERGE_MULTI_LANE.out.versions)
 
 		BAM_INDEX(MERGE_MULTI_LANE.out.bam.mix( bam_to_merge.single ))
@@ -98,20 +99,20 @@ workflow TRIM_AND_ALIGN {
 				BAM_INDEX.out.bam,
 				fasta.collect()
 			)
-			ch_final_bam = DEDUP.out.bam
-			ch_report = ch_report.mix(DEDUP.out.report)
-			ch_versions = ch_versions.mix(DEDUP.out.versions)
+			ch_final_bam 	= DEDUP.out.bam
+			ch_report 		= ch_report.mix(DEDUP.out.report)
+			ch_versions 	= ch_versions.mix(DEDUP.out.versions)
 		}
 		
 	emit:
-		bam_nodedup = BAM_INDEX.out.bam
-		bam = ch_final_bam
-		qc = TRIM.out.json
-		logs = ch_align_log
-		dedup_report = ch_report
-		sample_names =ch_sample_names.unique()
-		metas = MERGE_MULTI_LANE.out.meta_data
-		versions = ch_versions
+		bam_nodedup 	= BAM_INDEX.out.bam
+		bam 			= ch_final_bam
+		qc 				= TRIM.out.json
+		logs 			= ch_align_log
+		dedup_report 	= ch_report
+		sample_names 	= ch_sample_names.unique()
+		metas 			= MERGE_MULTI_LANE.out.meta_data
+		versions 		= ch_versions
 }
 
 def create_fastq_channel(LinkedHashMap row) {
