@@ -13,17 +13,23 @@ process GATK_GET_PILEUP_SUMMARIES {
 
 	output:
 	tuple val(meta),path(stable), emit: table
+	path("versions.yml"), emit: versions
 
 	script:
 	stable = bam.getBaseName() + "-pileup_summaries.table"
 
-	"""
-		gatk GetPileupSummaries \
-			-I $bam \
-			-V $params.gnomad_af_vcf \
-			-L $intervals \
-			-R $fasta \
-			-O $stable
-	"""
+    """
+    gatk GetPileupSummaries \
+        -I $bam \
+        -V $params.gnomad_af_vcf \
+        -L $intervals \
+        -R $fasta \
+        -O $stable
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        gatk4: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$//')
+    END_VERSIONS
+    """
 	
 }

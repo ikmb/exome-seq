@@ -7,6 +7,9 @@ include { GATK_LEARN_READ_ORIENTATION_MODEL } from "./../modules/gatk/learn_read
 include { GATK_GET_PILEUP_SUMMARIES } from "./../modules/gatk/get_pileup_summaries"
 include { GATK_CALCULATE_CONTAMINATION } from "./../modules/gatk/calculate_contamination"
 
+ch_versions 	= Channel.from([])
+ch_vcfs 	= Channel.from([])
+
 workflow GATK_MUTECT2_PAIRED {
 
 	take:
@@ -16,8 +19,6 @@ workflow GATK_MUTECT2_PAIRED {
 		dbsnp
 	
 	main:
-
-		ch_vcfs = Channel.from([])
 
 		ch_bam_normal = bams.map { m,nb,ni,tb,ti -> 
 			[ m,nb,ni ]
@@ -32,9 +33,13 @@ workflow GATK_MUTECT2_PAIRED {
 			fasta.collect()
 		)
 
+		ch_versions = ch_versions.mix(GATK_MUTECT2_PAIR.out.versions)
+
 		GATK_LEARN_READ_ORIENTATION_MODEL(
 			GATK_MUTECT2_PAIR.out.f1r2
 		)
+
+		ch_versions = ch_versions.mix(GATK_LEARN_READ_ORIENTATION_MODEL.out.versions)
 
 		GATK_GET_PILEUP_SUMMARIES(
 			ch_bam_tumor,
@@ -42,9 +47,13 @@ workflow GATK_MUTECT2_PAIRED {
 			fasta.collect()
 		)
 
+		ch_versions = ch_versions.mix(GATK_GET_PILEUP_SUMMARIES.out.versions)
+
 		GATK_CALCULATE_CONTAMINATION(
 			GATK_GET_PILEUP_SUMMARIES.out.table
 		)
+
+		ch_versions = ch_versions.mix(GATK_CALCULATE_CONTAMINATION.out.versions)
 
 		ch_mutect = GATK_MUTECT2_PAIR.out.vcf.join(
 			GATK_LEARN_READ_ORIENTATION_MODEL.out.model
@@ -55,9 +64,13 @@ workflow GATK_MUTECT2_PAIRED {
 			fasta.collect()
 		)
 
+		ch_versions = ch_versions.mix(GATK_FILTER_MUTECT_CALLS.out.versions)
+
 		ch_vcfs = ch_vcfs.mix(GATK_FILTER_MUTECT_CALLS.out.vcf)
 
 		BCFTOOLS_VIEW(ch_vcfs)
+
+		ch_versions = ch_versions.mix(BCFTOOLS_VIEW.out.versions)
 
 		BCFTOOLS_ANNOTATE_DBSNP(
 			BCFTOOLS_VIEW.out.vcf.map { meta,v,t ->
@@ -67,13 +80,15 @@ workflow GATK_MUTECT2_PAIRED {
 			dbsnp.collect()
 		)
 		
+		ch_versions = ch_versions.mix(BCFTOOLS_ANNOTATE_DBSNP.out.versions)
+
 		BCFTOOLS_ANNOTATE(
 			BCFTOOLS_ANNOTATE_DBSNP.out.vcf
         	)
 
 	emit:
-
-	vcf = BCFTOOLS_ANNOTATE.out.vcf
+	versions 	= ch_versions
+	vcf 		= BCFTOOLS_ANNOTATE.out.vcf
 		
 }
 

@@ -13,6 +13,7 @@ process STRELKA_SINGLE_SAMPLE {
 
 	output:
 	tuple val(meta),path(vcf), emit: vcf
+	path("versions.yml"), emit: versions
 
 	script:
 
@@ -21,17 +22,22 @@ process STRELKA_SINGLE_SAMPLE {
         tbi = vcf + ".tbi"
 
 	"""
-		configureStrelkaGermlineWorkflow.py \
+	configureStrelkaGermlineWorkflow.py \
 		--bam $bam \
 		--referenceFasta ${fasta} \
 		--runDir $run_dir \
 		--callRegions $bed \
 		--exome
 		
-		$run_dir/runWorkflow.py -m local -j ${task.cpus}
+	$run_dir/runWorkflow.py -m local -j ${task.cpus}
 
-		cp $run_dir/results/variants/genome.S1.vcf.gz $vcf
-                cp $run_dir/results/variants/genome.S1.vcf.gz.tbi $tbi
+	cp $run_dir/results/variants/genome.S1.vcf.gz $vcf
+    cp $run_dir/results/variants/genome.S1.vcf.gz.tbi $tbi
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        strelka: \$( configureStrelkaGermlineWorkflow.py --version )
+    END_VERSIONS
 
 	"""
 

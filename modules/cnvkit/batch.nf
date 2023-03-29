@@ -11,18 +11,24 @@ process CNVKIT_BATCH {
     input:
     tuple val(meta),path(bam),path(bai)
     path(cnn)
+    tuple path(fasta),path(fai),path(dict)
 
     output:
     tuple val(meta),path(results), emit: results
     tuple val(meta),path(cns), emit: cns
-
+    path("versions.yml"), emit: versions
 
     script:
     results = "cnvkit_${meta.sample_id}"
     cns = results + "/" + bam.getBaseName() + ".call.cns"
 
     """
-        cnvkit.py batch -r $cnn $bam -d $results -p ${task.cpus} --segment-method ${params.cnvkit_mode}
+    cnvkit.py batch -r $cnn $bam -d $results -p ${task.cpus} --segment-method ${params.cnvkit_mode}
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        cnvkit: \$( cnvkit.py version )
+    END_VERSIONS
     """
 
 }

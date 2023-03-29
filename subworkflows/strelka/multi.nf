@@ -9,6 +9,8 @@ include { BCFTOOLS_MERGE as MERGE_VCF } from "./../../modules/bcftools/merge"
 include { GATK_SELECTVARIANTS as VCF_GET_SAMPLE } from "./../../modules/gatk/selectvariants"
 include { BCFTOOLS_NORMALIZE as VCF_INDEL_NORMALIZE } from './../../modules/bcftools/normalize'
 
+ch_versions = Channel.from([])
+
 workflow STRELKA_MULTI_CALLING {
 
 	take:
@@ -32,9 +34,15 @@ workflow STRELKA_MULTI_CALLING {
             bed.collect(),
 	    fasta.collect()
         )
+
+	ch_versions = ch_versions.mix(STRELKA_JOINT_CALLING.out.versions)
+
 	VCF_FILTER_PASS(
 		STRELKA_JOINT_CALLING.out.vcf.map { v,t -> [ [id: "all", sample_id: "STRELKA_JOINT_CALLING", patient_id: "MergedCallset", variantcaller: "STRELKA"],v,t]}
 	)
+
+	ch_versions = ch_versions.mix(VCF_FILTER_PASS.out.versions)
+
 	VCF_GATK_SORT(
 		VCF_FILTER_PASS.out.vcf
 	)
@@ -49,16 +57,22 @@ workflow STRELKA_MULTI_CALLING {
 		bams.collect(),
 		fasta.collect()
 	)
+	ch_versions = ch_versions.mix(WHATSHAP.out.versions)
+
 	ch_phased_multi = ch_phased_multi.mix(WHATSHAP.out.vcf)
 	
         VCF_GET_SAMPLE(
                 ch_merged_vcf.collect(),
 		metas
-        ).set { svcf }
+        )
+
+	ch_versions = ch_versions.mix(VCF_GET_SAMPLE.out.versions)
 
 	VCF_INDEL_NORMALIZE(
-		svcf
+		VCF_GET_SAMPLE.out.vcf
 	)
+
+	ch_versions = ch_versions.mix(VCF_INDEL_NORMALIZE.out.versions)
 
         VCF_INDEL_NORMALIZE.out.vcf.map { m,v,t ->
                 new_meta = m.clone()
@@ -71,6 +85,7 @@ workflow STRELKA_MULTI_CALLING {
         single_vcf = ch_vcf.mix(VCF_ADD_HEADER.out.vcf)
 
 	emit:
+	versions = ch_versions
 	vcf = single_vcf
 	vcf_multi = ch_merged_vcf
 	vcf_phased_multi = ch_phased_multi

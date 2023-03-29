@@ -16,6 +16,7 @@ process MANTA {
 	tuple val(meta),path(sv_can),path(sv_can_tbi), emit: candidate_sv
 	tuple val(meta),path(indel),path(indel_tbi), emit: small_indels
 	path("manta")
+	path("versions.yml"), emit: versions
 
 	script:
 	sv = "${meta.patient_id}_${meta.sample_id}-diploidSV.vcf.gz"
@@ -24,19 +25,25 @@ process MANTA {
 	indel_tbi = indel + ".tbi"
 	sv_can = "${meta.patient_id}_${meta.sample_id}-candidateSV.vcf.gz"
 	sv_can_tbi = sv_can + ".tbi"
-	"""
-		configManta.py --bam $bam --referenceFasta ${fasta} --runDir manta --callRegions $bed_gz --exome
 
-		manta/runWorkflow.py -j ${task.cpus}
+    """
+    configManta.py --bam $bam --referenceFasta ${fasta} --runDir manta --callRegions $bed_gz --exome
 
-		cp manta/results/variants/diploidSV.vcf.gz $sv
-		cp manta/results/variants/diploidSV.vcf.gz.tbi $sv_tbi
-		cp manta/results/variants/candidateSmallIndels.vcf.gz $indel
-		cp manta/results/variants/candidateSmallIndels.vcf.gz.tbi $indel_tbi
-		cp manta/results/variants/candidateSV.vcf.gz $sv_can
-		cp manta/results/variants/candidateSV.vcf.gz.tbi $sv_can_tbi
+    manta/runWorkflow.py -j ${task.cpus}
 
-	"""
+    cp manta/results/variants/diploidSV.vcf.gz $sv
+    cp manta/results/variants/diploidSV.vcf.gz.tbi $sv_tbi
+    cp manta/results/variants/candidateSmallIndels.vcf.gz $indel
+    cp manta/results/variants/candidateSmallIndels.vcf.gz.tbi $indel_tbi
+    cp manta/results/variants/candidateSV.vcf.gz $sv_can
+    cp manta/results/variants/candidateSV.vcf.gz.tbi $sv_can_tbi
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        manta: \$( configManta.py --version )
+    END_VERSIONS
+
+    """
 
 }
 

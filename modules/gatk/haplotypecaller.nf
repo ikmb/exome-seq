@@ -15,6 +15,7 @@ process GATK_HAPLOTYPECALLER {
 	output:
 	tuple val(meta),path(vcf),path(tbi), emit: vcf
 	tuple val(meta),path(bam_out),path(bai_out), optional: true, emit: bam
+	path("versions.yml"), emit: versions
 
 	script:
 	def options = ""
@@ -32,11 +33,16 @@ process GATK_HAPLOTYPECALLER {
 	dbsnp = params.genomes[params.assembly].dbsnp
 	
 	//  -GQB 10 -GQB 20 -GQB 30 -GQB 40 -GQB 50 -GQB 60 -GQB 70 -GQB 80 -GQB 90
-	"""
-		gatk HaplotypeCaller --java-options "-Xmx${task.memory.giga}g" -R $fasta -I $bam -L $intervals -O $vcf \
-			$options \
-			-G StandardAnnotation -G StandardHCAnnotation \
-			-OVI true -ip ${params.interval_padding} -D ${dbsnp} 
-	"""
+    """
+    gatk HaplotypeCaller --java-options "-Xmx${task.memory.giga}g" -R $fasta -I $bam -L $intervals -O $vcf \
+        $options \
+        -G StandardAnnotation -G StandardHCAnnotation \
+        -OVI true -ip ${params.interval_padding} -D ${dbsnp} 
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        gatk4: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$//')
+    END_VERSIONS
+    """
 }
 

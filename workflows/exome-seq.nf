@@ -164,6 +164,8 @@ ch_vcfs = Channel.from([])
 ch_phased_vcfs = Channel.from([])
 ch_recal_bam = Channel.from([])
 ch_manta_indels = Channel.from([])
+ch_multiqc_files = Channel.from([])
+ch_versions = Channel.from([])
 
 // ************************************
 // import subworkflows and modules
@@ -197,14 +199,12 @@ include { SEX_CHECK} from "./../modules/qc/main"
 include { XHLA } from "./../modules/xhla"
 include { CNVKIT } from "./../subworkflows/cnvkit"
 include { VALIDATE_SAMPLESHEET } from "./../modules/validate_samplesheet"
+include { CUSTOM_DUMPSOFTWAREVERSIONS } from "./../modules/custom/dumpsoftwareversions/main"
 
 // Start the main workflow
 workflow EXOME_SEQ {
 
 	main:
-
-        ch_vcfs = Channel.empty()
-		ch_phased_vcfs = Channel.empty()
 
 		// create calling regions
 		CONVERT_BED(targets)
@@ -223,11 +223,13 @@ workflow EXOME_SEQ {
 			genome_index,
 			ch_fasta
 		)
-		ch_bam = TRIM_AND_ALIGN.out.bam
-		ch_bam_nodedup = TRIM_AND_ALIGN.out.bam_nodedup
-		trim_report = TRIM_AND_ALIGN.out.qc
-		dedup_report = TRIM_AND_ALIGN.out.dedup_report
-		sample_names = TRIM_AND_ALIGN.out.sample_names
+		ch_bam 			= TRIM_AND_ALIGN.out.bam
+		ch_bam_nodedup 	= TRIM_AND_ALIGN.out.bam_nodedup
+		trim_report 	= TRIM_AND_ALIGN.out.qc
+		dedup_report 	= TRIM_AND_ALIGN.out.dedup_report
+		sample_names 	= TRIM_AND_ALIGN.out.sample_names
+
+		ch_versions 	= ch_versions.mix(TRIM_AND_ALIGN.out.versions)
 
 		// Create a sub-set of the BAM file using a target BED file
 		if ('intersect' in tools) {
@@ -246,13 +248,16 @@ workflow EXOME_SEQ {
 				ch_fasta,
 				ch_dbsnp_combined
 			)
-			dv_vcf = DV_VARIANT_CALLING.out.vcf
-			dv_merged_vcf = DV_VARIANT_CALLING.out.vcf_multi
-			ch_vcfs = ch_vcfs.mix(dv_vcf,dv_merged_vcf)
+			dv_vcf 		= DV_VARIANT_CALLING.out.vcf
+			dv_merged_vcf 	= DV_VARIANT_CALLING.out.vcf_multi
+			ch_vcfs 	= ch_vcfs.mix(dv_vcf,dv_merged_vcf)
+
 			ch_phased_vcfs = ch_phased_vcfs.mix(
 				DV_VARIANT_CALLING.out.vcf_phased_multi,
 				DV_VARIANT_CALLING.out.vcf_phased_single
 			)
+			
+			ch_versions = ch_versions.mix(DV_VARIANT_CALLING.out.versions)
 		} else {
 			dv_vcf = Channel.empty()
 			dv_merged_vcf = Channel.empty()
@@ -269,7 +274,8 @@ workflow EXOME_SEQ {
                 ch_known_indels,
                 ch_known_indels_tbi
 			)
-			ch_recal_bam = ch_recal_bam.mix(GATK_BAM_RECAL.out.bam)
+			ch_recal_bam 	= ch_recal_bam.mix(GATK_BAM_RECAL.out.bam)
+			ch_versions 	= ch_versions.mix(GATK_BAM_RECAL.out.versions)
 		}
 				
 		// GATK HAPLOTYPECALLER WORKFLOW
@@ -283,9 +289,10 @@ workflow EXOME_SEQ {
 				ch_known_indels,
 				ch_known_indels_tbi	
 			)
-			gatk_vcf = GATK_VARIANT_CALLING.out.vcf
+			gatk_vcf 	= GATK_VARIANT_CALLING.out.vcf
 			gatk_merged_vcf = GATK_VARIANT_CALLING.out.vcf_multi
-			ch_vcfs = ch_vcfs.mix(GATK_VARIANT_CALLING.out.vcf_multi)
+			ch_vcfs 	= ch_vcfs.mix(GATK_VARIANT_CALLING.out.vcf_multi)
+			ch_versions 	= ch_versions.mix(GATK_VARIANT_CALLING.out.versions)
 			
 		} else {
 			gatk_vcf = Channel.empty()
@@ -301,15 +308,15 @@ workflow EXOME_SEQ {
 			}.set { ch_recal_bam_status }
 			
 			// Fetch tumor and normal samples and group by patient ID into channel for paired calling (if any)
-			ch_recal_bam_normal = ch_recal_bam_status.normal
-			ch_recal_bam_tumor = ch_recal_bam_status.tumor
+			ch_recal_bam_normal 		= ch_recal_bam_status.normal
+			ch_recal_bam_tumor 			= ch_recal_bam_status.tumor
 
-			ch_recal_bam_normal_cross = ch_recal_bam_normal.map {m,b,i -> [ m.patient_id, m, b,i]}
-			ch_recal_bam_tumor_cross = ch_recal_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
+			ch_recal_bam_normal_cross 	= ch_recal_bam_normal.map {m,b,i -> [ m.patient_id, m, b,i]}
+			ch_recal_bam_tumor_cross 	= ch_recal_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
 
-			ch_recal_bam_tumor_joined = ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
+			ch_recal_bam_tumor_joined 	= ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
 			ch_recal_bam_tumor_joined_filtered = ch_recal_bam_tumor_joined.filter{ it ->  !(it.last()) }
-			ch_recal_bam_tumor_only = ch_recal_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+			ch_recal_bam_tumor_only 	= ch_recal_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
 
 			ch_recal_bam_normal_cross.cross(ch_recal_bam_tumor_cross).map { normal,tumor ->
 				[[
@@ -328,7 +335,9 @@ workflow EXOME_SEQ {
 				ch_fasta,
 				ch_dbsnp_combined
 			)
-			ch_vcfs = ch_vcfs.mix(GATK_MUTECT2_PAIRED.out.vcf)
+
+			ch_vcfs 	= ch_vcfs.mix(GATK_MUTECT2_PAIRED.out.vcf)
+			ch_versions 	= ch_versions.mix(GATK_MUTECT2_PAIRED.out.versions)
 
 			// Variant calling for tumor-only samples
 			GATK_MUTECT2_SINGLE(
@@ -337,7 +346,9 @@ workflow EXOME_SEQ {
 				ch_fasta,
 				ch_dbsnp_combined
 			)
-			ch_vcfs = ch_vcfs.mix(GATK_MUTECT2_SINGLE.out.vcf)
+
+			ch_vcfs 	= ch_vcfs.mix(GATK_MUTECT2_SINGLE.out.vcf)
+			ch_versions 	= ch_versions.mix(GATK_MUTECT2_SINGLE.out.versions)
 		}
 
 		// SV calling with Manta
@@ -349,6 +360,8 @@ workflow EXOME_SEQ {
 			)
 			ch_manta_indels = ch_manta_indels.mix(MANTA.out.small_indels)
 			manta_vcf = MANTA.out.diploid_sv.mix(MANTA.out.candidate_sv,MANTA.out.small_indels)
+
+			ch_versions = ch_versions.mix(MANTA.out.versions)
 		} else {
 			manta_vcf = Channel.empty()
 		}
@@ -362,15 +375,15 @@ workflow EXOME_SEQ {
 			}.set { ch_bam_status }
 			
 			// Fetch tumor and normal samples and group by patient ID into channel for paired calling (if any)
-			ch_bam_normal = ch_bam_status.normal
-			ch_bam_tumor = ch_bam_status.tumor
+			ch_bam_normal 		= ch_bam_status.normal
+			ch_bam_tumor 		= ch_bam_status.tumor
 
 			ch_bam_normal_cross = ch_bam_normal.map {m,b,i -> [ m.patient_id, m, b,i]}
-			ch_bam_tumor_cross = ch_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
+			ch_bam_tumor_cross 	= ch_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
 
 			ch_bam_tumor_joined = ch_bam_tumor_cross.join(ch_bam_normal_cross, remainder: true)
 			ch_bam_tumor_joined_filtered = ch_bam_tumor_joined.filter{ it ->  !(it.last()) }
-			ch_bam_tumor_only = ch_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+			ch_bam_tumor_only 	= ch_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
 
 			ch_bam_normal_cross.cross(ch_bam_tumor_cross).map { normal,tumor ->
 				[[
@@ -406,6 +419,7 @@ workflow EXOME_SEQ {
 				ch_dbsnp_combined
 			)
 			ch_vcfs = ch_vcfs.mix(STRELKA_SOMATIC_CALLING.out.vcf)
+			ch_versions = ch_versions.mix(STRELKA_SOMATIC_CALLING.out.versions)
 
 			// Call all samples together
 			if (params.joint_calling) {
@@ -417,6 +431,7 @@ workflow EXOME_SEQ {
 				)
 				ch_vcfs = ch_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf,STRELKA_MULTI_CALLING.out.vcf_multi)
 				ch_phased_vcfs = ch_phased_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf_phased_multi)
+				ch_versions = ch_versions.mix(STRELKA_MULTI_CALLING.out.versions)
 			// Call each sample individually and merge later
 			} else {
 				STRELKA_SINGLE_CALLING(
@@ -426,9 +441,10 @@ workflow EXOME_SEQ {
 					ch_fasta,
 					ch_dbsnp_combined
 				)
-				strelka_vcf = STRELKA_SINGLE_CALLING.out.vcf
+				strelka_vcf 		= STRELKA_SINGLE_CALLING.out.vcf
 				strelka_merged_vcf = STRELKA_SINGLE_CALLING.out.vcf_multi
-				ch_vcfs = ch_vcfs.mix(strelka_vcf,strelka_merged_vcf)
+				ch_vcfs 			= ch_vcfs.mix(strelka_vcf,strelka_merged_vcf)
+				ch_versions 		= ch_versions.mix(STRELKA_SINGLE_CALLING.out.versions)
 			}
 		} else {
 			strelka_vcf = Channel.empty()
@@ -444,20 +460,16 @@ workflow EXOME_SEQ {
 		if ('cnvkit' in tools) {
 			CNVKIT(
 				ch_bam,
-				ch_cnv_gz
+				ch_cnv_gz,
+				ch_fasta
 			)
-		}
-
-		if ('cnvnator' in tools) {
-			CNVNATOR_EXTRACT(
-				ch_bam,
-				ch_fasta.collect()
-			)
+			ch_versions = ch_versions.mix(CNVKIT.out.versions)
 		}
 		
 		// Expansions
 		if ('expansionhunter' in tools) {
 			EXPANSIONS(ch_bam,expansion_catalog)
+			ch_versions = ch_versions.mix(EXPANSIONS.out.versions)
 		}
 
 		// QC Metrics
@@ -477,6 +489,8 @@ workflow EXOME_SEQ {
 		VCF_STATS(ch_vcfs)
 		vcf_qc = VCF_STATS.out.stats
 
+		ch_versions = ch_versions.mix(PICARD_METRICS.out.versions)
+
 		// Coverage of SRY gene
 		SEX_CHECK(
 			ch_bam.map { m,b,i -> tuple(b,i) }.collect(),
@@ -489,6 +503,7 @@ workflow EXOME_SEQ {
 				ch_vcfs,
 				ch_fasta.collect()
 			)
+			//ch_versions = ch_versions.mix(VEP.out.versions)
 		}
 		if ('csq' in tools) {
 			CSQ(
@@ -496,13 +511,23 @@ workflow EXOME_SEQ {
 				ch_fasta.collect(),
 				ch_gtf.collect()
 			)
+
+			//ch_versions = ch_versions.mix(CSQ.out.versions)
+
 		}
 		if ('haplosaurus' in tools) {
 			HAPLOSAURUS(
 				ch_phased_vcfs,
 				ch_fasta.collect()
 			)
+
+			ch_versions = ch_versions.mix(HAPLOSAURUS.out.versions)
+
 		}
+
+		CUSTOM_DUMPSOFTWAREVERSIONS (
+			ch_versions.unique().collectFile(name: 'collated_versions.yml')
+		)
 
 		// QC Reports
 		multiqc_fastq(
@@ -517,7 +542,8 @@ workflow EXOME_SEQ {
 			"Sample",
 			bam_qc.mix(
 				vcf_qc,
-				SEX_CHECK.out.yaml
+				SEX_CHECK.out.yaml,
+				CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml
 			).collect()
 		)
 

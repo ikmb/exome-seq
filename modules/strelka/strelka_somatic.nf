@@ -14,32 +14,37 @@ process STRELKA_SOMATIC {
 	output:
 	tuple val(meta),path(vcf),path(tbi), emit: vcf
 	tuple val(meta),path(vcf_indels),path(vcf_indels_tbi), emit: indels
+	path("versions.yml"), emit: versions
 
 	script:
 	run_dir = "strelka_out"
 	vcf = meta.patient_id + "_" + meta.sample_id + "-strelka_snps.vcf.gz"
-    tbi = vcf + ".tbi"
+	tbi = vcf + ".tbi"
 	vcf_indels = meta.patient_id + "_" + meta.sample_id + "-strelka_indels.vcf.gz"
 	vcf_indels_tbi = indels + ".tbi"
 
-	"""
-		configureStrelkaSomaticWorkflow.py \
-		--normalBam $normal \
+    """
+    configureStrelkaSomaticWorkflow.py \
+        --normalBam $normal \
         --tumorBam $tumor \
-		--referenceFasta ${fasta} \
-		--runDir $run_dir \
-		--callRegions $bed \
-		--indelCandidates $indels \
-		--exome
+        --referenceFasta ${fasta} \
+        --runDir $run_dir \
+        --callRegions $bed \
+        --indelCandidates $indels \
+        --exome
 		
-		$run_dir/runWorkflow.py -m local -j ${task.cpus}
+    $run_dir/runWorkflow.py -m local -j ${task.cpus}
 
-		# somatic.indels.vcf.gz  somatic.indels.vcf.gz.tbi  somatic.snvs.vcf.gz  somatic.snvs.vcf.gz.tbi
-		cp $run_dir/results/variants/somatic.snvs.vcf.gz $vcf
-        cp $run_dir/results/variants/somatic.snvs.vcf.gz.tbi $tbi
-		cp $run_dir/results/variants/somatic.indels.vcf.gz $vcf_indels
-		cp $run_dir/results/variants/somatic.indels.vcf.gz $vcf_indels_tbi
+    # somatic.indels.vcf.gz  somatic.indels.vcf.gz.tbi  somatic.snvs.vcf.gz  somatic.snvs.vcf.gz.tbi
+    cp $run_dir/results/variants/somatic.snvs.vcf.gz $vcf
+    cp $run_dir/results/variants/somatic.snvs.vcf.gz.tbi $tbi
+    cp $run_dir/results/variants/somatic.indels.vcf.gz $vcf_indels
+    cp $run_dir/results/variants/somatic.indels.vcf.gz $vcf_indels_tbi
 
-	"""
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        strelka: \$( configureStrelkaGermlineWorkflow.py --version )
+    END_VERSIONS
+    """
 
 }

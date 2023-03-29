@@ -8,6 +8,7 @@ include { SAMTOOLS_MARKDUP as DEDUP } from "./../modules/samtools/markdup"
 include { SAMTOOLS_AMPLICONCLIP as AMPLICON_CLIP } from "./../modules/samtools/ampliconclip"
 
 ch_align_log = Channel.from([])
+ch_versions = Channel.from([])
 
 workflow TRIM_AND_ALIGN {
 
@@ -25,7 +26,9 @@ workflow TRIM_AND_ALIGN {
 
 		TRIM(
 			reads
-        )
+        	)
+
+		ch_versions = ch_versions.mix(TRIM.out.versions)
 
 		ch_aligned_bams = Channel.from([])
 
@@ -38,6 +41,9 @@ workflow TRIM_AND_ALIGN {
 			ch_aligned_bams = ch_aligned_bams.mix(DRAGMAP_ALIGN.out.bam)
 			ch_sample_names = DRAGMAP_ALIGN.out.sample_name
 			ch_align_log = ch_align_log.mix(DRAGMAP_ALIGN.out.log)
+
+			ch_versions = ch_versions.mix(DRAGMAP_ALIGN.out.versions)
+
 		} else if (params.aligner == "bwa") {
 			
 			BWA_MEM( 
@@ -46,6 +52,9 @@ workflow TRIM_AND_ALIGN {
 			)
 			ch_aligned_bams = ch_aligned_bams.mix(BWA_MEM.out.bam)
 			ch_sample_names = BWA_MEM.out.sample_name
+
+			ch_versions = ch_versions.mix(BWA_MEM.out.versions)
+
 		} else if (params.aligner == "bwa2") {
 			BWA2_MEM(
                                 TRIM.out.reads,
@@ -53,6 +62,8 @@ workflow TRIM_AND_ALIGN {
                         )
                         ch_aligned_bams = ch_aligned_bams.mix(BWA2_MEM.out.bam)
                         ch_sample_names = BWA2_MEM.out.sample_name
+
+			ch_versions = ch_versions.mix(BWA2_MEM.out.versions)
 		}
 
 		bam_mapped = ch_aligned_bams.map { meta, bam ->
@@ -70,6 +81,8 @@ workflow TRIM_AND_ALIGN {
 		}.set { bam_to_merge }
 
 		MERGE_MULTI_LANE( bam_to_merge.multiple )
+		ch_versions = ch_versions.mix(MERGE_MULTI_LANE.out.versions)
+
 		BAM_INDEX(MERGE_MULTI_LANE.out.bam.mix( bam_to_merge.single ))
 
 		ch_report = Channel.from([])
@@ -87,6 +100,7 @@ workflow TRIM_AND_ALIGN {
 			)
 			ch_final_bam = DEDUP.out.bam
 			ch_report = ch_report.mix(DEDUP.out.report)
+			ch_versions = ch_versions.mix(DEDUP.out.versions)
 		}
 		
 	emit:
@@ -97,6 +111,7 @@ workflow TRIM_AND_ALIGN {
 		dedup_report = ch_report
 		sample_names =ch_sample_names.unique()
 		metas = MERGE_MULTI_LANE.out.meta_data
+		versions = ch_versions
 }
 
 def create_fastq_channel(LinkedHashMap row) {

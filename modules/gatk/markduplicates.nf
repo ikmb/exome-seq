@@ -10,6 +10,7 @@ process GATK_MARK_DUPLICATES {
 	output:
 	tuple val(meta),path(bam_md),path(bai_md), emit: bam
 	tuple val(meta),path(stats), emit: stats
+	path("versions.yml"), emit: versions
 
 	script:
 
@@ -18,11 +19,16 @@ process GATK_MARK_DUPLICATES {
 	metrics = bam.getBaseName() + "-dedup.stats"
 
 	"""
-		gatk MarkDuplicatesSpark --java-options "-Xmx${task.memory.giga}g" \
-			-I $bam \
-			-O $bam_md \
-			-M $metrics \
-			-OBI --tmp-dir . 
+	gatk MarkDuplicatesSpark --java-options "-Xmx${task.memory.giga}g" \
+		-I $bam \
+		-O $bam_md \
+		-M $metrics \
+		-OBI --tmp-dir . 
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        gatk4: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$//')
+    END_VERSIONS
 	"""
 
 }
