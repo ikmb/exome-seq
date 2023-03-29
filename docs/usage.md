@@ -6,15 +6,15 @@ The following command will execute this pipeline; the options will be discussed 
 
 If you are at the IKMB, the following will work:
 
-`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com' --tools 'strelka,deepvariant,manta'` 
+`nextflow run ikmb/exome-seq --samples Samples.csv --assembly GRCh38 --kit xGen_v2 --email 'hello@gmail.com' --tools 'strelka,deepvariant,manta'` 
 
 If you need to run a specific "release" of the pipeline, you can do:
 
-`nextflow run ikmb/exome-seq -r 4.1 --samples Samples.csv --assembly GRCh38 --kit xGen --email 'hello@gmail.com` --tools 'strelka,deepvariant,manta'
+`nextflow run ikmb/exome-seq -r 4.3 --samples Samples.csv --assembly GRCh38 --kit xGen_v2 --email 'hello@gmail.com` --tools 'strelka,deepvariant,manta'
 
 If you try to run the pipeline on another system, you will need to configure a profile (see the installation instructions):
 
-`nextflow run /path/to/main.nf --samples Samples.csv --assembly GRCh38 --kit xGen --tools 'deepvariant,expansionhunter,manta' --email 'hello@gmail.com' -profile your_profile`
+`nextflow run /path/to/main.nf --samples Samples.csv --assembly GRCh38 --kit xGen_v2 --tools 'deepvariant,expansionhunter,manta' --email 'hello@gmail.com' -profile your_profile`
 
 ## Mandatory arguments
 

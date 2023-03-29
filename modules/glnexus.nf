@@ -1,6 +1,6 @@
 process GLNEXUS {
 
-    container 'quay.io/mlin/glnexus:v1.3.1'
+    container 'quay.io/mlin/glnexus:v1.4.1'
 
     publishDir "${params.outdir}/MergedCallset/GLNEXUS_DEEPVARIANT", mode: 'copy'
 
@@ -26,7 +26,7 @@ process GLNEXUS {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        glnexus: 1.3.1
+        glnexus: 1.4.1
     END_VERSIONS
 
     """
