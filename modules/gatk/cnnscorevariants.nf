@@ -6,6 +6,8 @@ process GATK_CNNSCOREVARIANTS {
 
 	//label 'gatk'
 	container = "broadinstitute/gatk:4.2.6.1"
+	
+	label 'medium_serial'
 
 	input:
 	tuple val(meta),path(vcf),path(tbi),path(bam),path(bai)
@@ -14,6 +16,7 @@ process GATK_CNNSCOREVARIANTS {
 
 	output:
 	tuple val(meta),path(cnn_vcf),path(cnn_vcf_tbi), emit: vcf
+	path("versions.yml"), emit: versions
 	
 	script:
 	
@@ -21,11 +24,15 @@ process GATK_CNNSCOREVARIANTS {
 	cnn_vcf_tbi = cnn_vcf + ".tbi"
 
 	"""
-		gatk CNNScoreVariants \
-			--variant $vcf \
-			--output $cnn_vcf \
-			--reference $fasta \
-			--intervals $intervals \
+    gatk CNNScoreVariants \
+        --variant $vcf \
+        --output $cnn_vcf \
+        --reference $fasta \
+        --intervals $intervals \
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        gatk4: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$//')
+    END_VERSIONS
 	"""
-	
 }

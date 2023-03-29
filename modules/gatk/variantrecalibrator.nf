@@ -9,6 +9,7 @@ process GATK_VARIANTRECALIBRATOR {
 	output:
 	tuple path(recal),path(recal_idx), emit: recal
 	path(tranches), emit: tranches
+	path("versions.yml"), emit: versions
 
 	script:
 	recal = modus + "-" + params.run_name + ".recal"
@@ -38,16 +39,21 @@ process GATK_VARIANTRECALIBRATOR {
 		options = options.concat("--resource:dbsnp,known=true,training=false,truth=false,prior=7 ${dbsnp} ")
 	}
 
-	"""
-		gatk VariantRecalibrator \
-			--trust-all-polymorphic \
-			-tranche 100.0 -tranche 99.95 -tranche 99.9 -tranche 99.5 -tranche 99.0 -tranche 97.0 -tranche 96.0 -tranche 95.0 -tranche 94.0 -tranche 93.5 -tranche 93.0 -tranche 92.0 -tranche 91.0 -tranche 90.0 \
-			$options \
-			-mode $modus \
-			-O $recal \
-			--tranches-file $tranches -V $vcf
+    """
+    gatk VariantRecalibrator \
+        --trust-all-polymorphic \
+        -tranche 100.0 -tranche 99.95 -tranche 99.9 -tranche 99.5 -tranche 99.0 -tranche 97.0 -tranche 96.0 -tranche 95.0 -tranche 94.0 -tranche 93.5 -tranche 93.0 -tranche 92.0 -tranche 91.0 -tranche 90.0 \
+        $options \
+        -mode $modus \
+        -O $recal \
+        --tranches-file $tranches -V $vcf
 
-		gatk IndexFeatureFile -I $recal
-	"""
+    gatk IndexFeatureFile -I $recal
+	
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        gatk4: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$//')
+    END_VERSIONS
+    """
 
 }

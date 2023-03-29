@@ -8,6 +8,9 @@ include { BCFTOOLS_MERGE as MERGE_VCF } from "./../../modules/bcftools/merge"
 include { GATK_SELECTVARIANTS as VCF_GET_SAMPLE } from "./../../modules/gatk/selectvariants"
 include { BCFTOOLS_NORMALIZE as VCF_INDEL_NORMALIZE } from './../../modules/bcftools/normalize'
 
+ch_versions = Channel.from([])
+ch_phased_vcf = Channel.from([])
+
 workflow STRELKA_SINGLE_CALLING {
 
     ch_merged_vcf = Channel.empty()
@@ -27,16 +30,25 @@ workflow STRELKA_SINGLE_CALLING {
 		bed.collect(),
 		fasta.collect()
 	)
+
+	ch_versions = ch_versions.mix(STRELKA.out.versions)
+
 	VCF_INDEX(
 		STRELKA.out.vcf
 	)
     VCF_FILTER_PASS(
 		VCF_INDEX.out.vcf
 	)
+
+	ch_versions = ch_versions.mix(VCF_FILTER_PASS.out.versions)
+
     VCF_ADD_DBSNP(
 		VCF_FILTER_PASS.out.vcf,
 		dbsnp.collect()
 	)
+
+	ch_versions = ch_versions.mix(VCF_ADD_DBSNP.out.versions)
+
 	VCF_ADD_HEADER(VCF_ADD_DBSNP.out.vcf.map { meta,v,t ->
 			[[
 				id: meta.id, 
@@ -87,9 +99,12 @@ workflow STRELKA_SINGLE_CALLING {
 			],v,t] 
 		}
 	)
+	
+	ch_versions = ch_versions.mix(MERGE_VCF.out.versions)
         ch_merged_vcf = ch_merged_vcf.mix(MERGE_VCF.out.vcf)
 
 	emit:
+	versions = ch_versions
 	vcf = single_vcf
 	vcf_multi = ch_merged_vcf
 	ch_phased_multi = Channel.empty()

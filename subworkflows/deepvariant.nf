@@ -20,6 +20,7 @@ workflow DV_VARIANT_CALLING {
                 merged_vcf = Channel.empty()
 		ch_phased_multi = Channel.from([])
 		ch_phased = Channel.from([])
+		ch_versions = Channel.from([])
 
 		DEEPVARIANT(
 			bam,
@@ -27,21 +28,23 @@ workflow DV_VARIANT_CALLING {
 			deepvariant_index.collect()
 		)
 
+		ch_versions = ch_versions.mix(DEEPVARIANT.out.versions)
+
 		VCF_INDEX(DEEPVARIANT.out.vcf)
 		VCF_FILTER_PASS(VCF_INDEX.out.vcf)
 		VCF_ADD_DBSNP(
-			VCF_FILTER_PASS.out.vcf,
+			VCF_FILTER_PASS.out.vcf.map { meta,v,t ->
+                                [[
+                                id: meta.id,
+                                sample_id: meta.sample_id,
+                                patient_id: meta.patient_id,
+                                variantcaller: "DEEPVARIANT"
+                                ],v,t]
+                        },
 			dbsnp.collect()	
 		)
 		VCF_ADD_HEADER(
-			VCF_ADD_DBSNP.out.vcf.map { meta,v,t ->
-				[[
-				id: meta.id, 
-				sample_id: meta.sample_id, 
-				patient_id: meta.patient_id, 
-				variantcaller: "DEEPVARIANT"
-				],v,t]
-			}
+			VCF_ADD_DBSNP.out.vcf
 		)
 
 		if (params.phase) {
@@ -59,6 +62,7 @@ workflow DV_VARIANT_CALLING {
 				fasta.collect()
 			)
 			ch_phased = ch_phased.mix(WHATSHAP_SINGLE.out.vcf)
+			ch_versions = ch_versions.mix(WHATSHAP_SINGLE.out.versions)
 		}
 
 		// Fiddly work-around to determine whether we have 1 or multiple vcfs. No merging when n=1
@@ -81,7 +85,10 @@ workflow DV_VARIANT_CALLING {
 		// Joint calling with GLNexus - or simple merging
                 if (params.joint_calling) {
 	                MERGE_GVCFS(DEEPVARIANT.out.gvcf.collect(),bed)
-        	        joint_vcf = MERGE_GVCFS.out
+
+			ch_versions = ch_versions.mix(MERGE_GVCFS.out.versions)
+
+        	        joint_vcf = MERGE_GVCFS.out.vcf
                         def j_meta = [ id: "JointCalling", sample_id: "GLNEXUS_DEEPVARIANT", patient_id: "MergedCallset", variantcaller: "DEEPVARIANT" ]
                         merged_vcf = merged_vcf.mix(
 				joint_vcf.map { v,t -> 
@@ -100,6 +107,8 @@ workflow DV_VARIANT_CALLING {
 					fasta.collect()
 				)
 				ch_phased_multi = ch_phased_multi.mix(WHATSHAP.out.vcf)
+
+				ch_versions = ch_versions.mix(WHATSHAP.out.versions)
 			}
 	        } else {
        	                MERGE_VCF(
@@ -113,6 +122,7 @@ workflow DV_VARIANT_CALLING {
 				}
 			)
                	        merged_vcf = merged_vcf.mix(MERGE_VCF.out.vcf)
+			ch_versions = ch_versions.mix(MERGE_VCF)
 	        }
 
 	emit:
@@ -122,4 +132,5 @@ workflow DV_VARIANT_CALLING {
 		gvcf = DEEPVARIANT.out.gvcf
 		vcf_multi = merged_vcf
 		vcf_phased_multi = ch_phased_multi
+		versions = ch_versions
 }

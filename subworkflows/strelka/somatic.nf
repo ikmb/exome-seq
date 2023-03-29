@@ -1,7 +1,8 @@
 include { STRELKA_SOMATIC } from "./../../modules/strelka/strelka_somatic"
-include { TABIX  } from "./../../modules/htslib/tabix"
 include { BCFTOOLS_VIEW } from "./../../modules/bcftools/view"
 include { BCFTOOLS_ANNOTATE_DBSNP } from "./../../modules/bcftools/annotate_dbsnp"
+
+ch_versions = Channel.from([])
 
 workflow STRELKA_SOMATIC_CALLING {
 
@@ -19,13 +20,13 @@ workflow STRELKA_SOMATIC_CALLING {
             fasta.collect()
         )
 
-        TABIX(
+	ch_versions = ch_versions.mix(STRELKA_SOMATIC.out.versions)
+
+        BCFTOOLS_VIEW(
             STRELKA_SOMATIC.out.vcf
         )
 
-        BCFTOOLS_VIEW(
-            TABIX.out.vcf
-        )
+	ch_versions = ch_versions.mix(BCFTOOLS_VIEW.out.versions)
 
         BCFTOOLS_ANNOTATE_DBSNP(
             BCFTOOLS_VIEW.out.vcf.map { m,v,t ->
@@ -38,7 +39,10 @@ workflow STRELKA_SOMATIC_CALLING {
             dbsnp.collect()
         )
 
+	ch_versions = ch_versions.mix(BCFTOOLS_ANNOTATE_DBSNP.out.versions)
+
     emit:
-        vcf = BCFTOOLS_ANNOTATE_DBSNP.out.vcf
+	versions 	= ch_versions
+        vcf 		= BCFTOOLS_ANNOTATE_DBSNP.out.vcf
 
 }

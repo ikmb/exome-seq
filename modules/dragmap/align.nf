@@ -10,19 +10,27 @@ process DRAGMAP_ALIGN {
 	tuple val(meta),path(bam), emit: bam
 	val(sample), emit: sample_name
 	path(log_file), emit: log
+	path("versions.yml"), emit: versions
 
 	script:	
 	bam = "${meta.sample_id}_${meta.library_id}_${meta.readgroup_id}-dragmap_aligned-fm.bam"
         sample = "${meta.patient_id}_${meta.sample_id}"
 	log_file = sample + "-dragmap.txt"
+
 	"""
-		dragen-os \
-			-r $dragen_ref \\
-			-1 $R1 \\
-			-2 $R2 \\
-			--RGID ${meta.readgroup_id} \\
-			--RGSM $sample \\
-			--num-threads ${task.cpus} 2> $log_file | samtools fixmate -m --threads ${task.cpus} - - | samtools sort --threads ${task.cpus} -m 2G -O bam -o $bam -
+    dragen-os \
+        -r $dragen_ref \\
+        -1 $R1 \\
+        -2 $R2 \\
+        --RGID ${meta.readgroup_id} \\
+        --RGSM $sample \\
+        --num-threads ${task.cpus} 2> $log_file | samtools fixmate -m --threads ${task.cpus} - - | samtools sort --threads ${task.cpus} -m 2G -O bam -o $bam -
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        dragmap: \$(echo \$(dragen-os --version 2>&1))
+        samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+    END_VERSIONS
 
 	"""
 }

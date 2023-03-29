@@ -27,7 +27,7 @@ The structure looks as follows:
 ```
 patient;sample;status;library;readgroup;platform_unit;center;date;R1;R2
 ```
-where status refers to the tumor status (0 = normal, 1 = tumor).
+where status refers to the tumor status (0 = normal, 1 = tumor). The pipeline will automatically determine if somatic calling an be performed with or without a matched normal based on the sample IDs and the tools that were requested. 
 
 For convenience, we have included a simple script (bin/samplesheet_from_folder.rb) which accepts the path to a folder fill of PE exome data and automatically
 writes a basic sample sheet. Obviously, it cannot derive meaningful sample and patient IDs from such information; this you would have to edit manually, if
@@ -65,7 +65,6 @@ The pipeline offers various tools for the analysis of variant information. Speci
    - [Expansion Hunter](https://github.com/Illumina/ExpansionHunter) (expansionhunter)
 4. Copy number variants
    - [CNVkit](https://cnvkit.readthedocs.io/en/stable/) (cnvkit)
-   - [CNVnator](https://github.com/abyzovlab/CNVnator) (cnvnator)
 5. Protein-level haplotypes
    - [Haplosaurus](https://www.ensembl.org/info/docs/tools/vep/haplo/index.html) (haplosaurus)
    - [CSQ](https://samtools.github.io/bcftools/howtos/csq-calling.html) (csq)

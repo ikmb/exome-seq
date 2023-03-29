@@ -12,15 +12,17 @@ This pipeline offers a end-to-end workflow for exome analysis using several tool
 
 - germline SNP/INDEL calling with [Deepvariant](https://github.com/google/deepvariant), [Strelka](https://github.com/Illumina/strelka) and/or [GATK](https://github.com/broadinstitute/gatk)
 
-- somatic SNP/INDEL calling with [Mutect2](https://github.com/broadinstitute/gatk)
+- somatic SNP/INDEL calling with [Mutect2](https://github.com/broadinstitute/gatk) and [Strelka](https://github.com/Illumina/strelka)
 
-- effect prediction with [VEP](https://www.ensembl.org/info/docs/tools/vep/index.html) and/or [Haplosaurus](https://www.ensembl.org/info/docs/tools/vep/haplo/index.html)
+- variant effect prediction with [VEP](https://www.ensembl.org/info/docs/tools/vep/index.html) and/or [Haplosaurus](https://www.ensembl.org/info/docs/tools/vep/haplo/index.html)
+
+- protein-level effect prediction with [Haplosaurus](https://www.ensembl.org/info/docs/tools/vep/haplo/index.html) and [BCFtools](https://samtools.github.io/bcftools/howtos/csq-calling.html)
 
 - germline SV calling using [Manta](https://github.com/Illumina/manta)
 
 - germline CNV calling using [CNVkit](https://github.com/etal/cnvkit)
 
-- Expansion detection using [ExpansionHunter](https://github.com/Illumina/ExpansionHunter)
+- Repeat expansion detection using [ExpansionHunter](https://github.com/Illumina/ExpansionHunter)
 
 The result will be a multi-sample VCF file as well as a list of VCF files for each sample.
 

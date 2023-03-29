@@ -14,6 +14,7 @@ process GATK_MUTECT2_PAIR {
 	output:
 	tuple val(meta),path(vcf),path(tbi),path(stats), emit: vcf
 	tuple val(meta),path(f1r2), emit: f1r2
+	path("versions.yml"), emit: versions
 
 	script:
 	vcf = meta.sample_id + "-somatic.vcf.gz"
@@ -30,15 +31,20 @@ process GATK_MUTECT2_PAIR {
 	}
 
 	"""
-		gatk Mutect2 \
-		-R $fasta \
-		-I ${normal_bam} \
-		-I ${tumor_bam} \
-		-normal ${meta.normal_id} \
-		-O $vcf \
-		-L $intervals \
-		-OVI \
-		--f1r2-tar-gz $f1r2 \
-		$options
+    gatk Mutect2 \
+        -R $fasta \
+        -I ${normal_bam} \
+        -I ${tumor_bam} \
+        -normal ${meta.normal_id} \
+        -O $vcf \
+        -L $intervals \
+        -OVI \
+        --f1r2-tar-gz $f1r2 \
+        $options
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        gatk4: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$//')
+    END_VERSIONS
 	"""	
 }

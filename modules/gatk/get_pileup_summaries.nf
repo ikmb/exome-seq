@@ -9,19 +9,27 @@ process GATK_GET_PILEUP_SUMMARIES {
 	input:
 	tuple val(meta),path(bam),path(bai)
 	path(intervals)
+	tuple path(fasta),path(fai),path(dict)
 
 	output:
 	tuple val(meta),path(stable), emit: table
+	path("versions.yml"), emit: versions
 
 	script:
 	stable = bam.getBaseName() + "-pileup_summaries.table"
 
-	"""
-		gatk GetPileupSummaries \
-			-I $bam \
-			-V $params.gnomad_af_vcf \
-			-L $intervals \
-			-O $stable
-	"""
+    """
+    gatk GetPileupSummaries \
+        -I $bam \
+        -V $params.gnomad_af_vcf \
+        -L $intervals \
+        -R $fasta \
+        -O $stable
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        gatk4: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$//')
+    END_VERSIONS
+    """
 	
 }

@@ -11,12 +11,18 @@ process GATK_LEARN_READ_ORIENTATION_MODEL {
 
 	output:
 	tuple val(meta),path(model), emit: model
+	path("versions.yml"), emit: versions
 
 	script:
 	model = f12r.getBaseName() + "-read_orientation_model.tar.gz"
 
-	"""
-		gatk LearnReadOrientationModel -I $f12r -O $model
-	"""
+    """
+    gatk LearnReadOrientationModel -I $f12r -O $model
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        gatk4: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$//')
+    END_VERSIONS
+    """
 
 }

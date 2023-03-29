@@ -14,14 +14,21 @@ process GATK_BASERECALIBRATOR {
 
 	output:
 	tuple val(meta),path(report), emit: report
+	path("versions.yml"), emit: versions
 
 	script:
 	report = bam.getBaseName() + "-" + intervals.getBaseName() + "-recal.txt"	
 
-	"""
-		gatk BaseRecalibrator -R ${fasta}  -I $bam -O $report \
-			-L $intervals --use-original-qualities --known-sites ${snps.join(' --known-sites ')} \
-			--known-sites ${indels.join(' --known-sites ')} \
-			-ip $params.interval_padding
-	"""
+    """
+    gatk BaseRecalibrator -R ${fasta}  -I $bam -O $report \
+        -L $intervals --use-original-qualities --known-sites ${snps.join(' --known-sites ')} \
+        --known-sites ${indels.join(' --known-sites ')} \
+        -ip $params.interval_padding
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        gatk4: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$//')
+    END_VERSIONS
+
+    """
 }

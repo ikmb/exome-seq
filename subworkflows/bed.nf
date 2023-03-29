@@ -8,10 +8,10 @@ workflow CONVERT_BED {
 
 	main:
 		INTERVAL_TO_BED(intervals)
-		BED_TO_BEDGZ(INTERVAL_TO_BED.out)
+		BED_TO_BEDGZ(INTERVAL_TO_BED.out.bed)
 
 	emit:
-		bed = INTERVAL_TO_BED.out
-		bed_gz = BED_TO_BEDGZ.out
+		bed = INTERVAL_TO_BED.out.bed
+		bed_gz = BED_TO_BEDGZ.out.bedgz
 
 }

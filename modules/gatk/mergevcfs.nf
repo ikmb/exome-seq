@@ -12,15 +12,21 @@ process GATK_MERGEVCFS {
 
 	output:
 	tuple val(meta),path(merged_vcf),path(merged_vcf_tbi), emit: vcf
+	path("versions.yml"), emit: versions
 
 	script:
 	merged_vcf = "gatk-" + params.run_name + "-merged.vcf.gz"
 	merged_vcf_tbi = merged_vcf + ".tbi"
 
-	"""
-		gatk --java-options "-Xmx4g" MergeVcfs \
-			--INPUT $vcf_snp --INPUT $vcf_indel \
-			--OUTPUT $merged_vcf
-		gatk IndexFeatureFile -I $merged_vcf
+    """
+    gatk --java-options "-Xmx4g" MergeVcfs \
+        --INPUT $vcf_snp --INPUT $vcf_indel \
+        --OUTPUT $merged_vcf
+    gatk IndexFeatureFile -I $merged_vcf
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        gatk4: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$//')
+    END_VERSIONS
 	"""
 }

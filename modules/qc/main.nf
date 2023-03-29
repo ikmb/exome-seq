@@ -1,19 +1,19 @@
 // a simple sex check looking at coverage of the SRY gene
 process SEX_CHECK {
 
-        input:
-        path(bams)
+    input:
+    path(bams)
 	path(sry_region)
 
-        output:
-        path(sex_check_yaml), emit: yaml
+    output:
+    path(sex_check_yaml), emit: yaml
 
-        script:
-        sex_check_yaml = "sex_check_mqc.yaml"
+    script:
+    sex_check_yaml = "sex_check_mqc.yaml"
 
-        """
-                parse_sry_coverage.pl --fasta ${params.fasta} --region ${sry_region} > $sex_check_yaml
-        """
+    """
+        parse_sry_coverage.pl --fasta ${params.fasta} --region ${sry_region} > $sex_check_yaml
+    """
 }
 
 process QC_SNPS {
@@ -30,6 +30,6 @@ process QC_SNPS {
 	json = vcf.getBaseName() + ".json"
 
 	"""
-		bcftools view -T $bed $vcf > snps.vcf
+    bcftools view -T $bed $vcf > snps.vcf
 	"""
 }

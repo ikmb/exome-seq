@@ -14,6 +14,7 @@ process GATK_MUTECT2 {
 	output:
 	tuple val(meta),path(vcf),path(tbi),path(stats), emit: vcf
 	tuple val(meta),path(f1r2), emit: f1r2
+	path("versions.yml"), emit: versions
 
 	script:
 	vcf = bam.getBaseName() + "-mutect2.vcf.gz"
@@ -29,15 +30,20 @@ process GATK_MUTECT2 {
 		options += " --germline-resource ${params.gnomad_af_vcf}"
 	}
 
-	"""
-		gatk Mutect2 \
-		-R $fasta \
-		-I $bam \
-		-O $vcf \
-		-L $intervals \
-		--f1r2-tar-gz $f1r2 \
-		-OVI \
-		$options
-	"""	
+    """
+    gatk Mutect2 \
+        -R $fasta \
+        -I $bam \
+        -O $vcf \
+        -L $intervals \
+        --f1r2-tar-gz $f1r2 \
+        -OVI \
+        $options
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        gatk4: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$//')
+    END_VERSIONS
+    """	
 
 }
