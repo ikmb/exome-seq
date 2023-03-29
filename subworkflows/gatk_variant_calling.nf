@@ -67,7 +67,7 @@ workflow GATK_VARIANT_CALLING {
 			],v,t ]
                 }
 
-		// Hard-filter variants on excess heterosygosity
+		// Hard-filter variants on excess heterozygosity
 		GATK_VARIANTFILTRATION(
 			ch_variants_pass
 		)
