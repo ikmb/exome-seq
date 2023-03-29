@@ -28,7 +28,7 @@ process STRELKA_SINGLE_SAMPLE {
         --runDir $run_dir \
         --callRegions $bed \
         --exome
-""		
+
     $run_dir/runWorkflow.py -m local -j ${task.cpus}
 	
     cp $run_dir/results/variants/genome.S1.vcf.gz $vcf
