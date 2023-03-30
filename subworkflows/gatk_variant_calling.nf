@@ -183,6 +183,4 @@ workflow GATK_VARIANT_CALLING {
 	vcf 		= ch_vcf_single
 	vcf_multi 	= ch_vcf_multi
 
-	//vcf = VCF_GET_SAMPLE.out.vcf
-	//vcf_multi = GATK_GENOTYPEGVCFS.out.vcf
 }

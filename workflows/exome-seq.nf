@@ -104,22 +104,22 @@ baits = Channel.from(file(BAITS, checkIfExists: true))
 // ************************************
 
 if (params.panel) {
-        panel = params.genomes[params.assembly].panels[params.panel].intervals
-        panels = Channel.fromPath(panel)
+    panel = params.genomes[params.assembly].panels[params.panel].intervals
+    panels = Channel.fromPath(panel)
 } else if (params.panel_intervals) {
-        Channel.fromPath(params.panel_intervals)
-        .ifEmpty { exit 1; "Could not find the specified gene panel (--panel_intervals)" }
-        .set { panels }
+    Channel.fromPath(params.panel_intervals)
+    .ifEmpty { exit 1; "Could not find the specified gene panel (--panel_intervals)" }
+    .set { panels }
 } else if (params.all_panels) {
-        panel_list = []
-        panel_names = params.genomes[params.assembly].panels.keySet()
-        panel_names.each {
-                interval = params.genomes[params.assembly].panels[it].intervals
-                panel_list << file(interval)
-        }
-        panels = Channel.fromList(panel_list)
+    panel_list = []
+    panel_names = params.genomes[params.assembly].panels.keySet()
+    panel_names.each {
+        interval = params.genomes[params.assembly].panels[it].intervals
+        panel_list << file(interval)
+    }
+    panels = Channel.fromList(panel_list)
 } else {
-        panels = Channel.empty()
+    panels = Channel.empty()
 }
 
 // ************************************

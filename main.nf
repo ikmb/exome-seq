@@ -33,13 +33,6 @@ summary['Current home'] = "$HOME"
 summary['Current user'] = "$USER"
 summary['Current path'] = "$PWD"
 summary['Assembly'] = params.fasta
-if (params.dragmap) {
-        summary["ALIGNER"] = "dragmap"
-} else if (params.bwa2) {
-        summary['ALIGNER'] = "bwa-mem2"
-} else {
-        summary['ALIGNER'] = "bwa"
-}
 summary['JointCalling'] = params.joint_calling
 summary['CommandLine'] = workflow.commandLine
 

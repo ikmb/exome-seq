@@ -22,17 +22,17 @@ process GATK_FILTERVARIANTTRANCHES {
 	vcf_filtered = vcf.getSimpleName() + "-filtered_tranches.vcf.gz"
 	vcf_filtered_tbi = vcf_filtered + ".tbi"
 
-	"""
-	gatk FilterVariantTranches \
-		-V $vcf \
-		--resource ${snps.join(' --resource ')} \
-		--resource ${indels.join(' --resource ')} \
-		--info-key CNN_1D \
-		--invalidate-previous-filters \
-		--snp-tranche 99.9 --indel-tranche 99.9 \
-		-O $vcf_filtered
+    """
+    gatk FilterVariantTranches \
+        -V $vcf \
+        --resource ${snps.join(' --resource ')} \
+        --resource ${indels.join(' --resource ')} \
+        --info-key CNN_1D \
+        --invalidate-previous-filters \
+        --snp-tranche 99.9 --indel-tranche 99.9 \
+        -O $vcf_filtered
 
-	gatk IndexFeatureFile -I $vcf_filtered
+    gatk IndexFeatureFile -I $vcf_filtered
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
