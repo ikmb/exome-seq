@@ -30,15 +30,21 @@ workflow STRELKA_MULTI_CALLING {
         .set { ch_bams }
 
 	STRELKA_JOINT_CALLING(
-            ch_bams.map { m,b,i -> [ b,i]},
-            bed.collect(),
-	    fasta.collect()
-        )
+        ch_bams.map { m,b,i -> [ b,i]},
+        bed.collect(),
+        fasta.collect()
+    )
 
 	ch_versions = ch_versions.mix(STRELKA_JOINT_CALLING.out.versions)
 
 	VCF_FILTER_PASS(
-		STRELKA_JOINT_CALLING.out.vcf.map { v,t -> [ [id: "all", sample_id: "STRELKA_JOINT_CALLING", patient_id: "MergedCallset", variantcaller: "STRELKA"],v,t]}
+		STRELKA_JOINT_CALLING.out.vcf.map { v,t -> 
+            [[
+				id: "all", 
+				sample_id: "STRELKA_JOINT_CALLING", 
+				patient_id: "MergedCallset", 
+				variantcaller: "STRELKA"
+			],v,t]}
 	)
 
 	ch_versions = ch_versions.mix(VCF_FILTER_PASS.out.versions)
