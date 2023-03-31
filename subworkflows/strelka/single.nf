@@ -93,8 +93,8 @@ workflow STRELKA_SINGLE_CALLING {
                 ch_grouped_vcfs.multi.map { m,v,t -> 
 			[ [ 
 				id: "all", 
-				sample_id: "Bcftools", 
-				patient_id: "MergedCallset", 
+				sample_id: "BCFTOOLS", 
+				patient_id: "MERGED_CALLSET", 
 				variantcaller: "STRELKA"
 			],v,t] 
 		}

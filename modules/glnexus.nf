@@ -1,6 +1,6 @@
 process GLNEXUS {
 
-    container 'quay.io/mlin/glnexus:v1.4.1'
+    container 'quay.io/mlin/glnexus:v1.3.1'
 
     publishDir "${params.outdir}/MergedCallset/GLNEXUS_DEEPVARIANT", mode: 'copy'
 
@@ -9,13 +9,12 @@ process GLNEXUS {
     path(bed)
 
     output:
-    tuple path(merged_vcf),path(merged_tbi), emit: vcf
+    tuple path(merged_vcf),path(merged_vcf_tbi), emit: vcf
     path("versions.yml"), emit: versions
 
     script:
     merged_vcf = "deepvariant-joint_calling-" + params.run_name + ".vcf.gz"
-    merged_tbi = merged_vcf + ".tbi"
-
+    merged_vcf_tbi = merged_vcf + ".tbi"
     """
     /usr/local/bin/glnexus_cli \
         --config ${params.glnexus_config} \

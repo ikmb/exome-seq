@@ -6,6 +6,7 @@ include { BCFTOOLS_ANNOTATE as VCF_ADD_HEADER } from "./../modules/bcftools/anno
 include { BCFTOOLS_VIEW as VCF_FILTER_PASS } from "./../modules/bcftools/view"
 include { BCFTOOLS_MERGE as MERGE_VCF } from "./../modules/bcftools/merge"
 include { WHATSHAP; WHATSHAP_SINGLE } from "./../modules/whatshap/main.nf"
+include { TABIX } from "./../modules/htslib/tabix"
 
 ch_merged_vcf = Channel.empty()
 ch_phased_multi = Channel.from([])
@@ -89,21 +90,21 @@ workflow DV_VARIANT_CALLING {
 		// Joint calling with GLNexus - or simple merging
         if (params.joint_calling) {
             
-			MERGE_GVCFS(
-				DEEPVARIANT.out.gvcf.collect(),
-				bed
-			)
+            MERGE_GVCFS(
+                DEEPVARIANT.out.gvcf.collect(),
+                bed
+            )
 
-			ch_versions = ch_versions.mix(MERGE_GVCFS.out.versions)
+            ch_versions = ch_versions.mix(MERGE_GVCFS.out.versions)
 
             joint_vcf = MERGE_GVCFS.out.vcf
             
             ch_merged_vcf = ch_merged_vcf.mix(
 				joint_vcf.map { v,t -> 
 					[[
-						id: "JointCalling", 
+						id: "JOINT_CALLING", 
 						sample_id: "GLNEXUS_DEEPVARIANT", 
-						patient_id: "MergedCallset", 
+						patient_id: "MERGED_CALLSET", 
 						variantcaller: "DEEPVARIANT"
 					],v,t]
                 }
@@ -127,7 +128,7 @@ workflow DV_VARIANT_CALLING {
 					[[ 
 					id: "DEEPVARIANT", 
 					sample_id: "BCFTOOLS", 
-					patient_id: "MergedCallset", 
+					patient_id: "MERGED_CALLSET", 
 					variantcaller: "DEEPVARIANT"
 					],v,t ]
 				}

@@ -23,11 +23,14 @@ workflow STRELKA_MULTI_CALLING {
 
 	ch_merged_vcf = Channel.empty()
 	ch_phased_multi = Channel.empty()
-        ch_vcf = Channel.empty()
+    ch_vcf = Channel.empty()
     
-        bams.map { b,i -> [ [id: "merge"],b,i ] }
-        .groupTuple()
-        .set { ch_bams }
+    bams.map { b,i -> 
+        [ [ 
+			id: "merge"
+		],b,i ] 
+	}.groupTuple()
+    .set { ch_bams }
 
 	STRELKA_JOINT_CALLING(
         ch_bams.map { m,b,i -> [ b,i]},
@@ -67,10 +70,10 @@ workflow STRELKA_MULTI_CALLING {
 
 	ch_phased_multi = ch_phased_multi.mix(WHATSHAP.out.vcf)
 	
-        VCF_GET_SAMPLE(
-                ch_merged_vcf.collect(),
+    VCF_GET_SAMPLE(
+        ch_merged_vcf.collect(),
 		metas
-        )
+    )
 
 	ch_versions = ch_versions.mix(VCF_GET_SAMPLE.out.versions)
 
@@ -81,9 +84,9 @@ workflow STRELKA_MULTI_CALLING {
 	ch_versions = ch_versions.mix(VCF_INDEL_NORMALIZE.out.versions)
 
         VCF_INDEL_NORMALIZE.out.vcf.map { m,v,t ->
-                new_meta = m.clone()
-                new_meta.variantcaller = "STRELKA"
-                tuple(new_meta,v,t)
+            new_meta = m.clone()
+            new_meta.variantcaller = "STRELKA"
+            tuple(new_meta,v,t)
         }.set { ch_vcf_header }
 
         VCF_ADD_HEADER(ch_vcf_header)
