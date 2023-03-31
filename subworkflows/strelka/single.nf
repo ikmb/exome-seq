@@ -37,7 +37,13 @@ workflow STRELKA_SINGLE_CALLING {
 		STRELKA.out.vcf
 	)
     VCF_FILTER_PASS(
-		VCF_INDEX.out.vcf
+		VCF_INDEX.out.vcf.map { m,v,t ->
+			[[
+				patient_id: m.patient_id,
+				sample_id: m.sample_id,
+				variantcaller: "STRELKA"
+			],v,t]
+		}
 	)
 
 	ch_versions = ch_versions.mix(VCF_FILTER_PASS.out.versions)
@@ -49,14 +55,8 @@ workflow STRELKA_SINGLE_CALLING {
 
 	ch_versions = ch_versions.mix(VCF_ADD_DBSNP.out.versions)
 
-	VCF_ADD_HEADER(VCF_ADD_DBSNP.out.vcf.map { meta,v,t ->
-			[[
-				id: meta.id, 
-				sample_id: meta.sample_id, 
-				patient_id: meta.patient_id, 
-				variantcaller: "STRELKA" 
-			],v,t]
-		}
+	VCF_ADD_HEADER(
+		VCF_ADD_DBSNP.out.vcf
 	)
 	single_vcf = ch_vcf.mix(VCF_ADD_HEADER.out.vcf)
 
@@ -93,8 +93,8 @@ workflow STRELKA_SINGLE_CALLING {
                 ch_grouped_vcfs.multi.map { m,v,t -> 
 			[ [ 
 				id: "all", 
-				sample_id: "Bcftools", 
-				patient_id: "MergedCallset", 
+				sample_id: "BCFTOOLS", 
+				patient_id: "MERGED_CALLSET", 
 				variantcaller: "STRELKA"
 			],v,t] 
 		}
