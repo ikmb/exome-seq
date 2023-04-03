@@ -17,6 +17,8 @@ process MANTA_PAIRED {
 	tuple val(meta),path(sv),path(sv_tbi), emit: diploid_sv
 	tuple val(meta),path(sv_can),path(sv_can_tbi), emit: candidate_sv
 	tuple val(meta),path(indel),path(indel_tbi), emit: small_indels
+        tuple val(meta),path(somatic),path(somatic_tbi), emit: somatic_sv
+
 	path("manta")
 	path("versions.yml"), emit: versions
 
@@ -27,7 +29,9 @@ process MANTA_PAIRED {
 	indel_tbi = indel + ".tbi"
 	sv_can = "${meta.patient_id}_${meta.sample_id}-candidateSV.vcf.gz"
 	sv_can_tbi = sv_can + ".tbi"
-
+        somatic = "${meta.patient_id}_${meta.sample_id}-somatic.vcf.gz"
+	somatic_tbi = somatic + ".tbi"
+ 
     """
     configManta.py --normalBam $nbam --tumorBam $tbam  --referenceFasta ${fasta} --runDir manta --callRegions $bed_gz --exome
 
@@ -39,6 +43,8 @@ process MANTA_PAIRED {
     cp manta/results/variants/candidateSmallIndels.vcf.gz.tbi $indel_tbi
     cp manta/results/variants/candidateSV.vcf.gz $sv_can
     cp manta/results/variants/candidateSV.vcf.gz.tbi $sv_can_tbi
+    cp manta/results/variants/somaticSV.vcf.gz $somatic
+    cp manta/results/variants/somaticSV.vcf.gz.tbi $somatic_tbi
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
