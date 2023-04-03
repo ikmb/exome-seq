@@ -12,6 +12,7 @@ process EXPANSION_HUNTER {
 
     output:
     tuple val(meta),path(expansion_report)
+    path("versions.yml"), emit: versions
     path(expansion_vcf)
 
     script:

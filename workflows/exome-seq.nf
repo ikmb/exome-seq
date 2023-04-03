@@ -407,7 +407,7 @@ workflow EXOME_SEQ {
                        )
 
 			ch_versions = ch_versions.mix(MANTA_PAIRED.out.versions)
-			ch_manta_vcfs = ch_manta_vcfs.mix(MANTA_PAIRED.out.diploid_sv)
+			ch_manta_vcfs = ch_manta_vcfs.mix(MANTA_PAIRED.out.diploid_sv,MANTA_PAIRED.out.somatic_sv)
 
 			MANTA_TUMOR(
 				ch_bam_tumor,
