@@ -2,7 +2,7 @@ process GLNEXUS {
 
     container 'quay.io/mlin/glnexus:v1.3.1'
 
-    publishDir "${params.outdir}/MergedCallset/GLNEXUS_DEEPVARIANT", mode: 'copy'
+    publishDir "${params.outdir}/MERGED_CALLSET/GLNEXUS_DEEPVARIANT", mode: 'copy'
 
     input:
     path(gvcfs)

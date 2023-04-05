@@ -7,7 +7,7 @@ include { GATK_LEARN_READ_ORIENTATION_MODEL } from "./../modules/gatk/learn_read
 include { GATK_GET_PILEUP_SUMMARIES } from "./../modules/gatk/get_pileup_summaries"
 include { GATK_CALCULATE_CONTAMINATION } from "./../modules/gatk/calculate_contamination"
 
-ch_versions 	= Channel.from([])
+ch_versions = Channel.from([])
 ch_vcfs 	= Channel.from([])
 
 workflow GATK_MUTECT2_SINGLE {
@@ -66,18 +66,18 @@ workflow GATK_MUTECT2_SINGLE {
 		ch_versions = ch_versions.mix(BCFTOOLS_VIEW.out.versions)
 
 		BCFTOOLS_ANNOTATE_DBSNP(
-                        BCFTOOLS_VIEW.out.vcf.map { meta,v,t ->
-                                def s_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "MUTECT2" ]
-                                tuple(s_meta,v,t)
-                        },
-                        dbsnp.collect()
-                )
+            BCFTOOLS_VIEW.out.vcf.map { meta,v,t ->
+                def s_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "MUTECT2" ]
+                tuple(s_meta,v,t)
+            },
+            dbsnp.collect()
+        )
 		
 		ch_versions = ch_versions.mix(BCFTOOLS_ANNOTATE_DBSNP.out.versions)
 
-        	BCFTOOLS_ANNOTATE(
+        BCFTOOLS_ANNOTATE(
 			BCFTOOLS_ANNOTATE_DBSNP.out.vcf
-        	)
+        )
 
 	emit:
 	versions 	= ch_versions

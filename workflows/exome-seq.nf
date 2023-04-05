@@ -358,34 +358,34 @@ workflow EXOME_SEQ {
 		// Create channels for different calling strategies re: tumor/normal
 		// *********************************
 
-                ch_bam.branch { m,b,i ->
-                    normal: m.status == 0
-                    tumor: m.status == 1
-                }.set { ch_bam_status }
+        ch_bam.branch { m,b,i ->
+            normal: m.status == 0
+            tumor: m.status == 1
+        }.set { ch_bam_status }
 
-                // Fetch tumor and normal samples and group by patient ID into channel for paired calling (if any)
-                ch_bam_normal           = ch_bam_status.normal
-                ch_bam_tumor            = ch_bam_status.tumor
+        // Fetch tumor and normal samples and group by patient ID into channel for paired calling (if any)
+        ch_bam_normal           = ch_bam_status.normal
+        ch_bam_tumor            = ch_bam_status.tumor
 
-                ch_bam_normal_cross 	= ch_bam_normal.map {m,b,i -> [ m.patient_id, m, b,i]}
-                ch_bam_tumor_cross      = ch_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
+        ch_bam_normal_cross 	= ch_bam_normal.map {m,b,i -> [ m.patient_id, m, b,i]}
+        ch_bam_tumor_cross      = ch_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
 
-                ch_bam_tumor_joined 	= ch_bam_tumor_cross.join(ch_bam_normal_cross, remainder: true)
-                ch_bam_tumor_joined_filtered = ch_bam_tumor_joined.filter{ it ->  !(it.last()) }
-                ch_bam_tumor_only       = ch_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+        ch_bam_tumor_joined 	= ch_bam_tumor_cross.join(ch_bam_normal_cross, remainder: true)
+        ch_bam_tumor_joined_filtered = ch_bam_tumor_joined.filter{ it ->  !(it.last()) }
+        ch_bam_tumor_only       = ch_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
 
-                ch_bam_normal_cross.cross(ch_bam_tumor_cross).map { normal,tumor ->
-                    [[
-                        patient_id: normal[0],
-                        normal_id: "${normal[1].patient_id}_${normal[1].sample_id}",
-                        tumor_id: "${tumor[1].patient_id}_${tumor[1].sample_id}",
-                        sample_id: "${tumor[1].sample_id}_vs_${normal[1].sample_id}".toString()
-                    ],normal[2],normal[3],tumor[2],tumor[3]]
-                }.set { ch_bam_calling_pair }
+        ch_bam_normal_cross.cross(ch_bam_tumor_cross).map { normal,tumor ->
+            [[
+            patient_id: normal[0],
+            normal_id: "${normal[1].patient_id}_${normal[1].sample_id}",
+            tumor_id: "${tumor[1].patient_id}_${tumor[1].sample_id}",
+            sample_id: "${tumor[1].sample_id}_vs_${normal[1].sample_id}".toString()
+            ],normal[2],normal[3],tumor[2],tumor[3]]
+        }.set { ch_bam_calling_pair }
 
-                // *********************
+        // *********************
 		// SV calling with Manta
-                // *********************
+        // *********************
 
 		if ('manta' in tools) {
 
@@ -401,22 +401,22 @@ workflow EXOME_SEQ {
 			ch_versions = ch_versions.mix(MANTA_NORMAL.out.versions)
 
 			MANTA_PAIRED(
-                            ch_bam_calling_pair,
-                            bedgz.collect(),
-                            ch_fasta.collect()
-                       )
+                ch_bam_calling_pair,
+                bedgz.collect(),
+                ch_fasta.collect()
+            )
 
 			ch_versions = ch_versions.mix(MANTA_PAIRED.out.versions)
 			ch_manta_vcfs = ch_manta_vcfs.mix(MANTA_PAIRED.out.diploid_sv,MANTA_PAIRED.out.somatic_sv)
 
 			MANTA_TUMOR(
-				ch_bam_tumor,
-                                bedgz.collect(),
-                                ch_fasta.collect()
-                        )
+				ch_bam_tumor_only,
+                bedgz.collect(),
+                ch_fasta.collect()
+            )
 
-                        ch_versions = ch_versions.mix(MANTA_TUMOR.out.versions)
-                        ch_manta_vcfs = ch_manta_vcfs.mix(MANTA_TUMOR.out.tumor_sv)
+            ch_versions = ch_versions.mix(MANTA_TUMOR.out.versions)
+            ch_manta_vcfs = ch_manta_vcfs.mix(MANTA_TUMOR.out.tumor_sv)
 
 
 		} else {

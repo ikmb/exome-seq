@@ -74,9 +74,9 @@ workflow GATK_MUTECT2_PAIRED {
 
 		BCFTOOLS_ANNOTATE_DBSNP(
 			BCFTOOLS_VIEW.out.vcf.map { meta,v,t ->
-                                def s_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "MUTECT2" ]
-                                tuple(s_meta,v,t)
-                        },
+                def s_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "MUTECT2" ]
+                tuple(s_meta,v,t)
+            },
 			dbsnp.collect()
 		)
 		
@@ -84,7 +84,7 @@ workflow GATK_MUTECT2_PAIRED {
 
 		BCFTOOLS_ANNOTATE(
 			BCFTOOLS_ANNOTATE_DBSNP.out.vcf
-        	)
+        )
 
 	emit:
 	versions 	= ch_versions
