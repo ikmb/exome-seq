@@ -14,9 +14,9 @@ process GATK_VARIANTFILTRATION {
 	script:
 	vcf_filtered = vcf.getBaseName() + "-filtered.vcf.gz"
 	vcf_filtered_tbi = vcf_filtered +".tbi"
-    def options = ""
-    options = "--filterExpression \"${params.gatk_hard_filter}\" --filterName HardFilter"
-    
+	def options = ""
+	options = "--filter-expression \"${params.gatk_hard_filter}\" --filter-name HardFilter"
+
     """
     gatk --java-options "-Xmx3g -Xms3g" VariantFiltration \
         -V $vcf \

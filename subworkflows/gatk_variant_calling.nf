@@ -3,7 +3,7 @@ include { GATK_COMBINEGVCFS } from './../modules/gatk/combinegvcfs'
 include { GATK_GENOTYPEGVCFS } from './../modules/gatk/genotypegvcfs'
 include { GATK_GENOMICSDBIMPORT } from './../modules/gatk/genomicsdbimport'
 include { GATK_MAKESITESONLYVCF } from './../modules/gatk/sitesonly'
-include { GATK_VARIANTFILTRATION } from './../modules/gatk/variantfiltration'
+include { GATK_VARIANTFILTRATION ; GATK_VARIANTFILTRATION as GATK_AMPLICON_FILTER } from './../modules/gatk/variantfiltration'
 include { GATK_VARIANTRECALIBRATOR as GATK_INDEL_RECALIBRATOR; GATK_VARIANTRECALIBRATOR as GATK_SNP_RECALIBRATOR } from './../modules/gatk/variantrecalibrator'
 include { GATK_APPLYVQSR as GATK_INDEL_VQSR; GATK_APPLYVQSR as GATK_SNP_VQSR } from './../modules/gatk/applyvqsr'
 include { GATK_CNNSCOREVARIANTS } from './../modules/gatk/cnnscorevariants'
@@ -86,10 +86,8 @@ workflow GATK_VARIANT_CALLING {
 		
 		if (params.amplicon_bed) {
 
-			GATK_VARIANTFILTRATION(
-				ch_multi_vcf_filtered
-			)
-
+                        ch_vcf_multi = ch_multi_vcf_filtered
+                        
 		} else {
 
 		    // Produce a sites-only vcf to speed up variant recalibration
