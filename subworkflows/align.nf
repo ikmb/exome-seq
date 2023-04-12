@@ -6,6 +6,7 @@ include { SAMTOOLS_MERGE as MERGE_MULTI_LANE } from "./../modules/samtools/merge
 include { SAMTOOLS_INDEX as BAM_INDEX; SAMTOOLS_INDEX as BAM_INDEX_FILTERED } from "./../modules/samtools/index"
 include { SAMTOOLS_MARKDUP as DEDUP } from "./../modules/samtools/markdup"
 include { SAMTOOLS_AMPLICONCLIP as AMPLICON_CLIP } from "./../modules/samtools/ampliconclip"
+include { BAM_MD5 } from "./../modules/bam_md5"
 
 ch_align_log = Channel.from([])
 ch_versions = Channel.from([])
@@ -57,11 +58,11 @@ workflow TRIM_AND_ALIGN {
 
 		} else if (params.aligner == "bwa2") {
 			BWA2_MEM(
-                                TRIM.out.reads,
-                                genome_index
-                        )
-                        ch_aligned_bams = ch_aligned_bams.mix(BWA2_MEM.out.bam)
-                        ch_sample_names = BWA2_MEM.out.sample_name
+                TRIM.out.reads,
+                genome_index
+            )
+            ch_aligned_bams = ch_aligned_bams.mix(BWA2_MEM.out.bam)
+            ch_sample_names = BWA2_MEM.out.sample_name
 
 			ch_versions = ch_versions.mix(BWA2_MEM.out.versions)
 		}
@@ -88,22 +89,33 @@ workflow TRIM_AND_ALIGN {
 
 		ch_report = Channel.from([])
 		if (params.amplicon_bed) {
+
 			//AMPLICON_CLIP(
 			//	BAM_INDEX.out.bam,
 			//	amplicon_bed.collect()
 			//)
 			//ch_final_bam = AMPLICON_CLIP.out.bam
+			
 			ch_final_bam = BAM_INDEX.out.bam
+
 		} else {
+
 			DEDUP(
 				BAM_INDEX.out.bam,
 				fasta.collect()
 			)
+			
 			ch_final_bam 	= DEDUP.out.bam
 			ch_report 		= ch_report.mix(DEDUP.out.report)
 			ch_versions 	= ch_versions.mix(DEDUP.out.versions)
 		}
 		
+		// This creates the md5 sum AND stages the BAM file into the result folder. 
+		// Else we need some more detailed logic to determine when a BAM file can be staged (amplicon vs other)
+		BAM_MD5(
+			ch_final_bam
+		)
+
 	emit:
 		bam_nodedup 	= BAM_INDEX.out.bam
 		bam 			= ch_final_bam

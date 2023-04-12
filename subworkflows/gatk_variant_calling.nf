@@ -3,7 +3,7 @@ include { GATK_COMBINEGVCFS } from './../modules/gatk/combinegvcfs'
 include { GATK_GENOTYPEGVCFS } from './../modules/gatk/genotypegvcfs'
 include { GATK_GENOMICSDBIMPORT } from './../modules/gatk/genomicsdbimport'
 include { GATK_MAKESITESONLYVCF } from './../modules/gatk/sitesonly'
-include { GATK_VARIANTFILTRATION } from './../modules/gatk/variantfiltration'
+include { GATK_VARIANTFILTRATION ; GATK_VARIANTFILTRATION as GATK_AMPLICON_FILTER } from './../modules/gatk/variantfiltration'
 include { GATK_VARIANTRECALIBRATOR as GATK_INDEL_RECALIBRATOR; GATK_VARIANTRECALIBRATOR as GATK_SNP_RECALIBRATOR } from './../modules/gatk/variantrecalibrator'
 include { GATK_APPLYVQSR as GATK_INDEL_VQSR; GATK_APPLYVQSR as GATK_SNP_VQSR } from './../modules/gatk/applyvqsr'
 include { GATK_CNNSCOREVARIANTS } from './../modules/gatk/cnnscorevariants'
@@ -84,62 +84,69 @@ workflow GATK_VARIANT_CALLING {
 
 		}
 		
-		// Produce a sites-only vcf to speed up variant recalibration
-		GATK_MAKESITESONLYVCF(
-			ch_multi_vcf_filtered
-		)
+		if (params.amplicon_bed) {
 
-		ch_versions = ch_versions.mix(GATK_MAKESITESONLYVCF.out.versions)
+                        ch_vcf_multi = ch_multi_vcf_filtered
+                        
+		} else {
 
-		// Compute indel recalibration
-		GATK_INDEL_RECALIBRATOR(
-			GATK_MAKESITESONLYVCF.out.vcf,
-			"INDEL"
-		)	
-
-		ch_versions = ch_versions.mix(GATK_INDEL_RECALIBRATOR.out.versions)
-
-		// Compute snp recalibration
-		GATK_SNP_RECALIBRATOR(
-			GATK_MAKESITESONLYVCF.out.vcf,
-			"SNP"
-		)
-
-		ch_versions = ch_versions.mix(GATK_SNP_RECALIBRATOR.out.versions)
-
-		// Apply indel recalibration
-		GATK_INDEL_VQSR(
-			ch_multi_vcf_filtered,
-			GATK_INDEL_RECALIBRATOR.out.recal,
-			GATK_INDEL_RECALIBRATOR.out.tranches,
-			"INDEL"
-		)
-
-		ch_versions = ch_versions.mix(GATK_INDEL_VQSR.out.versions)
-
-		// Apply snp recalibration
-		GATK_SNP_VQSR(
-			ch_multi_vcf_filtered,
-			GATK_SNP_RECALIBRATOR.out.recal,
-			GATK_SNP_RECALIBRATOR.out.tranches,
-			"SNP"
-		)
-
-		ch_versions = ch_versions.mix(GATK_SNP_VQSR.out.versions)
-
-		// Merge indel snd snp recalibrated vcfs
-		GATK_MERGEVCFS(
-			GATK_SNP_VQSR.out.vcf.map { m,v,t -> [ m,v ] }.join(
-				GATK_INDEL_VQSR.out.vcf.map { m,v,t -> [ m,v ] }
-			),
-			GATK_SNP_VQSR.out.vcf.map { m,v,t -> [ m,t ] }.join(
-				GATK_INDEL_VQSR.out.vcf.map { m,v,t -> [ m,t ] }
+		    // Produce a sites-only vcf to speed up variant recalibration
+            GATK_MAKESITESONLYVCF(
+                ch_multi_vcf_filtered
 			)
-		)
 
-		ch_versions = ch_versions.mix(GATK_MERGEVCFS.out.versions)
+            ch_versions = ch_versions.mix(GATK_MAKESITESONLYVCF.out.versions)
 
-		ch_vcf_multi = ch_vcf_multi.mix(GATK_MERGEVCFS.out.vcf)
+		    // Compute indel recalibration
+			GATK_INDEL_RECALIBRATOR(
+				GATK_MAKESITESONLYVCF.out.vcf,
+				"INDEL"
+			)	
+			
+			ch_versions = ch_versions.mix(GATK_INDEL_RECALIBRATOR.out.versions)
+
+            // Compute snp recalibration
+			GATK_SNP_RECALIBRATOR(
+				GATK_MAKESITESONLYVCF.out.vcf,
+				"SNP"
+			)
+			
+			ch_versions = ch_versions.mix(GATK_SNP_RECALIBRATOR.out.versions)
+			
+			// Apply indel recalibration
+			GATK_INDEL_VQSR(
+				ch_multi_vcf_filtered,
+				GATK_INDEL_RECALIBRATOR.out.recal,
+				GATK_INDEL_RECALIBRATOR.out.tranches,
+				"INDEL"
+			)
+			
+			ch_versions = ch_versions.mix(GATK_INDEL_VQSR.out.versions)
+			
+			// Apply snp recalibration
+			GATK_SNP_VQSR(
+				ch_multi_vcf_filtered,
+				GATK_SNP_RECALIBRATOR.out.recal,
+				GATK_SNP_RECALIBRATOR.out.tranches,
+				"SNP"
+			)
+			ch_versions = ch_versions.mix(GATK_SNP_VQSR.out.versions)
+			
+			// Merge indel snd snp recalibrated vcfs
+			GATK_MERGEVCFS(
+				GATK_SNP_VQSR.out.vcf.map { m,v,t -> [ m,v ] }.join(
+					GATK_INDEL_VQSR.out.vcf.map { m,v,t -> [ m,v ] }
+				),
+				GATK_SNP_VQSR.out.vcf.map { m,v,t -> [ m,t ] }.join(
+					GATK_INDEL_VQSR.out.vcf.map { m,v,t -> [ m,t ] }
+				)
+			)
+			
+			ch_versions = ch_versions.mix(GATK_MERGEVCFS.out.versions)
+			
+			ch_vcf_multi = ch_vcf_multi.mix(GATK_MERGEVCFS.out.vcf)
+
+		}
 	
 	} else {
 
