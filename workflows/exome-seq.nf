@@ -150,6 +150,13 @@ if ('expansionhunter' in tools) {
 if ('strelka' in tools && 'manta' !in tools) {
 	log.info "Requested Strelka but not Manta - will not run Strelka on tumor/normal pairs!"
 }
+
+if ('mutect2' in tools && params.mutect_normals) {
+    ch_mutect_pon = Channel.from( [ file(params.mutect_normals, checkIfExists: true), file(params.mutect_normals + ".tbi", checkIfExists: true) ])
+} else {
+    ch_mutect_pon = Channel.from([])
+}
+
 // ************************************
 // Read sample file
 // ************************************

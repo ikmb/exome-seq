@@ -17,7 +17,7 @@ workflow GATK_MUTECT2_PAIRED {
 		targets
 		fasta
 		dbsnp
-	
+
 	main:
 
 		ch_bam_normal = bams.map { m,nb,ni,tb,ti -> 

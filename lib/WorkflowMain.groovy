@@ -16,6 +16,7 @@ class WorkflowMain {
             log.info help(workflow, params, log)
             System.exit(0)
         }
+
     }
 
     public static String help(workflow, params, log) {
