@@ -2,7 +2,7 @@ process BWA_MEM {
 
     tag "${meta.patient_id}|${meta.sample_id}"
 
-	//scratch true	
+    label 'medium_parallel'
 
     input:
     tuple val(meta), path(left),path(right)

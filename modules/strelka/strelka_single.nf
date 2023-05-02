@@ -2,6 +2,8 @@ process STRELKA_SINGLE_SAMPLE {
 
     tag "${meta.patient_id}|${meta.sample_id}"
 
+    label 'long_parallel'
+
     publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/STRELKA", mode: 'copy'
 
     container 'quay.io/biocontainers/strelka:2.9.10--h9ee0642_1'

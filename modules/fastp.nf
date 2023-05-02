@@ -2,6 +2,8 @@ process FASTP {
 
     container 'quay.io/biocontainers/fastp:0.23.2--h79da9fb_0'
 
+    label 'medium_parallel'
+
     tag "${meta.patient_id}|${meta.sample_id}"
 
     input:

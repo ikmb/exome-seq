@@ -1,5 +1,7 @@
 process HAPLOSAURUS {
 
+    label 'medium_parallel'
+
     container 'quay.io/biocontainers/ensembl-vep:109.3--pl5321h4a94de4_0'
 
     tag "${meta.patient_id}|${meta.sample_id}"

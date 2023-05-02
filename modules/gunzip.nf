@@ -3,10 +3,10 @@ process GUNZIP {
     tag "${gz}"
 
     input:
-    path(gz)
+    tuple val(meta),path(gz)
 
     output:
-    path(ungz), emit: decompressed
+    tuple val(meta),path(ungz), emit: decompressed
 
     script:
     ungz = gz.getBaseName()

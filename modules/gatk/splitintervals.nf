@@ -1,18 +1,20 @@
 process GATK_SPLITINTERVALS {
 
-	tag "${intervals}"
+    tag "${intervals}"
 
-	label 'gatk'
+    container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
 
-	input:
-	path(intervals)
-	tuple path(fasta),path(fai),path(dict)
+    label 'short_serial'
 
-	output:
-	path("results/*"), emit: intervals
-	path("versions.yml"), emit: versions
+    input:
+    path(intervals)
+    tuple path(fasta),path(fai),path(dict)
 
-	script:
+    output:
+    path("results/*"), emit: intervals
+    path("versions.yml"), emit: versions
+
+    script:
 
     """
     gatk SplitIntervals -R ${fasta} -L $intervals \

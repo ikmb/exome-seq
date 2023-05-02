@@ -10,7 +10,7 @@ process CNVKIT_BATCH {
 
     input:
     tuple val(meta),path(bam),path(bai)
-    path(cnn)
+    tuple val(meta_c),path(cnn)
     tuple path(fasta),path(fai),path(dict)
 
     output:

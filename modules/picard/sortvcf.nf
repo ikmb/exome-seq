@@ -2,6 +2,8 @@ process PICARD_SORTVCF {
 
     label 'picard'
 
+    label 'short_serial'
+
     input:
     tuple val(meta),path(vcf),path(tbi)
 

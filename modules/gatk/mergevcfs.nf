@@ -4,7 +4,9 @@ process GATK_MERGEVCFS {
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/VQSR", mode: 'copy'	
 
-	label 'gatk'
+        container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
+
+        label 'medium_serial'
 
 	input:
 	tuple val(meta),path(vcf_snp),path(vcf_indel)

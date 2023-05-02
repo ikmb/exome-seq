@@ -2,7 +2,9 @@ process GATK_BASERECALIBRATOR {
 
 	tag "${meta.patient_id}|${meta.sample_id}"
 
-	label 'gatk'
+	container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
+
+        label 'medium_serial'
 
 	input:
 	tuple val(meta),path(bam),path(bai),path(intervals)

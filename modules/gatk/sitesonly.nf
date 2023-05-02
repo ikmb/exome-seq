@@ -1,17 +1,20 @@
 process GATK_MAKESITESONLYVCF {
 
-	label 'gatk'
+    container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
 
-	input:
-	tuple val(meta),path(vcf_file),path(tbi)
+    label 'short_serial'
 
-	output:
-	tuple val(meta),path(vcf_sites_only),path(vcf_sites_only_tbi), emit: vcf
-	path("versions.yml"), emit: versions
+    input:
+    tuple val(meta),path(vcf_file),path(tbi)
 
-	script:
-	vcf_sites_only = vcf_file.getSimpleName() + "-sites_only.vcf.gz"
-	vcf_sites_only_tbi = vcf_sites_only + ".tbi"
+    output:
+    tuple val(meta),path(vcf_sites_only),path(vcf_sites_only_tbi), emit: vcf
+    path("versions.yml"), emit: versions
+
+    script:
+    vcf_sites_only = vcf_file.getSimpleName() + "-sites_only.vcf.gz"
+    vcf_sites_only_tbi = vcf_sites_only + ".tbi"
+
 
     """
     gatk MakeSitesOnlyVcf -I $vcf_file -O $vcf_sites_only

@@ -1,5 +1,7 @@
 process SAMTOOLS_MERGE {
 
+    label 'medium_parallel'
+
     container 'quay.io/biocontainers/samtools:1.16.1--h6899075_1'
 
     tag "${meta.patient_id}|${meta.sample_id}"

@@ -2,6 +2,8 @@ process INTERVAL_TO_BED {
 
     tag "${intervals}"
 
+    label 'short_serial'
+
     executor 'local'
 
     container 'quay.io/biocontainers/picard:2.20.4--1'

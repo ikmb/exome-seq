@@ -47,17 +47,23 @@ if (params.amplicon_bed) {
 
 def multiqc_report = Channel.from([])
 
-include { EXOME_SEQ } from "./workflows/exome-seq.nf" params(params)
+include { BUILD_REFERENCES } from "./workflows/build_references"
+if (!params.build_references) {
+    include { EXOME_SEQ } from "./workflows/exome-seq.nf"
+}
 
 log.info "IKMB Exome-seq Pipeline - ${workflow.manifest.version}"
 log.info "--------------------------------"
 log.info "Best practice variant calling"
-log.info ""
 
 workflow {
 
-	EXOME_SEQ()
-	multiqc_report = multiqc_report.mix(EXOME_SEQ.out.qc).toList()
+    if (params.build_references) {
+        BUILD_REFERENCES()
+    } else {
+        EXOME_SEQ()
+        multiqc_report = multiqc_report.mix(EXOME_SEQ.out.qc).toList()
+    }
 
 }
 
@@ -67,7 +73,7 @@ workflow.onComplete {
         log.info "Duration:		$workflow.duration"
         log.info "========================================="
 
-def email_fields = [:]
+        def email_fields = [:]
         email_fields['version'] = workflow.manifest.version
         email_fields['session'] = workflow.sessionId
         email_fields['runName'] = run_name

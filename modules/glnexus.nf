@@ -2,6 +2,8 @@ process GLNEXUS {
 
     container 'quay.io/mlin/glnexus:v1.3.1'
 
+    label 'medium_serial'
+
     publishDir "${params.outdir}/MERGED_CALLSET/GLNEXUS_DEEPVARIANT", mode: 'copy'
 
     input:

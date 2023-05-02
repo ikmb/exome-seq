@@ -28,39 +28,50 @@ profiles {
 
 ```
 
-This would add a new profile, called `your_profile` which uses (and expects) conda to provide all software. 
+This would add a new profile, called `your_profile` which uses (and expects) singularity to provide all software. 
 
 `base.config` Basic settings about resource usage for the individual pipeline stages. 
 
 `resources.config` Gives information about the files that are to be used during analysis for the individual human genome assemblies. 
 
-`your_cluster.config` Specifies which sort of resource manager to use and where to find the GATK resource bundle on your cluster file system (see below).
+`your_cluster.config` Specifies which sort of resource manager to use and where to find the resource bundle on your cluster file system (see below).
 
 ## Reference genome and other resources
 
-The pipeline currently expects a number of files to exist on your system; we will consider including some functionality to build these on the flye if there is interest. Otherwise, the following applies:
+The pipeline can build all relevant resources for this pipeline automatically - for up to four reference assembly versions. 
 
-1) all references are located under one common path on your shared file system, indicated by the variable `params.gatk_bundle_path` (this is a left-over from when we still used GATK). 
+To do this, run:
 
-2) Under the common path, each assembly has one folder, being one or more of:
+```
+nextflow run ikmb/exome-seq -c my.config --build_references --assembly GRCh38_no_alt --outdir /path/to/outdir
+```
 
-* hg19
-* b37
-* hg38
-* hg38_no_alt
+Note that `--outdir`specifies the root directory in which the reference files will be stored. You can provide this path to the main pipeline as `--genomes_base` or set this variable in your site specific config file. The pipeline should now be able to run with these pre-built references without requiring further downloads. 
 
-Each folder will contain a genome assembly in fasta format (check resources.config for details) and a list of dbSNP variants in VCF format. One way to get these two things is the GATK resource bundle - but note that `hg38_no_alt` is 
-a custom creation, so is not included with the GATK bundle. To recreate it, simply download the ALT free GRCh38 assembly from NCBI and index it as described below. You can take the dbSNP file for hg38 from GATK, but need to re-header it with the sequence dictionary of your custom hg38 without ALT assembly.
+Allowed reference assemblies are:
 
-For DeepVariant to work, the assembly has to be indexed in multiple ways:
+* GRCh38 (patch 1, with decoys and masked PAR regions - see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/) )
+* GRCh38_no_alt (patch 1, no ALT contigs, with decoys and masked PAR regions - see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/) )
+* GRCh38_p14 (patch 14 without further modifications, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
+* GRCh38_no_alt_p14 (patch 14 without further modifications, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
 
-fasta.fai `samtools faidx genome.fasta`
-fasta.gz `bgzip -c -i genome.fasta`
-fasta.gz.gzi
-fasta.gz.fai `samtools faidx genome.fasta.gz`
+If you plan on using effect prediction via VEP, you will also need to install the cache and plugins:
 
-Finally, the assembly-specific folder will contain a sub-folder called bwa2, containing (again) the (sym-linked) genome sequence and all the bwa2 relevant indices (created with `bwa index genome.fasta`).
+```
+nextflow run ikmb/exome-seq -c my.config --build_references --assembly GRCh38_no_alt --outdir /path/to/outdir --tools vep
+```
 
-Granted, the config is a bit clunky since it is more or less hard-coded for our systems, requiring you to make a number of custom adjustments on your end. If there is interest, we will consider making this a bit more flexible. 
+You only have to do this for one of the assemblies, as the VEP cache is the same for all possible assembly versions. 
+
+### VEP reference files
+
+Apart from the cache and plugin directory, VEP accepts additional reference files that can be used to annotate variants. These can be set in your local config file, although we cannot provide information on how to create them. Some information is available from the EnsEMBL VEP [plugin](https://github.com/Ensembl/VEP_plugins) code. 
+
+- `dbnsfp_db`
+- `spliceai_fields`
+- `dbscsnv_db`
+- `cadd_snps`
+- `cadd_indels`
+- `vep_mastermind`
 
 
