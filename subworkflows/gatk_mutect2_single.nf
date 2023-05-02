@@ -17,13 +17,17 @@ workflow GATK_MUTECT2_SINGLE {
 		targets
 		fasta
 		dbsnp
+		mutect_normals
+		mutect_normals_tbi
 	
 	main:
 
 		GATK_MUTECT2(
 			bam,
 			targets.collect(),
-			fasta.collect()
+			fasta.collect(),
+			mutect_normals.collect(),
+			mutect_normals_tbi.collect()
 		)
 
 		ch_versions = ch_versions.mix(GATK_MUTECT2.out.versions)

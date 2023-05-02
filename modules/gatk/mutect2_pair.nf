@@ -12,6 +12,8 @@ process GATK_MUTECT2_PAIR {
 	tuple val(meta),path(normal_bam),path(normal_bai),path(tumor_bam),path(tumor_bai)
 	path(intervals)
 	tuple path(fasta),path(fai),path(dict)
+	path(mutect_normals)
+	path(mutect_normals_tbi)
 
 	output:
 	tuple val(meta),path(vcf),path(tbi),path(stats), emit: vcf
@@ -25,8 +27,8 @@ process GATK_MUTECT2_PAIR {
 	f1r2 =  meta.sample_id + "-f1r2.tar.gz"
 
 	def options = ""
-	if (params.mutect_normals) {
-		options += " --panel-of-normals ${params.mutect_normals}"
+	if (mutect_normals) {
+		options += " --panel-of-normals ${mutect_normals}"
 	}
 	if (params.gnomad_af_vcf) {
 		options += " --germline-resource ${params.gnomad_af_vcf}"

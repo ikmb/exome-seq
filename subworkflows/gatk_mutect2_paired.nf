@@ -17,6 +17,8 @@ workflow GATK_MUTECT2_PAIRED {
 		targets
 		fasta
 		dbsnp
+		mutect_normals
+		mutect_normals_tbi
 
 	main:
 
@@ -30,7 +32,9 @@ workflow GATK_MUTECT2_PAIRED {
 		GATK_MUTECT2_PAIR(
 			bams,
 			targets.collect(),
-			fasta.collect()
+			fasta.collect(),
+			mutect_normals.collect(),
+			mutect_normals_tbi.collect()
 		)
 
 		ch_versions = ch_versions.mix(GATK_MUTECT2_PAIR.out.versions)

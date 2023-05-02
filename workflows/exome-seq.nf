@@ -153,14 +153,18 @@ if ('strelka' in tools && 'manta' !in tools) {
 if ('mutect2' in tools) {
 
     if (params.mutect_normals) {
-        ch_mutect_pon = Channel.from( [ file(params.mutect_normals, checkIfExists: true), file(params.mutect_normals + ".tbi", checkIfExists: true) ])
+        ch_mutect_pon = Channel.fromPath(file(params.mutect_normals), checkIfExists: true)
+        ch_mutect_pon_tbi = Channel.fromPath(file(params.mutect_normals + ".tbi"), checkIfExists: true)
     } else if (params.genomes[params.assembly].kits[params.kit] && params.genomes[params.assembly].kits[params.kit].mutect_pon) {
-        ch_mutect_pon = Channel.from( [ file(params.genomes[params.assembly].kits[params.kit].mutect_pon, checkIfExists: true), file(params.genomes[params.assembly].kits[params.kit].mutect_pon + ".tbi", checkIfExists: true) ])
+        ch_mutect_pon = Channel.fromPath(file(params.genomes[params.assembly].kits[params.kit].mutect_pon), checkIfExists: true)
+        ch_mutect_pon_tbi = Channel.fromPath(file(params.genomes[params.assembly].kits[params.kit].mutect_pon + ".tbi"), checkIfExists: true)
     } else {
-        ch_mutect_pon = Channel.from([])
+        ch_mutect_pon = Channel.empty()
+        ch_mutect_pon_tbi = Channel.empty()
     }
 } else {
-    ch_mutect_pon = Channel.from([])
+    ch_mutect_pon = Channel.empty()
+	ch_mutect_pon_tbi = Channel.empty()
 }
 
 // ************************************
@@ -304,9 +308,9 @@ workflow EXOME_SEQ {
 				ch_known_indels,
 				ch_known_indels_tbi	
 			)
-			gatk_vcf 	= GATK_VARIANT_CALLING.out.vcf
+			gatk_vcf 		= GATK_VARIANT_CALLING.out.vcf
 			gatk_merged_vcf = GATK_VARIANT_CALLING.out.vcf_multi
-			ch_vcfs 	= ch_vcfs.mix(GATK_VARIANT_CALLING.out.vcf_multi)
+			ch_vcfs 		= ch_vcfs.mix(GATK_VARIANT_CALLING.out.vcf_multi)
 			ch_versions 	= ch_versions.mix(GATK_VARIANT_CALLING.out.versions)
 			
 		} else {
@@ -324,7 +328,7 @@ workflow EXOME_SEQ {
 			
 			// Fetch tumor and normal samples and group by patient ID into channel for paired calling (if any)
 			ch_recal_bam_normal 		= ch_recal_bam_status.normal
-			ch_recal_bam_tumor		= ch_recal_bam_status.tumor
+			ch_recal_bam_tumor			= ch_recal_bam_status.tumor
 
 			ch_recal_bam_normal_cross 	= ch_recal_bam_normal.map {m,b,i -> [ m.patient_id, m, b,i]}
 			ch_recal_bam_tumor_cross 	= ch_recal_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
@@ -348,7 +352,9 @@ workflow EXOME_SEQ {
 				ch_recal_bam_calling_pair,
 				targets,
 				ch_fasta,
-				ch_dbsnp_combined
+				ch_dbsnp_combined,
+				ch_mutect_pon,
+				ch_mutect_pon_tbi
 			)
 
 			ch_vcfs 	= ch_vcfs.mix(GATK_MUTECT2_PAIRED.out.vcf)
@@ -359,10 +365,12 @@ workflow EXOME_SEQ {
 				ch_recal_bam_tumor_only,
 				targets,
 				ch_fasta,
-				ch_dbsnp_combined
+				ch_dbsnp_combined,
+				ch_mutect_pon,
+				ch_mutect_pon_tbi
 			)
 
-			ch_vcfs 	= ch_vcfs.mix(GATK_MUTECT2_SINGLE.out.vcf)
+			ch_vcfs 		= ch_vcfs.mix(GATK_MUTECT2_SINGLE.out.vcf)
 			ch_versions 	= ch_versions.mix(GATK_MUTECT2_SINGLE.out.versions)
 		}
 
@@ -487,7 +495,7 @@ workflow EXOME_SEQ {
 				)
 				strelka_vcf 		= STRELKA_SINGLE_CALLING.out.vcf
 				strelka_merged_vcf 	= STRELKA_SINGLE_CALLING.out.vcf_multi
-				ch_vcfs 		= ch_vcfs.mix(strelka_vcf,strelka_merged_vcf)
+				ch_vcfs 			= ch_vcfs.mix(strelka_vcf,strelka_merged_vcf)
 				ch_versions 		= ch_versions.mix(STRELKA_SINGLE_CALLING.out.versions)
 			}
 		} else {
