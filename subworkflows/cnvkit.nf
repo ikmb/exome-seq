@@ -13,7 +13,11 @@ workflow CNVKIT {
 
 	main:
 		
-		GUNZIP(cnn_gz)
+		GUNZIP(
+                    Channel.fromPath(cnn_gz).map { f -> 
+                        tuple([ id: f.getBaseName() ], f)
+                    }
+		)
 
 		CNVKIT_BATCH(
 			bam,

@@ -2,6 +2,8 @@ process SAMTOOLS_MARKDUP {
 
     container 'quay.io/biocontainers/samtools:1.16.1--h6899075_1'	
 
+    label 'medium_parallel'
+
     tag "${meta.patient_id}|${meta.sample_id}"
 
     //publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/", mode: 'copy'

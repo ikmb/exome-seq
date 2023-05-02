@@ -11,7 +11,7 @@ process BGZIP_INDEX {
     path("versions.yml"), emit: versions
 
     script:
-    bed_gz = bed.getBaseName() + ".bed.gz"
+    bed_gz = bed.getName() + ".gz"
     bed_gz_tbi = bed_gz + ".tbi"
 
     """

@@ -4,6 +4,8 @@ process GATK_COMBINEGVCFS {
 	
 	container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
 
+        label 'medium_serial'
+
 	input:
 	path(gvcfs)
 	path(tbis)

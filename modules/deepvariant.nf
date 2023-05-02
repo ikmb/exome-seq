@@ -2,6 +2,8 @@ process DEEPVARIANT {
 
     tag "${meta.patient_id}|${meta.sample_id}"
 
+    label 'long_parallel'
+
     container 'google/deepvariant:1.5.0'
 
     publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/DEEPVARIANT", mode: 'copy'
@@ -9,7 +11,7 @@ process DEEPVARIANT {
     input:
     tuple val(meta), path(bam),path(bai)
     path(bed)
-    tuple path(fai),path(fastagz),path(gzfai),path(gzi)
+    tuple path(fasta),path(fai),path(dict)
 
     output:
     path(dv_gvcf), emit: gvcf
@@ -24,7 +26,7 @@ process DEEPVARIANT {
     """
     /opt/deepvariant/bin/run_deepvariant \
         --model_type=WES \
-        --ref=$fastagz \
+        --ref=$fasta \
         --reads $bam \
         --output_vcf=$dv_vcf \
         --output_gvcf=$dv_gvcf \

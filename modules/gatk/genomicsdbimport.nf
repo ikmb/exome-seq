@@ -2,7 +2,9 @@ process GATK_GENOMICSDBIMPORT {
 
 	tag "ALL"
 	
-	label 'gatk'
+        container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
+
+        label 'long_serial'
 
 	input:
 	path(gvcfs)

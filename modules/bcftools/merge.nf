@@ -2,7 +2,7 @@ process BCFTOOLS_MERGE {
 
     container 'quay.io/biocontainers/bcftools:1.14--hde04aa1_1'
 
-    publishDir "${params.outdir}/MergedCallset/Bcftools", mode: 'copy'
+    publishDir "${params.outdir}/MERGED_CALLSET/BCFTOOLS", mode: 'copy'
 
     input:
     tuple val(meta),path(vcfs),path(tbis)

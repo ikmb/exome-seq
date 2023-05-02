@@ -2,7 +2,9 @@ process GATK_SELECTVARIANTS {
 
     tag "${meta.patient_id}|${meta.sample_id}"
 
-    label 'gatk'
+    container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
+
+    label 'short_serial'
 
     input:
     tuple val(m_f),path(vcf),path(vcf_index)

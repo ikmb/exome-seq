@@ -25,6 +25,9 @@ class WorkflowExomes {
             log.info "No analysis tools specified, performing only alignments and QC!"
         }
 
+        if (params.build_references) {
+            log.info "Building references...!"
+        }
 
     }
 

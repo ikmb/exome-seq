@@ -52,8 +52,6 @@ ch_gtf = Channel.fromPath(params.csq_gtf)
 // *************************************
 ch_fasta = Channel.fromList( [ file(params.fasta , checkIfExists: true), file(params.fasta_fai, checkIfExits: true), file(params.dict, checkIfExists: true) ] )
 
-deepvariant_ref = Channel.from( [ params.fasta_fai,params.fasta_gz,params.fasta_gzfai,params.fasta_gzi ] )
-
 // ************************************
 // Mapping tool and corresponding index
 // ************************************
@@ -67,12 +65,10 @@ if (!params.aligners_allowed.contains(params.aligner)) {
 // ************************************
 if (params.aligner == "dragmap") {
 	genome_index = params.dragmap_index
+} else if (params.aligner == "bwa2") {
+        genome_index = params.bwa2_index
 } else {
-	if (params.aligner == "bwa2") {
-		genome_index = params.bwa2_index
-	} else {
-		genome_index = params.fasta
-	}
+	genome_index = params.bwa_index
 }
 
 // ************************************
@@ -151,8 +147,18 @@ if ('strelka' in tools && 'manta' !in tools) {
 	log.info "Requested Strelka but not Manta - will not run Strelka on tumor/normal pairs!"
 }
 
-if ('mutect2' in tools && params.mutect_normals) {
-    ch_mutect_pon = Channel.from( [ file(params.mutect_normals, checkIfExists: true), file(params.mutect_normals + ".tbi", checkIfExists: true) ])
+// **********************************
+// Mutect2 panel of normals, if any
+// **********************************
+if ('mutect2' in tools) {
+
+    if (params.mutect_normals) {
+        ch_mutect_pon = Channel.from( [ file(params.mutect_normals, checkIfExists: true), file(params.mutect_normals + ".tbi", checkIfExists: true) ])
+    } else if (params.genomes[params.assembly].kits[params.kit] && params.genomes[params.assembly].kits[params.kit].mutect_pon) {
+        ch_mutect_pon = Channel.from( [ file(params.genomes[params.assembly].kits[params.kit].mutect_pon, checkIfExists: true), file(params.genomes[params.assembly].kits[params.kit].mutect_pon + ".tbi", checkIfExists: true) ])
+    } else {
+        ch_mutect_pon = Channel.from([])
+    }
 } else {
     ch_mutect_pon = Channel.from([])
 }
@@ -195,7 +201,7 @@ include { MANTA_TUMOR } from "./../modules/manta/tumor"
 include { MANTA_PAIRED } from "./../modules/manta/paired"
 include { PICARD_METRICS } from "./../subworkflows/picard"
 include { EXPANSIONS } from "./../subworkflows/expansionhunter"
-include { VEP } from "./../modules/vep"
+include { VEP_VEP as VEP } from "./../modules/vep/vep"
 include { HAPLOSAURUS } from "./../modules/haplosaurus"
 include { MULTIQC as  multiqc_fastq ; MULTIQC as multiqc_library ; MULTIQC as multiqc_sample } from "./../modules/multiqc/main"
 include { BCFTOOLS_MERGE as MERGE_VCF } from "./../modules/bcftools/merge"
@@ -233,7 +239,7 @@ workflow EXOME_SEQ {
 			genome_index,
 			ch_fasta
 		)
-		ch_bam 			= TRIM_AND_ALIGN.out.bam
+		ch_bam			= TRIM_AND_ALIGN.out.bam
 		ch_bam_nodedup 	= TRIM_AND_ALIGN.out.bam_nodedup
 		trim_report 	= TRIM_AND_ALIGN.out.qc
 		dedup_report 	= TRIM_AND_ALIGN.out.dedup_report
@@ -254,7 +260,6 @@ workflow EXOME_SEQ {
 			DV_VARIANT_CALLING(
 				ch_bam,
 				padded_bed,
-				deepvariant_ref,
 				ch_fasta,
 				ch_dbsnp_combined
 			)
@@ -319,7 +324,7 @@ workflow EXOME_SEQ {
 			
 			// Fetch tumor and normal samples and group by patient ID into channel for paired calling (if any)
 			ch_recal_bam_normal 		= ch_recal_bam_status.normal
-			ch_recal_bam_tumor 			= ch_recal_bam_status.tumor
+			ch_recal_bam_tumor		= ch_recal_bam_status.tumor
 
 			ch_recal_bam_normal_cross 	= ch_recal_bam_normal.map {m,b,i -> [ m.patient_id, m, b,i]}
 			ch_recal_bam_tumor_cross 	= ch_recal_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
@@ -425,7 +430,6 @@ workflow EXOME_SEQ {
             ch_versions = ch_versions.mix(MANTA_TUMOR.out.versions)
             ch_manta_vcfs = ch_manta_vcfs.mix(MANTA_TUMOR.out.tumor_sv)
 
-
 		} else {
 			ch_manta_vcfs = Channel.empty()
 		}
@@ -482,8 +486,8 @@ workflow EXOME_SEQ {
 					ch_dbsnp_combined
 				)
 				strelka_vcf 		= STRELKA_SINGLE_CALLING.out.vcf
-				strelka_merged_vcf = STRELKA_SINGLE_CALLING.out.vcf_multi
-				ch_vcfs 			= ch_vcfs.mix(strelka_vcf,strelka_merged_vcf)
+				strelka_merged_vcf 	= STRELKA_SINGLE_CALLING.out.vcf_multi
+				ch_vcfs 		= ch_vcfs.mix(strelka_vcf,strelka_merged_vcf)
 				ch_versions 		= ch_versions.mix(STRELKA_SINGLE_CALLING.out.versions)
 			}
 		} else {

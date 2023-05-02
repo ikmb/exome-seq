@@ -2,6 +2,8 @@ process HYBRID_CAPTURE_METRICS {
 
     tag "${meta.patient_id}|${meta.sample_id}"
 
+    label 'medium_serial'
+
     container 'quay.io/biocontainers/picard:3.0.0--hdfd78af_1'
 
     publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Processing/Picard_Metrics", mode: 'copy'

@@ -19,7 +19,6 @@ workflow DV_VARIANT_CALLING {
 	take:
 		bam
 		bed
-		deepvariant_index
 		fasta		
 		dbsnp
 
@@ -28,7 +27,7 @@ workflow DV_VARIANT_CALLING {
 		DEEPVARIANT(
 			bam,
 			bed.collect(),
-			deepvariant_index.collect()
+			fasta.collect()
 		)
 
 		ch_versions = ch_versions.mix(DEEPVARIANT.out.versions)

@@ -1,23 +1,26 @@
 process WHATSHAP {
 
-	container 'quay.io/biocontainers/whatshap:1.1--py36hae55d0a_1'
+    container 'quay.io/biocontainers/whatshap:1.1--py36hae55d0a_1'
 
-	tag "${meta.patient_id}|${meta.sample_id}"
+    label 'medium_serial'
+
+    tag "${meta.patient_id}|${meta.sample_id}"
 		
-	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/${meta.variantcaller}", mode: 'copy'
+    publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/${meta.variantcaller}", mode: 'copy'
 
-	input:
-	tuple val(meta),path(vcf),path(tbi)
-	path(bams)
-	tuple path(fasta),path(fai),path(dict)
+    input:
+    tuple val(meta),path(vcf),path(tbi)
+    path(bams)
+    tuple path(fasta),path(fai),path(dict)
 
-	output:
-	tuple val(meta),path(phased_vcf),path(phased_tbi), emit: vcf
-	path("versions.yml"), emit: versions
+    output:
+    tuple val(meta),path(phased_vcf),path(phased_tbi), emit: vcf
+    path("versions.yml"), emit: versions
 
-	script:
-	phased_vcf = vcf.getSimpleName() + "-phased.vcf.gz"
-	phased_tbi = phased_vcf + ".tbi"
+    script:
+    phased_vcf = vcf.getSimpleName() + "-phased.vcf.gz"
+    phased_tbi = phased_vcf + ".tbi"
+
 
     """
     whatshap phase -o $phased_vcf --tag=PS --reference $fasta $vcf *.*am
@@ -33,9 +36,11 @@ process WHATSHAP {
 
 process WHATSHAP_SINGLE {
 
-	tag "${meta.patient_id}|${meta.sample_id}"
+    tag "${meta.patient_id}|${meta.sample_id}"
 
-	container 'quay.io/biocontainers/whatshap:1.1--py36hae55d0a_1'
+    label 'medium_serial'
+
+    container 'quay.io/biocontainers/whatshap:1.1--py36hae55d0a_1'
 
     publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/${meta.variantcaller}", mode: 'copy'
 
@@ -45,7 +50,7 @@ process WHATSHAP_SINGLE {
 
     output:
     tuple val(meta),path(phased_vcf),path(phased_tbi), emit: vcf
-	path("versions.yml"), emit: versions
+    path("versions.yml"), emit: versions
 
     script:
     phased_vcf = vcf.getSimpleName() + "-phased.vcf.gz"

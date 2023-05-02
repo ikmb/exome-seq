@@ -4,7 +4,6 @@ process GATK_CNNSCOREVARIANTS {
 	
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/GATK", mode: 'copy'
 
-	//label 'gatk'
 	container = "broadinstitute/gatk:4.2.6.1"
 	
 	label 'medium_serial'

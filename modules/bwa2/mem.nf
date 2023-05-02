@@ -3,7 +3,8 @@ process BWA2_MEM {
 	tag "${meta.patient_id}|${meta.sample_id}"
 
 	container 'quay.io/biocontainers/mulled-v2-e5d375990341c5aef3c9aff74f96f66f65375ef6:2cdf6bf1e92acbeb9b2834b1c58754167173a410-0'
-	//scratch true	
+
+    label 'medium_parallel'
 
 	input:
 	tuple val(meta), path(left),path(right)

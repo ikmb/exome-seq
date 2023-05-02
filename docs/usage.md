@@ -27,7 +27,7 @@ The structure looks as follows:
 ```
 patient;sample;status;library;readgroup;platform_unit;center;date;R1;R2
 ```
-where status refers to the tumor status (0 = normal, 1 = tumor). The pipeline will automatically determine if somatic calling an be performed with or without a matched normal based on the sample IDs and the tools that were requested. 
+where status refers to the tumor status (0 = normal, 1 = tumor). The pipeline will automatically determine if somatic calling an be performed with or without a matched normal based on the sample and patient IDs and the tools that were requested. 
 
 For convenience, we have included a simple script (bin/samplesheet_from_folder.rb) which accepts the path to a folder fill of PE exome data and automatically
 writes a basic sample sheet. Obviously, it cannot derive meaningful sample and patient IDs from such information; this you would have to edit manually, if
@@ -40,8 +40,12 @@ ruby bin/samplesheet_from_folder.rb -f /path/to/foler > Samplesheet.csv`
 ### `--assembly` 
 The following human genome assembly versions are supported on MedCluster (see resources.config on how this is set):
 
-- GRCh38 (the GRCh38 human reference assembly without ALT loci)
-- GRCh38_p14 (the latest GRCh38 human reference assembly without ALT loci [patch 14])
+* GRCh38 (patch 1, with decoys and masked PAR regions - see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/) )
+* GRCh38_no_alt (patch 1, no ALT contigs, with decoys and masked PAR regions - see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/) )
+* GRCh38_p14 (patch 14 without further modifications, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
+* GRCh38_no_alt_p14 (patch 14 without ALT contigs, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
+
+The choice is with the user, although we recommend a non-ALT version because downstream variant callers and effect prediction tools are not able to deal with ALT-located variants in a meaningful way. 
 
 ### `--aligner` [default = "bwa2"]
 The following alignment algorithms are supported
@@ -49,6 +53,8 @@ The following alignment algorithms are supported
 - [BWA](https://github.com/lh3/bwa) (bwa)
 - [BWA-MEM2](https://github.com/bwa-mem2/bwa-mem2) (bwa2)
 - [DRAGMAP](https://github.com/Illumina/DRAGMAP) (dragmap)
+
+Again, the choice is with the user. Note that BWA and BWA2 deliver near-identical results, but BWA2 is roughly 2-times faster. 
 
 ### `--tools`
 The pipeline offers various tools for the analysis of variant information. Specifically:
@@ -79,14 +85,10 @@ Your tools of choice can be provided like so:
 
 If no tools are selected, the pipeline will stop after the deduplication of read alignments. 
 
-Please also note that certain parts of the pipeline will be silently ommitted if you are not requesting the "right" tools. Specifically, no tumor-normal calling will be performed using Strelka (strelka) unless
-you also request structural variant calling with Manta (manta). This is because the candidate indels from Manta are required by the somatic calling workflow in Strelka. However, since these tools can be otherwise run
-independently, there is no strict link to force them to run simultaneously. 
+Please also note that certain parts of the pipeline will be silently ommitted if you are not requesting the "right" tools. Specifically, no tumor-normal calling will be performed using Strelka (strelka) unless you also request structural variant calling with Manta (manta). This is because the candidate indels from Manta are required by the somatic calling workflow in Strelka. However, since these tools can be otherwise run independently, there is no strict link to force them to run simultaneously. 
 
 ### `--joint_calling`
-The pipeline produces multi-vcf files through merging of the single-sample callsets. However, you can alternatively request for the samples to be called jointly, i.e. all in one process. This will
-cause individual callsets to take into consideration information from other samples, and result in numerous ref calls in the individual VCF files. An advantage of this approach is 
-that individual sites can obtain support from multiple samples. This is typically done when analysing cohorts. Depending on the caller, the exact process of joint calling may differ. 
+The pipeline produces multi-vcf files through merging of the single-sample callsets. However, you can alternatively request for the samples to be called jointly, i.e. all in one process. This will cause individual callsets to take into consideration information from other samples, and result in numerous ref calls in the individual VCF files. An advantage of this approach is that individual sites can obtain support from multiple samples. This is typically done when analysing cohorts. Depending on the caller, the exact process of joint calling may differ. 
 
 ### `--kit`
 Each exome capture kit has a target and a bait definition, i.e. information about the exons it enriches and the specific RNA bait sequences that are used 
@@ -94,7 +96,7 @@ for capture. This information is important so the pipeline knows whichs regions 
 
 We have included these files for the following kits and genome assemblies:
 
-`xGen_v2` (v2 release of the IDT xGen kit) [GRCh38, GRCH38_p14]
+`xGen_v2` (v2 release of the IDT xGen kit) [all assemblies]
 
 ### `--email`
 Your Email address in quotes to which the pipeline report is sent upon completion. 
@@ -132,9 +134,6 @@ This option allows the user to run non-defined panels. Must be in picard interva
 genome assembly to run against (use with care!!!). Usually, you would start with a target list in BED format and convert this into an interval list
 using the Picard Tools "BedToIntervalList" command.
 
-### `--effects` [ true | false (default) ]
-Run variant effect prediction on the final VCF file(s). This option requires a locally available EnsEMBL cache and some databases (see cluster profiles for examples). 
-
 ### `--joint_calling` [ true (default) | false ]
 Run joint calling on the samples rather than simply merging them down into one final VCF without generating sample-overarching genotyping for all possible sites. 
 
@@ -165,15 +164,6 @@ The segmentation mode for CNV intervals. Default is hmm-germline. Other options 
 
 ### `--glnexus_config` [ default = "DeepVariant" ]
 The filter profile for gVCF merging in GLXNexus (DeepVariant). The default (DeepVariant) is fairly unconstrained. Other options are DeepVariantWGS and DeepVariantWES.
-
-### `--fasta`
-Provide path to a genome sequence in FASTA format (default: false, uses a pre-configured genome)
-
-### `--dict`
-Provide path to a genome sequence dictionary file (default: false, uses a pre-configured dictionary)
-
-### `--dbsnp`
-Provide path to a dbSNP reference VCF file for variant filtering (default: false, uses a pre-configured reference)
 
 ## Debug / custom arguments
 
