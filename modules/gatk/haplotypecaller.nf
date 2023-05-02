@@ -9,7 +9,7 @@ process GATK_HAPLOTYPECALLER {
         label 'medium_serial'
 
 	input:
-	tuple val(meta),path(bam),path(bai)
+	tuple val(meta),path(b),path(bai)
 	path(intervals)
 	val(modus)
 	tuple path(fasta),path(fai),path(dict)
@@ -22,13 +22,13 @@ process GATK_HAPLOTYPECALLER {
 	script:
 	def options = ""
 	if (modus == "single") {
-		vcf = bam.getBaseName() + "-hc.vcf.gz"
+		vcf = b.getBaseName() + "-hc.vcf.gz"
 		tbi = vcf + ".tbi"
-		bam_out = bam.getBaseName() + "-hc.bam"
-		bai_out = bam.getBaseName() + "-hc.bai"
+		bam_out = b.getBaseName() + "-hc.bam"
+		bai_out = b.getBaseName() + "-hc.bai"
 		options = "--bam-output $bam_out -OBI true"
 	} else {
-		vcf = bam.getBaseName() + "-hc.vcf.gz"
+		vcf = b.getBaseName() + "-hc.vcf.gz"
 		tbi = vcf + ".tbi"
 		options = "-ERC GVCF -G AS_StandardAnnotation"
 	}
@@ -36,7 +36,7 @@ process GATK_HAPLOTYPECALLER {
 	
 	//  -GQB 10 -GQB 20 -GQB 30 -GQB 40 -GQB 50 -GQB 60 -GQB 70 -GQB 80 -GQB 90
     """
-    gatk HaplotypeCaller --java-options "-Xmx${task.memory.giga}g" -R $fasta -I $bam -L $intervals -O $vcf \
+    gatk HaplotypeCaller --java-options "-Xmx${task.memory.giga}g" -R $fasta -I $b -L $intervals -O $vcf \
         $options \
         -G StandardAnnotation -G StandardHCAnnotation \
         -OVI true -ip ${params.interval_padding} -D ${dbsnp} 
