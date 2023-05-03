@@ -53,7 +53,7 @@ Allowed reference assemblies are:
 * GRCh38 (patch 1, with decoys and masked PAR regions - see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/) )
 * GRCh38_no_alt (patch 1, no ALT contigs, with decoys and masked PAR regions - see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/) )
 * GRCh38_p14 (patch 14 without further modifications, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
-* GRCh38_no_alt_p14 (patch 14 without further modifications, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
+* GRCh38_no_alt_p14 (patch 14 without ALT contigs, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
 
 If you plan on using effect prediction via VEP, you will also need to install the cache and plugins:
 
@@ -61,11 +61,11 @@ If you plan on using effect prediction via VEP, you will also need to install th
 nextflow run ikmb/exome-seq -c my.config --build_references --assembly GRCh38_no_alt --outdir /path/to/outdir --tools vep
 ```
 
-You only have to do this for one of the assemblies, as the VEP cache is the same for all possible assembly versions. 
+You only have to do this for one of the assemblies, as the VEP cache is the same for all supported assembly versions. 
 
 ### VEP reference files
 
-Apart from the cache and plugin directory, VEP accepts additional reference files that can be used to annotate variants. These can be set in your local config file, although we cannot provide information on how to create them. Some information is available from the EnsEMBL VEP [plugin](https://github.com/Ensembl/VEP_plugins) code. 
+Apart from the cache and plugin directory, VEP accepts additional reference files that can be used to annotate variants. These can be set in your local config file, although we cannot provide information on how to create them. Some support is available from the EnsEMBL VEP [plugin](https://github.com/Ensembl/VEP_plugins) code. 
 
 - `dbnsfp_db`
 - `spliceai_fields`

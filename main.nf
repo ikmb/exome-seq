@@ -52,10 +52,6 @@ if (!params.build_references) {
     include { EXOME_SEQ } from "./workflows/exome-seq.nf"
 }
 
-log.info "IKMB Exome-seq Pipeline - ${workflow.manifest.version}"
-log.info "--------------------------------"
-log.info "Best practice variant calling"
-
 workflow {
 
     if (params.build_references) {
