@@ -221,6 +221,11 @@ include { CNVKIT } from "./../subworkflows/cnvkit"
 include { VALIDATE_SAMPLESHEET } from "./../modules/validate_samplesheet"
 include { CUSTOM_DUMPSOFTWAREVERSIONS } from "./../modules/custom/dumpsoftwareversions/main"
 
+// Print basic run information to the screen
+log.info "Assembly: ${params.assembly}"
+log.info "Fasta: ${params.fasta}"
+log.info "Aligner: ${params.aligner}"
+
 // Start the main workflow
 workflow EXOME_SEQ {
 

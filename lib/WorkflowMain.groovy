@@ -12,6 +12,9 @@ class WorkflowMain {
     //
     public static void initialise(workflow, params, log) {
         // Print help to screen if required
+        
+        log.info header(workflow)
+
         if (params.help) {
             log.info help(workflow, params, log)
             System.exit(0)
@@ -19,14 +22,23 @@ class WorkflowMain {
 
     }
 
+    public static String header(workflow) {
+        def headr = ''
+        def info_line = "IKMB Diagnostic Exome pipeline | version ${workflow.manifest.version}"
+        headr = """
+    ===============================================================================
+    ${info_line}
+    ===============================================================================
+    """
+        return headr
+    }
+
     public static String help(workflow, params, log) {
         def command = "nextflow run ${workflow.manifest.name} --samples Samples.csv --assembly GRCh38 --kit xGen_v2 -profile diagnostic"
         def help_string = ''
         // Help message
         help_string = """
-           ===============================================================================
-           IKMB Diagnostic Exome pipeline | version ${workflow.manifest.version}
-           ===============================================================================
+
            Usage: nextflow run ikmb/exome-seq --assembly GRCh38 --kit xGen_v2 --samples Samples.csv
            This example will perform an exome analysis against the ALT-free hg38 assembly, assuming that exome reads were generated with
            the IDT xGen v2 kit and using DeepVariant with GLNexus.
