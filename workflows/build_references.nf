@@ -12,6 +12,7 @@ include { PICARD_UPDATE_SEQUENCE_DICTIONARY } from "./../modules/picard/update_s
 include { BCFTOOLS_REHEADER } from "./../modules/bcftools/reheader"
 include { RENAME_ASSEMBLY } from "./../modules/helper/rename_assembly"
 include { VEP_INSTALL_CACHE } from "./../modules/vep/install_cache"
+include { VEP_INSTALL_PLUGINS } from "./../modules/vep/install_plugins"
 
 fasta_file = file(params.genomes[params.assembly].fasta_ref)
 
