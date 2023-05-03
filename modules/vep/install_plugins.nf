@@ -12,7 +12,7 @@ process VEP_INSTALL_PLUGINS {
     base = archive.getSimpleName()
 
     """
-    tar -xvf $archive
+    unzip $archive
     mv VEP_plugins-release-* vep/plugins
     """
 }
