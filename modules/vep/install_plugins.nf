@@ -1,18 +1,18 @@
 process VEP_INSTALL_PLUGINS {
 
-    publishDir "${params.outdir}", mode: 'copy'
+    publishDir "${params.outdir}/vep", mode: 'copy'
 
     input:
     path(archive)
 
     output:
-    path("vep")
+    path("plugins")
 
     script:
     base = archive.getSimpleName()
 
     """
     unzip $archive
-    mv VEP_plugins-release-* vep/plugins
+    mv VEP_plugins-release-* plugins
     """
 }
