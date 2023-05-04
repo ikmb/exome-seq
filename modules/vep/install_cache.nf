@@ -1,18 +1,17 @@
 process VEP_INSTALL_CACHE {
 
-    publishDir "${params.outdir}", mode: 'copy'
+    publishDir "${params.outdir}/vep", mode: 'copy'
 
     input:
     path(archive)
 
     output:
-    path("vep")
+    path("homo_sapiens")
 
     script:
     base = archive.getSimpleName()
 
     """
     tar -xvf $archive
-    mv homo_sapiens vep/homo_sapiens
     """
 }

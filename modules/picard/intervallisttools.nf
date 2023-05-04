@@ -19,7 +19,7 @@ process INTERVAL_TO_BED {
     bed_file = intervals.getBaseName() + ".bed"
 
     """
-    picard IntervalListTools I=$intervals O=targets.padded.interval_list PADDING=$params.interval_padding
+    picard IntervalListTools I=$intervals O=targets.padded.interval_list
     picard IntervalListToBed I=targets.padded.interval_list O=$bed_file
 
     cat <<-END_VERSIONS > versions.yml
