@@ -13,10 +13,12 @@ include { BCFTOOLS_REHEADER } from "./../modules/bcftools/reheader"
 include { RENAME_ASSEMBLY } from "./../modules/helper/rename_assembly"
 include { VEP_INSTALL_CACHE } from "./../modules/vep/install_cache"
 include { VEP_INSTALL_PLUGINS } from "./../modules/vep/install_plugins"
+include { DRAGMAP_INSTALL_REFERENCE } from "./../modules/dragmap/install_reference"
 
 fasta_file = file(params.genomes[params.assembly].fasta_ref)
 
 if (params.genomes[params.assembly].report_ref) { report_file = file(params.genomes[params.assembly].report_ref) } else {  report_file = file("${baseDir}/README_PANEL_CALLS.txt") }
+if (params.genomes[params.assembly].dragmap_ref) { dragmap_ref = file(params.genomes[params.assembly].dragmap_ref) } else { dragmap_ref = file("${baseDir}/README_PANEL_CALLS.txt") }
 
 dbsnp_file = file(params.genomes["refs"].dbsnp_ref)
 mills_file = file(params.genomes["refs"].mills_ref)
@@ -40,17 +42,9 @@ ch_variants = Channel.fromList(
 
 ch_report = Channel.fromPath(report_file)
 
-if (params.assembly.contains("alt")) {
-    mode = "ALT"
-} else {
-    mode = "FULL"
-}
-
-if (fasta_file.getBaseName().contains("GCF_000")) {
-    ncbi = true
-} else {
-    ncbi = false
-}
+if (params.assembly.contains("alt")) { mode = "ALT" } else { mode = "FULL" }
+if (params.genomes[params.assembly].dragmap_ref) { dragmap_build = false } else { dragmap_build = true }
+if (fasta_file.getBaseName().contains("GCF_000")) { ncbi = true } else { ncbi = false }
 
 tools = params.tools ? params.tools.split(',').collect{it.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '')} : []
 
@@ -109,9 +103,17 @@ workflow BUILD_REFERENCES {
         ch_fasta
     )
 
-    DRAGMAP_INDEX(
-        ch_fasta
-    )
+    if (dragmap_build) {
+        DRAGMAP_INDEX(
+            ch_fasta
+        )
+    } else {
+        DRAGMAP_INSTALL_REFERENCE(
+            [[
+                assembly: params.assembly
+            ],dragmap_ref ]
+        )
+    }
 
     TABIX(
         ch_variants

@@ -217,14 +217,10 @@ include { BCFTOOLS_CSQ as CSQ } from "./../modules/bcftools/csq"
 include { BCFTOOLS_CONCAT as CONCAT } from "./../modules/bcftools/concat"
 include { SEX_CHECK} from "./../modules/qc/main"
 include { XHLA } from "./../modules/xhla"
-include { CNVKIT } from "./../subworkflows/cnvkit"
+include { CNVKIT_SINGLE } from "./../subworkflows/cnvkit/single"
+include { CNVKIT_PAIRED } from "./../subworkflows/cnvkit/paired"
 include { VALIDATE_SAMPLESHEET } from "./../modules/validate_samplesheet"
 include { CUSTOM_DUMPSOFTWAREVERSIONS } from "./../modules/custom/dumpsoftwareversions/main"
-
-// Print basic run information to the screen
-log.info "Assembly: ${params.assembly}"
-log.info "Fasta: ${params.fasta}"
-log.info "Aligner: ${params.aligner}"
 
 // Start the main workflow
 workflow EXOME_SEQ {
@@ -232,8 +228,11 @@ workflow EXOME_SEQ {
 	main:
 
 		// create calling regions
-		CONVERT_BED(targets)
-		padded_bed = CONVERT_BED.out.bed
+		CONVERT_BED(
+			targets,
+			ch_fasta
+		)
+		padded_bed = CONVERT_BED.out.bed_padded
 		bedgz = CONVERT_BED.out.bed_gz
 
 		// Make sure the format of the samplesheet is correct
@@ -515,12 +514,21 @@ workflow EXOME_SEQ {
 
 		// CNV calling
 		if ('cnvkit' in tools) {
-			CNVKIT(
+			
+			CNVKIT_SINGLE(
 				ch_bam,
 				ch_cnv_gz,
 				ch_fasta
 			)
-			ch_versions = ch_versions.mix(CNVKIT.out.versions)
+			ch_versions = ch_versions.mix(CNVKIT_SINGLE.out.versions)
+
+			CNVKIT_PAIRED(
+				ch_bam_calling_pair,
+				CONVERT_BED.out.bed,
+				ch_fasta
+			)
+
+			ch_versions = ch_versions.mix(CNVKIT_PAIRED.out.versions)
 		}
 		
 		// Expansions

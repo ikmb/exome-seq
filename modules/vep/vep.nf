@@ -49,7 +49,7 @@ process VEP_VEP {
         --format vcf \
         -o $vcf_vep --dir_plugins ${params.vep_plugin_dir} \
         $options \
-        --plugin ExACpLI \
+        --plugin ExAC \
         --plugin UTRannotator \
         --af_gnomade \
         --fasta $fasta \
