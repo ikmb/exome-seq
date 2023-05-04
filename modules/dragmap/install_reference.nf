@@ -6,7 +6,7 @@ process DRAGMAP_INSTALL_REFERENCE {
     tuple val(meta),path(archive)
 
     output:
-    tuple val(meta),path("dragmap"), emit: ref_dir
+    tuple val(meta),path("dragmap/*"), emit: ref_dir
 
     script:
 
@@ -15,5 +15,6 @@ process DRAGMAP_INSTALL_REFERENCE {
     cp $archive dragmap/
     cd dragmap
     bash $archive
+    rm *.run
     """
 }

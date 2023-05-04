@@ -50,7 +50,7 @@ process VEP_VEP {
         -o $vcf_vep --dir_plugins ${params.vep_plugin_dir} \
         $options \
         --plugin ExAC \
-        --plugin UTRannotator \
+        --plugin UTRAnnotator \
         --af_gnomade \
         --fasta $fasta \
         --fork ${task.cpus} \
