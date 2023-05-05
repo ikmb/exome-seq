@@ -54,7 +54,8 @@ workflow BUILD_REFERENCES {
 
     if ('vep' in tools) {
 
-        vep_cache = file(params.genomes["refs"].vep_ref)
+        // we use the path, not a file, to run the download inside the process
+        vep_cache = params.genomes["refs"].vep_ref
 
         VEP_INSTALL_CACHE(
             vep_cache
@@ -68,6 +69,7 @@ workflow BUILD_REFERENCES {
 
     }
     
+    // Assembly is gzipped, must unpack first. 
     if (fasta_file.getName().contains(".gz")) {  
         GUNZIP(
             create_genome_channel(fasta_file)
@@ -81,6 +83,7 @@ workflow BUILD_REFERENCES {
 
     }
 
+    // assembly is in native NCBI nomenclature, must rename to UCSC convention
     if (ncbi == true) {
 
         NCBI_ASSEMBLY_CLEAN(
@@ -112,6 +115,7 @@ workflow BUILD_REFERENCES {
         ch_fasta
     )
 
+    // Build dragen index from the assembly fasta file; or download existing index from Illumina
     if (dragmap_build) {
         DRAGMAP_INDEX(
             ch_fasta

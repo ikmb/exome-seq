@@ -38,7 +38,7 @@ This would add a new profile, called `your_profile` which uses (and expects) sin
 
 ## Reference genome and other resources
 
-The pipeline can build all relevant resources for this pipeline automatically - for up to four reference assembly versions. 
+The pipeline can build all relevant resources for this pipeline automatically - for up to five reference assembly versions. 
 
 To do this, run:
 
@@ -52,6 +52,7 @@ Allowed reference assemblies are:
 
 * GRCh38 (patch 1, with decoys and masked PAR regions - see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/) )
 * GRCh38_no_alt (patch 1, no ALT contigs, with decoys and masked PAR regions - see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/) )
+* GRCh38_g1k (patch1, as used by the 1000 genomes consortium and the Illumina Dragen system - see [here](http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/GRCh38_reference_genome/))
 * GRCh38_p14 (patch 14 without further modifications, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
 * GRCh38_no_alt_p14 (patch 14 without ALT contigs, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
 
@@ -68,7 +69,6 @@ You only have to do this for one of the assemblies, as the VEP cache is the same
 Apart from the cache and plugin directory, VEP accepts additional reference files that can be used to annotate variants. These can be set in your local config file, although we cannot provide information on how to create them. Some support is available from the EnsEMBL VEP [plugin](https://github.com/Ensembl/VEP_plugins) code. 
 
 - `dbnsfp_db`
-- `spliceai_fields`
 - `dbscsnv_db`
 - `cadd_snps`
 - `cadd_indels`
