@@ -24,19 +24,19 @@ process VEP_VEP {
 
     def options = ""
     if (params.dbnsfp_db) {
-        options.concat(" --plugin dbNSFP,${params.dbnsfp_db},${params.dbnsfp_fields}")
+        options = options.concat(" --plugin dbNSFP,${params.dbnsfp_db},${params.dbnsfp_fields}")
     }
     if (params.dbscsnv_db) {
-        options.concat("--plugin dbscSNV,${params.dbscsnv_db}")
+        options = options.concat(" --plugin dbscSNV,${params.dbscsnv_db}")
     }
     if (params.cadd_snps) {
-        options.concat("--plugin CADD,${params.cadd_snps},${params.cadd_indels}") 
+        options = options.concat(" --plugin CADD,${params.cadd_snps},${params.cadd_indels}") 
     }
     if (params.vep_mastermind) {
-        options.concat("--plugin Mastermind,${params.vep_mastermind}")
+        options = options.concat(" --plugin Mastermind,${params.vep_mastermind}")
     }
     if (params.spliceai_fields) {
-        options.concat("--plugin SpliceAI,${params.spliceai_fields}")
+        options = options.concat(" --plugin SpliceAI,${params.spliceai_fields}")
     }
 
     """
@@ -49,11 +49,10 @@ process VEP_VEP {
         --format vcf \
         -o $vcf_vep --dir_plugins ${params.vep_plugin_dir} \
         $options \
-        --plugin ExAC \
-        --plugin UTRannotator \
         --af_gnomade \
         --fasta $fasta \
         --fork ${task.cpus} \
+	--buffer_size 100  \
         --vcf \
         --per_gene \
         --sift p \

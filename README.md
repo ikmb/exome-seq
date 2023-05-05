@@ -18,9 +18,9 @@ This pipeline offers a end-to-end workflow for exome analysis using several tool
 
 - protein-level effect prediction with [Haplosaurus](https://www.ensembl.org/info/docs/tools/vep/haplo/index.html) and [BCFtools](https://samtools.github.io/bcftools/howtos/csq-calling.html)
 
-- germline SV calling using [Manta](https://github.com/Illumina/manta)
+- germline and somatic SV calling using [Manta](https://github.com/Illumina/manta)
 
-- germline CNV calling using [CNVkit](https://github.com/etal/cnvkit)
+- germline and somatic CNV calling using [CNVkit](https://github.com/etal/cnvkit)
 
 - Repeat expansion detection using [ExpansionHunter](https://github.com/Illumina/ExpansionHunter)
 

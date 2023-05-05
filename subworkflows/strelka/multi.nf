@@ -45,7 +45,7 @@ workflow STRELKA_MULTI_CALLING {
             [[
 				id: "all", 
 				sample_id: "STRELKA_JOINT_CALLING", 
-				patient_id: "MergedCallset", 
+				patient_id: "MERGED_CALLSET", 
 				variantcaller: "STRELKA"
 			],v,t]}
 	)
