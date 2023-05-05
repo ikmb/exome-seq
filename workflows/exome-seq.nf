@@ -331,15 +331,22 @@ workflow EXOME_SEQ {
         }.set { ch_recal_bam_status }
             
         // Fetch tumor and normal samples and group by patient ID into channel for paired calling (if any)
-        ch_recal_bam_normal         = ch_recal_bam_status.normal
-        ch_recal_bam_tumor            = ch_recal_bam_status.tumor
+        ch_recal_bam_normal				= ch_recal_bam_status.normal
+        ch_recal_bam_tumor				= ch_recal_bam_status.tumor
 
-        ch_recal_bam_normal_cross     = ch_recal_bam_normal.map {m,b,i -> [ m.patient_id, m, b,i]}
-        ch_recal_bam_tumor_cross     = ch_recal_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
+        ch_recal_bam_normal_cross			= ch_recal_bam_normal.map {m,b,i -> [ m.patient_id, m, b,i]}
+        ch_recal_bam_tumor_cross			= ch_recal_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
 
-        ch_recal_bam_tumor_joined     = ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
+        // all tumor samples belonging to the same patient
+        ch_recal_bam_tumor_grouped 			= ch_recal_bam_tumor_cross.groupTuple()
+        ch_recal_bam_tumor_grouped_joined 		= ch_recal_bam_tumor_grouped.join(ch_recal_bam_normal, remainder: true)
+        ch_recal_bam_tumor_grouped_joined_filtered 	= ch_recal_bam_tumor_grouped_joined.filter{ it -> !(it.last()) }
+        ch_recal_bam_tumor_grouped_tumor_only 		= ch_recal_bam_tumor_grouped_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+        ch_recal_bam_tumor_grouped_calling_pair		= ch_recal_bam_normal_cross.cross(ch_recal_bam_tumor_cross)
+
+        ch_recal_bam_tumor_joined	= ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
         ch_recal_bam_tumor_joined_filtered = ch_recal_bam_tumor_joined.filter{ it ->  !(it.last()) }
-        ch_recal_bam_tumor_only     = ch_recal_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+        ch_recal_bam_tumor_only		= ch_recal_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
 
         ch_recal_bam_normal_cross.cross(ch_recal_bam_tumor_cross).map { normal,tumor ->
             [[
@@ -350,6 +357,10 @@ workflow EXOME_SEQ {
             ],normal[2],normal[3],tumor[2],tumor[3]]
         
         }.set { ch_recal_bam_calling_pair }
+
+        
+
+        ch_recal_bam_calling_pair.view()
 
         // Variant calling for paired tumor-normal samples
         GATK_MUTECT2_PAIRED(
@@ -406,6 +417,8 @@ workflow EXOME_SEQ {
         sample_id: "${tumor[1].sample_id}_vs_${normal[1].sample_id}".toString()
         ],normal[2],normal[3],tumor[2],tumor[3]]
     }.set { ch_bam_calling_pair }
+
+    ch_bam_calling_pair.view()
 
     // *********************
     // SV calling with Manta

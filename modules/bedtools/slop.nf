@@ -1,6 +1,6 @@
 process BEDTOOLS_SLOP {
 
-    tag "${bed}"
+    tag "${b}"
 
     container 'quay.io/biocontainers/bedtools:2.23.0--h5b5514e_6'
 

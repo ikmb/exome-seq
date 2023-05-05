@@ -30,7 +30,11 @@ workflow GATK_MUTECT2_PAIRED {
 		}
 	
 		GATK_MUTECT2_PAIR(
-			bams,
+			bams.map { m,bn,bni,bt,bti ->
+                            [
+                                m,[bn,bt],[bni,bti]
+                            ]
+                        },
 			targets.collect(),
 			fasta.collect(),
 			mutect_normals.collect(),
