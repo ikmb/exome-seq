@@ -1,21 +1,26 @@
 process VEP_INSTALL_CACHE {
 
+    executor 'local'
+
     tag "${base}"
+
+    label 'serial_medium'
 
     stageOutMode 'rsync' 
 
     publishDir "${params.outdir}/vep", mode: 'copy'
 
     input:
-    path(archive)
+    val(archive)
 
     output:
     path("homo_sapiens/*")
 
     script:
-    base = archive.getSimpleName()
+    base = file(archive).getName()
 
     """
-    tar -xvf $archive
+    wget $archive
+    tar -xvf $base
     """
 }
