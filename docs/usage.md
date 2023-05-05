@@ -41,11 +41,14 @@ ruby bin/samplesheet_from_folder.rb -f /path/to/foler > Samplesheet.csv`
 The following human genome assembly versions are supported on MedCluster (see resources.config on how this is set):
 
 * GRCh38 (patch 1, with decoys and masked PAR regions - see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/) )
+* GRCh38_g1k (patch1, as used by the 1000 genomes consortium and the Illumina Dragen system - see [here](http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/GRCh38_reference_genome/))
 * GRCh38_no_alt (patch 1, no ALT contigs, with decoys and masked PAR regions - see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/) )
 * GRCh38_p14 (patch 14 without further modifications, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
 * GRCh38_no_alt_p14 (patch 14 without ALT contigs, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
 
 The choice is with the user, although we recommend a non-ALT version because downstream variant callers and effect prediction tools are not able to deal with ALT-located variants in a meaningful way. 
+
+Basically: If you want a version that is optimized for short read alignment, use GRCh38_no_alt. If you need your data to be compatible with results from the Illumina Dragen platform, use GRCh38_g1k. If you need to work with the latest patch level, use GRCh38_no_alt_p14. 
 
 ### `--aligner` [default = "bwa2"]
 The following alignment algorithms are supported
@@ -54,7 +57,7 @@ The following alignment algorithms are supported
 - [BWA-MEM2](https://github.com/bwa-mem2/bwa-mem2) (bwa2)
 - [DRAGMAP](https://github.com/Illumina/DRAGMAP) (dragmap)
 
-Again, the choice is with the user. Note that BWA and BWA2 deliver near-identical results, but BWA2 is roughly 2-times faster. 
+Again, the choice is with the user. Note that BWA and BWA2 deliver near-identical results, but BWA2 is roughly 2-times faster. If you want to produce alignments equivalent to the Illumina Dragen system (v4), you will have to use the assembly 'GRCh38_g1k' and dragmap as your aligner. 
 
 ### `--tools`
 The pipeline offers various tools for the analysis of variant information. Specifically:

@@ -68,21 +68,30 @@ workflow BUILD_REFERENCES {
 
     }
     
-    GUNZIP(
-        create_genome_channel(fasta_file)
-    )
+    if (fasta_file.getName().contains(".gz")) {  
+        GUNZIP(
+            create_genome_channel(fasta_file)
+	)
+ 
+        ch_fasta_gunzip = GUNZIP.out.decompressed
+
+    } else {
+
+        ch_fasta_gunzip = create_genome_channel(fasta_file)
+
+    }
 
     if (ncbi == true) {
 
         NCBI_ASSEMBLY_CLEAN(
-            GUNZIP.out.decompressed.combine(ch_report)
+            ch_fasta_gunzip.combine(ch_report)
         )
 
         ch_fasta = NCBI_ASSEMBLY_CLEAN.out.fasta
 
     } else {
 
-        RENAME_ASSEMBLY(GUNZIP.out.decompressed)
+        RENAME_ASSEMBLY(ch_fasta_gunzip)
         ch_fasta = RENAME_ASSEMBLY.out.fasta
 
     }  

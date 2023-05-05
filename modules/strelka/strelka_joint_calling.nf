@@ -4,7 +4,7 @@ process STRELKA_JOINT_CALLING {
 
     label 'long_parallel'
 
-    publishDir "${params.outdir}/MergedCallset/STRELKA_JOINT_CALLING", mode: 'copy'
+    publishDir "${params.outdir}/MERGED_CALLSET/STRELKA_JOINT_CALLING", mode: 'copy'
 
     container 'quay.io/biocontainers/strelka:2.9.10--h9ee0642_1'
 

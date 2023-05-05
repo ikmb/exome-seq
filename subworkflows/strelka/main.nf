@@ -55,7 +55,7 @@ workflow STRELKA_VARIANT_CALLING {
         }.set { ch_grouped_vcfs }
 
 	MERGE_VCF(
-                ch_grouped_vcfs.multi.map { m,v,t -> [ [ id: "all", sample_id: "Bcftools", patient_id: "MergedCallset", variantcaller: "STRELKA"],v,t] }
+                ch_grouped_vcfs.multi.map { m,v,t -> [ [ id: "all", sample_id: "Bcftools", patient_id: "MERGED_CALLSET", variantcaller: "STRELKA"],v,t] }
 	)
         ch_merged_vcf = ch_merged_vcf.mix(MERGE_VCF.out.vcf)
 
@@ -87,7 +87,7 @@ workflow STRELKA_MULTI_CALLING {
             bed.collect()
         )
 	VCF_FILTER_PASS(
-		STRELKA_JOINTCALLING.out.vcf.map { v,t -> [ [id: "all", sample_id: "STRELKA_JOINT_CALLING", patient_id: "MergedCallset", variantcaller: "STRELKA"],v,t]}
+		STRELKA_JOINTCALLING.out.vcf.map { v,t -> [ [id: "all", sample_id: "STRELKA_JOINT_CALLING", patient_id: "MERGED_CALLSET", variantcaller: "STRELKA"],v,t]}
 	)
 	VCF_GATK_SORT(
 		VCF_FILTER_PASS.out.vcf

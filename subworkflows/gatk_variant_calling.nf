@@ -62,7 +62,7 @@ workflow GATK_VARIANT_CALLING {
 			[[
 				id: "all", 
 				sample_id: "GATK_JOINT_CALLING", 
-				patient_id: "MergedCallset", 
+				patient_id: "MERGED_CALLSET", 
 				variantcaller: "GATK"
 			],v,t ]
                 }
