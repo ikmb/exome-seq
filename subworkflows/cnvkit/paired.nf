@@ -21,10 +21,14 @@ workflow CNVKIT_PAIRED{
     
         ch_versions = ch_versions.mix(CNVKIT_BATCH_PAIRED.out.versions)
 
+        // this will emit multiple call.cns files so we need to split this into singletons again
         CNVKIT_EXPORT(
-            CNVKIT_BATCH_PAIRED.out.cns
+            CNVKIT_BATCH_PAIRED.out.cns.flatMap {m,cns ->
+                cns.collect{ [ m,file(it) ] }
+            }
         )
         
+
     emit:
     versions = ch_versions
 }
