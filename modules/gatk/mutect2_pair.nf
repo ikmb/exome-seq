@@ -21,7 +21,7 @@ process GATK_MUTECT2_PAIR {
 	path("versions.yml"), emit: versions
 
 	script:
-	vcf = meta.sample_id + "-somatic.vcf.gz"
+	vcf = meta.sample_id + "-mutect2.vcf.gz"
 	tbi = vcf + ".tbi"
 	stats = vcf + ".stats"
 	f1r2 =  meta.sample_id + "-f1r2.tar.gz"

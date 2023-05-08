@@ -36,9 +36,15 @@ This would add a new profile, called `your_profile` which uses (and expects) sin
 
 `your_cluster.config` Specifies which sort of resource manager to use and where to find the resource bundle on your cluster file system (see below).
 
+Alternatively, you can provide the config file during execution like so:
+
+```
+nextflow run ikmb/exome-seq -c my.config <other options here>
+```
+
 ## Reference genome and other resources
 
-The pipeline can build all relevant resources for this pipeline automatically - for up to five reference assembly versions. 
+The pipeline can build all relevant resources for this pipeline automatically. For a list of supported assemblies, see below. 
 
 To do this, run:
 
@@ -55,6 +61,7 @@ Allowed reference assemblies are:
 * GRCh38_g1k (patch1, as used by the 1000 genomes consortium and the Illumina Dragen system - see [here](http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/GRCh38_reference_genome/))
 * GRCh38_p14 (patch 14 without further modifications, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
 * GRCh38_no_alt_p14 (patch 14 without ALT contigs, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
+* hg38 (the BROAD version of GRCh38, part of the GATK bundle, see [here](https://gatk.broadinstitute.org/hc/en-us/articles/360035890811-Resource-bundle) )
 
 If you plan on using effect prediction via VEP, you will also need to install the cache and plugins:
 
