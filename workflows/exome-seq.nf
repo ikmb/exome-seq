@@ -334,7 +334,7 @@ workflow EXOME_SEQ {
         ch_recal_bam_normal				= ch_recal_bam_status.normal
         ch_recal_bam_tumor				= ch_recal_bam_status.tumor
 
-        ch_recal_bam_normal_cross			= ch_recal_bam_normal.map {m,b,i -> [ m.patient_id, m, b,i]}
+        ch_recal_bam_normal_cross			= ch_recal_bam_normal.map {m,b,i -> [ m.patient_id,m,b,i]}
         ch_recal_bam_tumor_cross			= ch_recal_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
 
         // all tumor samples belonging to the same patient
@@ -342,11 +342,24 @@ workflow EXOME_SEQ {
         ch_recal_bam_tumor_grouped_joined 		= ch_recal_bam_tumor_grouped.join(ch_recal_bam_normal, remainder: true)
         ch_recal_bam_tumor_grouped_joined_filtered 	= ch_recal_bam_tumor_grouped_joined.filter{ it -> !(it.last()) }
         ch_recal_bam_tumor_grouped_tumor_only 		= ch_recal_bam_tumor_grouped_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
-        ch_recal_bam_tumor_grouped_calling_pair		= ch_recal_bam_normal_cross.cross(ch_recal_bam_tumor_cross)
 
-        ch_recal_bam_tumor_joined	= ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
-        ch_recal_bam_tumor_joined_filtered = ch_recal_bam_tumor_joined.filter{ it ->  !(it.last()) }
-        ch_recal_bam_tumor_only		= ch_recal_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+        // combining each normal with all matched tumor samples for joint analysis
+        ch_recal_bam_normal_cross_joined                = ch_recal_bam_normal_cross.join(ch_recal_bam_tumor_grouped, remainder: true)
+        ch_recal_bam_normal_cross_joined_filtered       = ch_recal_bam_normal_cross_joined.filter{ it -> it.last() }
+
+        ch_recal_bam_normal_cross_joined_filtered.map { i,m,nb,nbi,mt,tb,tbi ->
+            [[
+            patient_id: m.patient_id,
+            normal_id: m.sample_id,
+            tumor_id: "ALL_TUMOR_SAMPLES",
+            sample_id: "${m.sample_id}_vs_all_tumors".toString()
+            ],nb,nbi,tb,tbi]
+        }.set { ch_recal_bam_normal_grouped_tumor }
+
+        // combining each normal sample with each tumor sample for pair-wise analysis
+        ch_recal_bam_tumor_joined	                = ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
+        ch_recal_bam_tumor_joined_filtered              = ch_recal_bam_tumor_joined.filter{ it ->  !(it.last()) }
+        ch_recal_bam_tumor_only		                = ch_recal_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
 
         ch_recal_bam_normal_cross.cross(ch_recal_bam_tumor_cross).map { normal,tumor ->
             [[
@@ -358,13 +371,9 @@ workflow EXOME_SEQ {
         
         }.set { ch_recal_bam_calling_pair }
 
-        ch_recal_bam_tumor_cross.view()
-        ch_recal_bam_normal_cross.view()
-        ch_recal_bam_calling_pair.view()
-
         // Variant calling for paired tumor-normal samples
         GATK_MUTECT2_PAIRED(
-            ch_recal_bam_calling_pair,
+            ch_recal_bam_normal_grouped_tumor,
             targets,
             ch_fasta,
             ch_dbsnp_combined,
@@ -402,13 +411,34 @@ workflow EXOME_SEQ {
     ch_bam_normal           = ch_bam_status.normal
     ch_bam_tumor            = ch_bam_status.tumor
 
-    ch_bam_normal_cross     = ch_bam_normal.map {m,b,i -> [ m.patient_id, m, b,i]}
+    ch_bam_normal_cross     = ch_bam_normal.map { m,b,i -> [ m.patient_id,m,b,i]}
     ch_bam_tumor_cross      = ch_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
 
-    ch_bam_tumor_joined     = ch_bam_tumor_cross.join(ch_bam_normal_cross, remainder: true)
-    ch_bam_tumor_joined_filtered = ch_bam_tumor_joined.filter{ it ->  !(it.last()) }
-    ch_bam_tumor_only       = ch_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+    // Find and group unmatched tumor samples
+    ch_bam_tumor_cross_grouped                      = ch_bam_tumor_cross.groupTuple()
+    ch_bam_tumor_cross_grouped_joined               = ch_bam_tumor_cross_grouped.join(ch_bam_normal_cross, remainder: true)
+    ch_bam_tumor_cross_grouped_joined_filtered      = ch_bam_tumor_cross_grouped_joined.filter{ it -> !(it.last()) }
+    ch_bam_tumor_cross_grouped_tumor_only           = ch_bam_tumor_cross_grouped_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
 
+    // combine each normal sample with all matched tumor samples for joint analysis
+    ch_bam_normal_cross_joined                      = ch_bam_normal_cross.join(ch_bam_tumor_cross_grouped, remainder: true)
+    ch_bam_normal_cross_joined_filtered             = ch_bam_normal_cross_joined.filter{ it -> it.last() }
+
+    ch_bam_normal_cross_joined_filtered.map { i,m,nb,nbi,mt,tb,tbi ->
+        [[
+        patient_id: m.patient_id,
+        normal_id: m.sample_id,
+        tumor_id: "ALL_TUMOR_SAMPLES",
+        sample_id: "${m.sample_id}_vs_all_tumors".toString()
+        ],nb,nbi,tb,tbi]
+    }.set { ch_bam_normal_grouped_tumor }
+
+    // find all unmatched tumor samples (no grouping)
+    ch_bam_tumor_joined      	                    = ch_bam_tumor_cross.cross(ch_bam_normal_cross)
+    ch_bam_tumor_joined_filtered                    = ch_bam_tumor_joined.filter{ it ->  !(it.last()) }
+    ch_bam_tumor_only                               = ch_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+
+    // combine each normal sample with each matched tumor sample for pairwise analysis
     ch_bam_normal_cross.cross(ch_bam_tumor_cross).map { normal,tumor ->
         [[
         patient_id: normal[0],
@@ -417,8 +447,6 @@ workflow EXOME_SEQ {
         sample_id: "${tumor[1].sample_id}_vs_${normal[1].sample_id}".toString()
         ],normal[2],normal[3],tumor[2],tumor[3]]
     }.set { ch_bam_calling_pair }
-
-    ch_bam_calling_pair.view()
 
     // *********************
     // SV calling with Manta
@@ -447,7 +475,7 @@ workflow EXOME_SEQ {
         ch_manta_vcfs = ch_manta_vcfs.mix(MANTA_PAIRED.out.diploid_sv,MANTA_PAIRED.out.somatic_sv)
 
         MANTA_TUMOR(
-            ch_bam_tumor_only,
+            ch_bam_tumor_cross_grouped_tumor_only,
             bedgz.collect(),
             ch_fasta.collect()
         )
@@ -472,11 +500,15 @@ workflow EXOME_SEQ {
         // Join Manta normal Indel calls to tumor-normal pair via the normal_id/sample_id
         ch_bam_calling_pair.map { m,n,nt,t,tt ->
             [ m.normal_id , m,n,nt,t,tt ]
-        }.join(
-            ch_manta_indels_status.normal.map { m,v,t ->
-                [ "${m.patient_id}_${m.sample_id}", v, t ]
-            }, remainder: false
-        ).map { k,m,n,nt,t,tt,v,vt ->
+        }.set { ch_bam_calling_pair_key }
+
+        ch_manta_indels_status.normal.map { m,v,t ->
+            [ "${m.patient_id}_${m.sample_id}", v, t ]
+        }.set { ch_manta_indels_status_normal }
+        
+        ch_bam_calling_pair_key_joined = ch_bam_calling_pair_key.combine(ch_manta_indels_status_normal, by: 0)
+
+        ch_bam_calling_pair_key_joined.map { k,m,n,nt,t,tt,v,vt ->
             tuple(m,n,nt,t,tt,v,vt)
         }.set { ch_bam_calling_pair_manta }
 
@@ -537,7 +569,7 @@ workflow EXOME_SEQ {
         ch_versions = ch_versions.mix(CNVKIT_SINGLE.out.versions)
 
         CNVKIT_PAIRED(
-            ch_bam_calling_pair,
+            ch_bam_normal_grouped_tumor,
             CONVERT_BED.out.bed,
             ch_fasta
         )

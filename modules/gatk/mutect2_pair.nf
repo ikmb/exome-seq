@@ -9,7 +9,7 @@ process GATK_MUTECT2_PAIR {
         label 'medium_serial'
 
 	input:
-	tuple val(meta),path(bams),path(bais)
+	tuple val(meta),path(normal_bam),path(normal_bai),path(tumor_bams),path(tumor_bais)
 	path(intervals)
 	tuple path(fasta),path(fai),path(dict)
 	path(mutect_normals)
@@ -37,7 +37,8 @@ process GATK_MUTECT2_PAIR {
 	"""
     gatk Mutect2 \
         -R $fasta \
-        -I ${bams.join(' -I ')} \
+        -I $normal_bam \
+        -I ${tumor_bams.join(' -I ')} \
         -normal ${meta.normal_id} \
         -O $vcf \
         -L $intervals \

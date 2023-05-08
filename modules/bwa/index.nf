@@ -10,7 +10,7 @@ process BWA_MEM_INDEX {
     tuple val(meta), path(fa)
 
     output:
-    tuple path(fa),path("*.ann"),path("*.bwt"),path("*.pac"),path("*.sa"), emit: bwa_index
+    path("*"), emit: bwa_index
     path("versions.yml"), emit: versions
     
     script:
