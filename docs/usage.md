@@ -45,10 +45,17 @@ The following human genome assembly versions are supported on MedCluster (see re
 * GRCh38_no_alt (patch 1, no ALT contigs, with decoys and masked PAR regions - see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/) )
 * GRCh38_p14 (patch 14 without further modifications, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
 * GRCh38_no_alt_p14 (patch 14 without ALT contigs, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
+* hg38 (the BROAD version of GRCh38, part of the GATK bundle, see [here](https://gatk.broadinstitute.org/hc/en-us/articles/360035890811-Resource-bundle) )
 
 The choice is with the user, although we recommend a non-ALT version because downstream variant callers and effect prediction tools are not able to deal with ALT-located variants in a meaningful way. 
 
 Basically: If you want a version that is optimized for short read alignment, use GRCh38_no_alt. If you need your data to be compatible with results from the Illumina Dragen platform, use GRCh38_g1k. If you need to work with the latest patch level, use GRCh38_no_alt_p14. 
+
+### `--genomes_base` 
+The root directory of the pre-installed indices. See "--build_references" on how to create this folder structure. 
+
+### `--build_references`
+This option is to be used instead of the primary workflow and will build the necessary index files for the respective reference assemblies. Please see our installation [instructions](installation.md) for details.
 
 ### `--aligner` [default = "bwa2"]
 The following alignment algorithms are supported

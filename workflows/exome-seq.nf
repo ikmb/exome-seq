@@ -358,8 +358,8 @@ workflow EXOME_SEQ {
         
         }.set { ch_recal_bam_calling_pair }
 
-        
-
+        ch_recal_bam_tumor_cross.view()
+        ch_recal_bam_normal_cross.view()
         ch_recal_bam_calling_pair.view()
 
         // Variant calling for paired tumor-normal samples

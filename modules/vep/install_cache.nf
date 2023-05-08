@@ -4,7 +4,7 @@ process VEP_INSTALL_CACHE {
 
     tag "${base}"
 
-    label 'serial_medium'
+    label 'medium_serial'
 
     stageOutMode 'rsync' 
 
