@@ -345,7 +345,7 @@ workflow EXOME_SEQ {
         ch_recal_bam_tumor_grouped_tumor_only 		= ch_recal_bam_tumor_grouped_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
 
         // combining each normal with all matched tumor samples for joint analysis
-        ch_recal_bam_normal_cross_joined            = ch_recal_bam_normal_cross.join(ch_recal_bam_tumor_grouped, remainder: true)
+        ch_recal_bam_normal_cross_joined            = ch_recal_bam_normal_cross.join(ch_recal_bam_tumor_grouped)
         ch_recal_bam_normal_cross_joined_filtered   = ch_recal_bam_normal_cross_joined.filter{ it -> it.last() }
 
         ch_recal_bam_normal_cross_joined_filtered.map { i,m,nb,nbi,mt,tb,tbi ->
@@ -434,7 +434,7 @@ workflow EXOME_SEQ {
         ],nb,nbi,tb,tbi]
     }.set { ch_bam_normal_grouped_tumor }
 
-    // combine each normal sample with each matched tumor sample for pairwise analysis
+    // combine each normal sample with each matched tumor sample for _pairwise_ analysis
     ch_bam_normal_cross.cross(ch_bam_tumor_cross).map { normal,tumor ->
         [[
         patient_id: normal[0],
