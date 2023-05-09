@@ -22,6 +22,7 @@ workflow GATK_MUTECT2_PAIRED {
 
     main:
 
+        // extract all the normal bams from the per-patient data drop
         ch_normal_bam = bams.map { m,nb,nbi,tb,tbi ->
             [[
             patient_id: m.patient_id,
@@ -31,6 +32,7 @@ workflow GATK_MUTECT2_PAIRED {
             ], nb, nbi ]
         }
 
+        // get all the tumor bams from the per-patient data drop
         ch_tumor_bam = bams.map { m,nb,nbi,tb,tbi ->
             [ m,tb,tbi ]
         }.transpose()
@@ -43,6 +45,7 @@ workflow GATK_MUTECT2_PAIRED {
             ],tbam,tbi ]
         }
 
+        // combine all bams into a serial emission of individual bam files
         ch_all_bams = ch_normal_bam.mix(ch_tumor_bam_clean)
 
         GATK_MUTECT2_PAIR(
@@ -82,6 +85,7 @@ workflow GATK_MUTECT2_PAIRED {
             [ m.patient_id,m,t ]
         }
 
+        // combine pipleup summaries for normal samples with each respective tumor sample
         ch_pileup_joined = ch_pileup_normal.cross(ch_pileup_tumor)
         
         ch_pileup_joined.map { normal,tumor ->
@@ -94,6 +98,7 @@ workflow GATK_MUTECT2_PAIRED {
 			],normal[2],tumor[2]]
         }.set { ch_pileup_pairs }
         
+        // calculate contamination for each tumor-normal pairing
         GATK_CALCULATE_CONTAMINATION_PAIRED(
             ch_pileup_pairs
         )
@@ -108,7 +113,8 @@ workflow GATK_MUTECT2_PAIRED {
         }
 
         ch_versions = ch_versions.mix(GATK_CALCULATE_CONTAMINATION_PAIRED.out.versions)
-
+        
+        // merge all results together into a per-patient data package again (incl. grouping 1-n contamination tables)
         GATK_MUTECT2_PAIR.out.vcf.map { m,v,t,s ->
             [ m.patient_id,m,v,t,s ]
         }.join(

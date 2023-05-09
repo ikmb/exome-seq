@@ -102,23 +102,49 @@ The pipeline produces multi-vcf files through merging of the single-sample calls
 
 ### `--kit`
 Each exome capture kit has a target and a bait definition, i.e. information about the exons it enriches and the specific RNA bait sequences that are used 
-for capture. This information is important so the pipeline knows whichs regions of the genome to analyze and how to compute run metrics. 
+for capture. This information is important so the pipeline knows which regions of the genome to analyze and how to compute run metrics. 
 
 We have included these files for the following kits and genome assemblies:
 
 `xGen_v2` (v2 release of the IDT xGen kit) [all assemblies]
+`Agilent_v7` (v7 release of the Agilent SureSelect kit) [all assemblies]
 
 ### `--email`
 Your Email address in quotes to which the pipeline report is sent upon completion. 
 
-## Optional arguments
+## Tool-specific options
 
+### CNVkit
+#### `--cnv_gz`
+If you wish to overwrite the default CNVKit reference file, you can provide it with this option. This file must be compressed with gzip (.cnn.gz) and match the assembly and exome kit!
+#### `--cnvkit_mode` [ default = "hmm-germline" ]
+The segmentation mode for CNV intervals. Default is hmm-germline. Other options are documented [here](https://cnvkit.readthedocs.io/en/stable/pipeline.html#segment).
+### Deepvariant
+#### `--glnexus_config` [ default = "DeepVariant" ]
+The filter profile for gVCF merging in GLXNexus (DeepVariant). The default (DeepVariant) is fairly unconstrained. Other options are DeepVariantWGS and DeepVariantWES.
+### GATK
+#### `--gatk_hard_filter` [default = "ExcessHet > 54.69"]
+This option allows users to specify on which annotations to hard-filter the GATK callset.
+### MUTECT2
+#### `--mutect_normals` [ default = null ]
+Provide a matching panel of normals to help variant mutect2 variant filtration. Must be generated against the same reference assembly using the same capture kit (and preferably sequencing platform). For further instructions, see [here](https://gatk.broadinstitute.org/hc/en-us/articles/360035531132--How-to-Call-somatic-mutations-using-GATK4-Mutect2).
+### VEP
+#### `--dbnsfp_db` [default = null]
+Path to a copy of the dbNSFP database. 
+#### `--dbscsnv_db` [default = null]
+Path to a copy of the dbSCSNV database.
+#### `--cadd_snps` [default = null]
+Path to a local copy of the CADD SNPs in VCF format. 
+#### `--cadd_indels` [default = null]
+Path to a local copy of the CADD Indels in VCF format
+#### `--vep_mastermind` default = null]
+Path to a local copy of the Mastermind database.
+## Calling regions and gene panels
 ### `--baits` | `--targets` 
 If you have used any other type of kit for your enrichment, you are able to provide the target and bait definitions from the command line during execution using `--baits` and 
 `--targets`, respectively. Please note that these files must be in the Picard 
 [interval_list](https://gatkforums.broadinstitute.org/gatk/discussion/1319/collected-faqs-about-interval-lists) format and have to be matched 
 to the genome assembly (i.e. must have identical dictionary headers). 
-
 ### `--panel`
 For practical reasons, it can be desirable to determine the coverage of a discrete set of target genes, such as for a gene panel. The pipeline currently 
 supports the following panels:
@@ -135,17 +161,15 @@ supports the following panels:
 - Intellectual disability [ Intellectual_disability ]
 
 Please note that this will also create additional run metrics, including a per-sample list of target exons that fall below a minimum sequence coverage. 
-
 ### `--all_panels`
 This is a short-cut function to enable the production of statistics for all currently defined panels (for a given reference assembly!). Mutually exclusive with `--panel` and `--panel_intervals`. 
-
 ### `--panel_intervals`
 This option allows the user to run non-defined panels. Must be in picard interval list format and match the sequence dictionary of the
 genome assembly to run against (use with care!!!). Usually, you would start with a target list in BED format and convert this into an interval list
 using the Picard Tools "BedToIntervalList" command.
-
-### `--joint_calling` [ true (default) | false ]
-Run joint calling on the samples rather than simply merging them down into one final VCF without generating sample-overarching genotyping for all possible sites. 
+### `--panel_coverage`
+This option changes the cut-off for reporting lowly covered panel intervals (default: 10)
+## Misc arguments
 
 ### `--kill`
 For panel-based statistics, it is desirable to mark any exons that are known to underperform in exome sequencing - for example due to homology and
@@ -165,17 +189,3 @@ Give this run a meaningful name (like a LIMS or project ID)
 
 ### `--amplicon_bed`
 A BED file specifying the location of amplicon primer positions. These will be masked from the final BAM file; no deduplication will be performed. Must match the assembly version. 
-
-### `--cnv_gz`
-If you wish to overwrite the default CNVKit reference file, you can provide it with this option. This file must be compressed with gzip (.cnn.gz) and match the assembly and exome kit!
-
-### `--cnvkit_mode` [ default = "hmm-germline" ]
-The segmentation mode for CNV intervals. Default is hmm-germline. Other options are documented [here](https://cnvkit.readthedocs.io/en/stable/pipeline.html#segment).
-
-### `--glnexus_config` [ default = "DeepVariant" ]
-The filter profile for gVCF merging in GLXNexus (DeepVariant). The default (DeepVariant) is fairly unconstrained. Other options are DeepVariantWGS and DeepVariantWES.
-
-## Debug / custom arguments
-
-### `--panel_coverage`
-This option changes the cut-off for reporting lowly covered panel intervals (default: 10)
