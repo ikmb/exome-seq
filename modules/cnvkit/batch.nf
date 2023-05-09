@@ -21,6 +21,7 @@ process CNVKIT_BATCH {
     script:
     results = "cnvkit_${meta.sample_id}"
     cns = results + "/" + bam.getBaseName() + ".call.cns"
+
     def options = ""
     if (meta.status == 1) {
         options = "--segment-method ${params.cnvkit_mode_tumor}"
