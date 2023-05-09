@@ -23,6 +23,7 @@ process CNVKIT_BATCH {
     cns = results + "/" + bam.getBaseName() + ".call.cns"
 
     def options = ""
+
     if (meta.status == 1) {
         options = "--segment-method ${params.cnvkit_mode_tumor}"
     } else {
