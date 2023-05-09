@@ -124,11 +124,21 @@ The segmentation mode for CNV intervals. Default is hmm-germline. Other options 
 The filter profile for gVCF merging in GLXNexus (DeepVariant). The default (DeepVariant) is fairly unconstrained. Other options are DeepVariantWGS and DeepVariantWES.
 ### GATK
 #### `--gatk_hard_filter` [default = "ExcessHet > 54.69"]
-This option allows uses to specify on which annotations to hard-filter the GATK callset.
+This option allows users to specify on which annotations to hard-filter the GATK callset.
 ### MUTECT2
 #### `--mutect_normals` [ default = null ]
-Provide a matching panel of normals to help variant mutect2 variant filtration. Must be generated against the same reference assembly using the same capture kit (and preferably sequencing platform)
-
+Provide a matching panel of normals to help variant mutect2 variant filtration. Must be generated against the same reference assembly using the same capture kit (and preferably sequencing platform). For further instructions, see [here](https://gatk.broadinstitute.org/hc/en-us/articles/360035531132--How-to-Call-somatic-mutations-using-GATK4-Mutect2).
+### VEP
+#### `--dbnsfp_db` [default = null]
+Path to a copy of the dbNSFP database. 
+#### `--dbscsnv_db` [default = null]
+Path to a copy of the dbSCSNV database.
+#### `--cadd_snps` [default = null]
+Path to a local copy of the CADD SNPs in VCF format. 
+#### `--cadd_indels` [default = null]
+Path to a local copy of the CADD Indels in VCF format
+#### `--vep_mastermind` default = null]
+Path to a local copy of the Mastermind database.
 ## Calling regions and gene panels
 ### `--baits` | `--targets` 
 If you have used any other type of kit for your enrichment, you are able to provide the target and bait definitions from the command line during execution using `--baits` and 
