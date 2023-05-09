@@ -119,6 +119,8 @@ Your Email address in quotes to which the pipeline report is sent upon completio
 If you wish to overwrite the default CNVKit reference file, you can provide it with this option. This file must be compressed with gzip (.cnn.gz) and match the assembly and exome kit!
 #### `--cnvkit_mode` [ default = "hmm-germline" ]
 The segmentation mode for CNV intervals. Default is hmm-germline. Other options are documented [here](https://cnvkit.readthedocs.io/en/stable/pipeline.html#segment).
+#### `--cnvkit_mode_tumor` [ default = "cbs" ]
+The segmentation mode for CNV intervals when analysing tumor samples. Default is cbs. Other options are documented [here](https://cnvkit.readthedocs.io/en/stable/pipeline.html#segment).
 ### Deepvariant
 #### `--glnexus_config` [ default = "DeepVariant" ]
 The filter profile for gVCF merging in GLXNexus (DeepVariant). The default (DeepVariant) is fairly unconstrained. Other options are DeepVariantWGS and DeepVariantWES.
