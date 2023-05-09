@@ -71,7 +71,7 @@ workflow TRIM_AND_ALIGN {
         bam_mapped = ch_aligned_bams.map { meta, bam ->
                         new_meta = [:]
             new_meta.patient_id = meta.patient_id
-            new_meta.sample_id = meta.sample_id
+            new_meta.sample_id = "${meta.patient_id}_${meta.sample_id}"
             new_meta.status = meta.status
             def groupKey = meta.sample_id
             tuple( groupKey, new_meta, bam)

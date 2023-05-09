@@ -9,7 +9,7 @@ process STRELKA_SINGLE_SAMPLE {
     container 'quay.io/biocontainers/strelka:2.9.10--h9ee0642_1'
 
     input:
-    tuple val(meta),path(bam),path(bai)
+    tuple val(meta),path(bam),path(bai),path(indels),path(indels_tbi)
     tuple path(bed),path(bed_tbi)
     tuple path(fasta),path(fai),path(dict)
 
@@ -29,6 +29,7 @@ process STRELKA_SINGLE_SAMPLE {
         --referenceFasta ${fasta} \
         --runDir $run_dir \
         --callRegions $bed \
+        --indelCandidates $indels \
         --exome
 
     $run_dir/runWorkflow.py -m local -j ${task.cpus}

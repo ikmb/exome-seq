@@ -5,98 +5,154 @@ include { BCFTOOLS_ANNOTATE_DBSNP } from "./../modules/bcftools/annotate_dbsnp"
 include { BCFTOOLS_ANNOTATE } from "./../modules/bcftools/annotate"
 include { GATK_LEARN_READ_ORIENTATION_MODEL } from "./../modules/gatk/learn_read_orientation_model"
 include { GATK_GET_PILEUP_SUMMARIES } from "./../modules/gatk/get_pileup_summaries"
-include { GATK_CALCULATE_CONTAMINATION } from "./../modules/gatk/calculate_contamination"
+include { GATK_CALCULATE_CONTAMINATION_PAIRED } from "./../modules/gatk/calculate_contamination_paired"
 
-ch_versions 	= Channel.from([])
-ch_vcfs 	= Channel.from([])
+ch_versions     = Channel.from([])
+ch_vcfs         = Channel.from([])
 
 workflow GATK_MUTECT2_PAIRED {
 
-	take:
-		bams
-		targets
-		fasta
-		dbsnp
-		mutect_normals
-		mutect_normals_tbi
+    take:
+        bams
+        targets
+        fasta
+        dbsnp
+        mutect_normals
+        mutect_normals_tbi
 
-	main:
+    main:
 
-		ch_bam_normal = bams.map { m,nb,ni,tb,ti -> 
-			[ m,nb,ni ]
-		}
-		ch_bam_tumor = bams.map {  m,nb,ni,tb,ti ->
-			[ m,tb,ti ]
-		}
-	
-		GATK_MUTECT2_PAIR(
-			bams.map { m,bn,bni,bt,bti ->
-                            [
-                                m,[bn,bt],[bni,bti]
-                            ]
-                        },
-			targets.collect(),
-			fasta.collect(),
-			mutect_normals.collect(),
-			mutect_normals_tbi.collect()
-		)
+        ch_normal_bam = bams.map { m,nb,nbi,tb,tbi ->
+            [[
+            patient_id: m.patient_id,
+            sample_id: m.normal_id,
+            original_sample_id: m.sample_id,
+            status: 0
+            ], nb, nbi ]
+        }
 
-		ch_versions = ch_versions.mix(GATK_MUTECT2_PAIR.out.versions)
+        ch_tumor_bam = bams.map { m,nb,nbi,tb,tbi ->
+            [ m,tb,tbi ]
+        }.transpose()
 
-		GATK_LEARN_READ_ORIENTATION_MODEL(
-			GATK_MUTECT2_PAIR.out.f1r2
-		)
+        ch_tumor_bam_clean = ch_tumor_bam.map { m,tbam,tbi ->
+            [[
+            patient_id: m.patient_id,
+            sample_id: tbam.getName().split("-dedup")[0],
+            status: 1
+            ],tbam,tbi ]
+        }
 
-		ch_versions = ch_versions.mix(GATK_LEARN_READ_ORIENTATION_MODEL.out.versions)
+        ch_all_bams = ch_normal_bam.mix(ch_tumor_bam_clean)
 
-		GATK_GET_PILEUP_SUMMARIES(
-			ch_bam_tumor,
-			targets.collect(),
-			fasta.collect()
-		)
+        GATK_MUTECT2_PAIR(
+            bams,
+            targets.collect(),
+            fasta.collect(),
+            mutect_normals.collect(),
+            mutect_normals_tbi.collect()
+        )
 
-		ch_versions = ch_versions.mix(GATK_GET_PILEUP_SUMMARIES.out.versions)
+        ch_versions = ch_versions.mix(GATK_MUTECT2_PAIR.out.versions)
 
-		GATK_CALCULATE_CONTAMINATION(
-			GATK_GET_PILEUP_SUMMARIES.out.table
-		)
+        GATK_LEARN_READ_ORIENTATION_MODEL(
+            GATK_MUTECT2_PAIR.out.f1r2
+        )
 
-		ch_versions = ch_versions.mix(GATK_CALCULATE_CONTAMINATION.out.versions)
+        ch_versions = ch_versions.mix(GATK_LEARN_READ_ORIENTATION_MODEL.out.versions)
 
-		ch_mutect = GATK_MUTECT2_PAIR.out.vcf.join(
-			GATK_LEARN_READ_ORIENTATION_MODEL.out.model
-		).join(GATK_CALCULATE_CONTAMINATION.out.table)
+        GATK_GET_PILEUP_SUMMARIES(
+            ch_all_bams,
+            targets.collect(),
+            fasta.collect()
+        )
+        
+        ch_versions = ch_versions.mix(GATK_GET_PILEUP_SUMMARIES.out.versions)
 
-		GATK_FILTER_MUTECT_CALLS(
-			ch_mutect,
-			fasta.collect()
-		)
+        GATK_GET_PILEUP_SUMMARIES.out.table.branch { m,t ->
+            normal: m.status == 0
+            tumor: m.status = 1
+        }.set { ch_pileup_status }
 
-		ch_versions = ch_versions.mix(GATK_FILTER_MUTECT_CALLS.out.versions)
+        ch_pileup_normal = ch_pileup_status.normal.map { m,t ->
+            [ m.patient_id,m,t ]
+        }
 
-		ch_vcfs = ch_vcfs.mix(GATK_FILTER_MUTECT_CALLS.out.vcf)
+        ch_pileup_tumor = ch_pileup_status.tumor.map { m,t ->
+            [ m.patient_id,m,t ]
+        }
 
-		BCFTOOLS_VIEW(ch_vcfs)
+        ch_pileup_joined = ch_pileup_normal.cross(ch_pileup_tumor)
+        
+        ch_pileup_joined.map { normal,tumor ->
+            [[
+				patient_id: normal[1].patient_id,
+				normal_id: normal[1].sample_id,
+				tumor_id: tumor[1].sample_id,
+				sample_id: "${normal[1].sample_id}_vs_${tumor[1].sample_id}",
+                original_sample_id: normal[1].original_sample_id
+			],normal[2],tumor[2]]
+        }.set { ch_pileup_pairs }
+        
+        GATK_CALCULATE_CONTAMINATION_PAIRED(
+            ch_pileup_pairs
+        )
 
-		ch_versions = ch_versions.mix(BCFTOOLS_VIEW.out.versions)
+        ch_contamtination_grouped = GATK_CALCULATE_CONTAMINATION_PAIRED.out.table.map { m,t ->
+            [[
+                patient_id: m.patient_id,
+                sample_id: m.original_sample_id,
+                normal_id: m.normal_id,
+                tumor_id: m.tumor_id
+            ],t]
+        }
 
-		BCFTOOLS_ANNOTATE_DBSNP(
-			BCFTOOLS_VIEW.out.vcf.map { meta,v,t ->
+        ch_versions = ch_versions.mix(GATK_CALCULATE_CONTAMINATION_PAIRED.out.versions)
+
+        GATK_MUTECT2_PAIR.out.vcf.map { m,v,t,s ->
+            [ m.patient_id,m,v,t,s ]
+        }.join(
+            GATK_LEARN_READ_ORIENTATION_MODEL.out.model.map { m,f -> 
+                [ m.patient_id, f ]
+            }      
+        ).join(
+            ch_contamtination_grouped.map { m,t ->
+                [ m.patient_id, t]
+            }.groupTuple()
+        ).map { k,m,v,t,s,f,tbl ->
+            [ m,v,t,s,f,tbl ]
+        }.set { ch_mutect }
+
+        GATK_FILTER_MUTECT_CALLS(
+            ch_mutect,
+            fasta.collect()
+        )
+
+        ch_versions = ch_versions.mix(GATK_FILTER_MUTECT_CALLS.out.versions)
+
+        ch_vcfs = ch_vcfs.mix(GATK_FILTER_MUTECT_CALLS.out.vcf)
+
+        BCFTOOLS_VIEW(ch_vcfs)
+
+        ch_versions = ch_versions.mix(BCFTOOLS_VIEW.out.versions)
+
+        BCFTOOLS_ANNOTATE_DBSNP(
+            BCFTOOLS_VIEW.out.vcf.map { meta,v,t ->
                 def s_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "MUTECT2" ]
                 tuple(s_meta,v,t)
             },
-			dbsnp.collect()
-		)
-		
-		ch_versions = ch_versions.mix(BCFTOOLS_ANNOTATE_DBSNP.out.versions)
+            dbsnp.collect()
+        )
+        
+        ch_versions = ch_versions.mix(BCFTOOLS_ANNOTATE_DBSNP.out.versions)
 
-		BCFTOOLS_ANNOTATE(
-			BCFTOOLS_ANNOTATE_DBSNP.out.vcf
+        BCFTOOLS_ANNOTATE(
+            BCFTOOLS_ANNOTATE_DBSNP.out.vcf
         )
 
-	emit:
-	versions 	= ch_versions
-	vcf 		= BCFTOOLS_ANNOTATE.out.vcf
-		
+    emit:
+    versions     = ch_versions
+    vcf         = BCFTOOLS_ANNOTATE.out.vcf
+        
 }
 
