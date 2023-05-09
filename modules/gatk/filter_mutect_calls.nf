@@ -27,7 +27,7 @@ process GATK_FILTER_MUTECT_CALLS {
         -R $fasta \
         -O $vcf_filtered \
         --ob-priors $read_orientation_model \
-        --contamination-table $contamination_table \
+        --contamination-table ${ contamination_table.join(' --contamination-table ')} \
         -OVI true
 
     cat <<-END_VERSIONS > versions.yml

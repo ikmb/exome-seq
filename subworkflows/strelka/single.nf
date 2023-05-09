@@ -36,7 +36,7 @@ workflow STRELKA_SINGLE_CALLING {
 	VCF_INDEX(
 		STRELKA.out.vcf
 	)
-    VCF_FILTER_PASS(
+        VCF_FILTER_PASS(
 		VCF_INDEX.out.vcf.map { m,v,t ->
 			[[
 				patient_id: m.patient_id,
@@ -48,7 +48,7 @@ workflow STRELKA_SINGLE_CALLING {
 
 	ch_versions = ch_versions.mix(VCF_FILTER_PASS.out.versions)
 
-    VCF_ADD_DBSNP(
+        VCF_ADD_DBSNP(
 		VCF_FILTER_PASS.out.vcf,
 		dbsnp.collect()
 	)

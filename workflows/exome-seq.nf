@@ -184,6 +184,7 @@ ch_manta_indels = Channel.from([])
 ch_multiqc_files = Channel.from([])
 ch_versions = Channel.from([])
 ch_manta_vcfs = Channel.from([])
+ch_manta_indels_paired = Channel.from([])
 
 // ************************************
 // import subworkflows and modules
@@ -248,10 +249,10 @@ workflow EXOME_SEQ {
         ch_fasta
     )
     ch_bam            = TRIM_AND_ALIGN.out.bam
-    ch_bam_nodedup     = TRIM_AND_ALIGN.out.bam_nodedup
-    trim_report     = TRIM_AND_ALIGN.out.qc
-    dedup_report     = TRIM_AND_ALIGN.out.dedup_report
-    sample_names     = TRIM_AND_ALIGN.out.sample_names
+    ch_bam_nodedup    = TRIM_AND_ALIGN.out.bam_nodedup
+    trim_report       = TRIM_AND_ALIGN.out.qc
+    dedup_report      = TRIM_AND_ALIGN.out.dedup_report
+    sample_names      = TRIM_AND_ALIGN.out.sample_names
 
     ch_versions     = ch_versions.mix(TRIM_AND_ALIGN.out.versions)
 
@@ -276,8 +277,8 @@ workflow EXOME_SEQ {
         ch_vcfs     = ch_vcfs.mix(dv_vcf,dv_merged_vcf)
 
         ch_phased_vcfs = ch_phased_vcfs.mix(
-             DV_VARIANT_CALLING.out.vcf_phased_multi,
-             DV_VARIANT_CALLING.out.vcf_phased_single
+            DV_VARIANT_CALLING.out.vcf_phased_multi,
+            DV_VARIANT_CALLING.out.vcf_phased_single
         )
             
         ch_versions = ch_versions.mix(DV_VARIANT_CALLING.out.versions)
@@ -350,7 +351,7 @@ workflow EXOME_SEQ {
         ch_recal_bam_normal_cross_joined_filtered.map { i,m,nb,nbi,mt,tb,tbi ->
             [[
             patient_id: m.patient_id,
-            normal_id: m.sample_id,
+            normal_id: "${m.sample_id}",
             tumor_id: "ALL_TUMOR_SAMPLES",
             sample_id: "${m.sample_id}_vs_all_tumors".toString()
             ],nb,nbi,tb,tbi]
@@ -364,8 +365,8 @@ workflow EXOME_SEQ {
         ch_recal_bam_normal_cross.cross(ch_recal_bam_tumor_cross).map { normal,tumor ->
             [[
                 patient_id: normal[0],
-                normal_id: "${normal[1].patient_id}_${normal[1].sample_id}",
-                tumor_id: "${tumor[1].patient_id}_${tumor[1].sample_id}",
+                normal_id: "${normal[1].sample_id}",
+                tumor_id: "${tumor[1].sample_id}",
                 sample_id: "${tumor[1].sample_id}_vs_${normal[1].sample_id}".toString()    
             ],normal[2],normal[3],tumor[2],tumor[3]]
         
@@ -381,7 +382,7 @@ workflow EXOME_SEQ {
             ch_mutect_pon_tbi
         )
 
-        ch_vcfs     = ch_vcfs.mix(GATK_MUTECT2_PAIRED.out.vcf)
+        ch_vcfs         = ch_vcfs.mix(GATK_MUTECT2_PAIRED.out.vcf)
         ch_versions     = ch_versions.mix(GATK_MUTECT2_PAIRED.out.versions)
 
         // Variant calling for tumor-only samples
@@ -411,8 +412,8 @@ workflow EXOME_SEQ {
     ch_bam_normal           = ch_bam_status.normal
     ch_bam_tumor            = ch_bam_status.tumor
 
-    ch_bam_normal_cross     = ch_bam_normal.map { m,b,i -> [ m.patient_id,m,b,i]}
-    ch_bam_tumor_cross      = ch_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i]}
+    ch_bam_normal_cross     = ch_bam_normal.map { m,b,i -> [ m.patient_id,m,b,i] }
+    ch_bam_tumor_cross      = ch_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i] }
 
     // Find and group unmatched tumor samples
     ch_bam_tumor_cross_grouped                      = ch_bam_tumor_cross.groupTuple()
@@ -427,7 +428,7 @@ workflow EXOME_SEQ {
     ch_bam_normal_cross_joined_filtered.map { i,m,nb,nbi,mt,tb,tbi ->
         [[
         patient_id: m.patient_id,
-        normal_id: m.sample_id,
+        normal_id: "${m.sample_id}",
         tumor_id: "ALL_TUMOR_SAMPLES",
         sample_id: "${m.sample_id}_vs_all_tumors".toString()
         ],nb,nbi,tb,tbi]
@@ -442,8 +443,8 @@ workflow EXOME_SEQ {
     ch_bam_normal_cross.cross(ch_bam_tumor_cross).map { normal,tumor ->
         [[
         patient_id: normal[0],
-        normal_id: "${normal[1].patient_id}_${normal[1].sample_id}",
-        tumor_id: "${tumor[1].patient_id}_${tumor[1].sample_id}",
+        normal_id: "${normal[1].sample_id}",
+        tumor_id: "${tumor[1].sample_id}",
         sample_id: "${tumor[1].sample_id}_vs_${normal[1].sample_id}".toString()
         ],normal[2],normal[3],tumor[2],tumor[3]]
     }.set { ch_bam_calling_pair }
@@ -471,6 +472,8 @@ workflow EXOME_SEQ {
             ch_fasta.collect()
         )
 
+        ch_manta_indels_paired = ch_manta_indels_paired.mix(MANTA_PAIRED.out.small_indels)
+
         ch_versions = ch_versions.mix(MANTA_PAIRED.out.versions)
         ch_manta_vcfs = ch_manta_vcfs.mix(MANTA_PAIRED.out.diploid_sv,MANTA_PAIRED.out.somatic_sv)
 
@@ -491,24 +494,18 @@ workflow EXOME_SEQ {
     // STRELKA WORKFLOW
     if ('strelka' in tools) {
 
-        // Fetch Manta indels from normal sample
-        ch_manta_indels.branch { m,v,t ->
-            normal: m.status == 0
-            tumor: m.status == 1
-        }.set { ch_manta_indels_status }
-
         // Join Manta normal Indel calls to tumor-normal pair via the normal_id/sample_id
         ch_bam_calling_pair.map { m,n,nt,t,tt ->
-            [ m.normal_id , m,n,nt,t,tt ]
+            [ m.normal_id , m.tumor_id, m,n,nt,t,tt ]
         }.set { ch_bam_calling_pair_key }
 
-        ch_manta_indels_status.normal.map { m,v,t ->
-            [ "${m.patient_id}_${m.sample_id}", v, t ]
-        }.set { ch_manta_indels_status_normal }
+        ch_manta_indels_paired.map { m,v,t ->
+            [ m.normal_id, m.tumor_id, v, t ]
+        }.set { ch_manta_indels_paired_key }
         
-        ch_bam_calling_pair_key_joined = ch_bam_calling_pair_key.combine(ch_manta_indels_status_normal, by: 0)
+        ch_bam_calling_pair_key_joined = ch_bam_calling_pair_key.combine(ch_manta_indels_paired_key, by: [0,1])
 
-        ch_bam_calling_pair_key_joined.map { k,m,n,nt,t,tt,v,vt ->
+        ch_bam_calling_pair_key_joined.map { k,l,m,n,nt,t,tt,v,vt ->
             tuple(m,n,nt,t,tt,v,vt)
         }.set { ch_bam_calling_pair_manta }
 
@@ -523,6 +520,8 @@ workflow EXOME_SEQ {
         ch_versions = ch_versions.mix(STRELKA_SOMATIC_CALLING.out.versions)
 
         // Call all samples together
+
+        
         if (params.joint_calling) {
             STRELKA_MULTI_CALLING(
                 ch_bam.map {m,b,i -> [ b,i ] },
@@ -536,15 +535,24 @@ workflow EXOME_SEQ {
 
         // Call each sample individually and merge later
         } else {
+
+            ch_manta_indels.map { m,v,t ->
+                [m.sample_id, m, v, t]
+            }.join(
+                ch_bam.map { m,b,i ->
+                    [ m.sample_id, b, i ]
+                }
+            ).set { ch_bam_manta_single }
+
             STRELKA_SINGLE_CALLING(
-                ch_bam,
+                ch_bam_manta_single,
                 bedgz,
                 sample_names,
                 ch_fasta,
                 ch_dbsnp_combined
             )
             strelka_vcf         = STRELKA_SINGLE_CALLING.out.vcf
-            strelka_merged_vcf         = STRELKA_SINGLE_CALLING.out.vcf_multi
+            strelka_merged_vcf  = STRELKA_SINGLE_CALLING.out.vcf_multi
             ch_vcfs             = ch_vcfs.mix(strelka_vcf,strelka_merged_vcf)
             ch_versions         = ch_versions.mix(STRELKA_SINGLE_CALLING.out.versions)
         }
@@ -631,7 +639,7 @@ workflow EXOME_SEQ {
             ch_phased_vcfs,
             ch_fasta.collect()
         )
- 
+
         ch_versions = ch_versions.mix(HAPLOSAURUS.out.versions)
 
     }
@@ -642,11 +650,11 @@ workflow EXOME_SEQ {
 
     // QC Reports
     multiqc_fastq(
-       "FastQ",
-       trim_report.collect()
+        "FastQ",
+        trim_report.collect()
     )
     multiqc_library(
-       "Library",
+        "Library",
         dedup_report.collect()
     )
     multiqc_sample(
