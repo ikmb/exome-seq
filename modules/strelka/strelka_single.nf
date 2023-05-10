@@ -18,7 +18,10 @@ process STRELKA_SINGLE_SAMPLE {
 	path("versions.yml"), emit: versions
 
 	script:
-
+    def options = ""
+    if (indels) {
+        options = "--indelCandidates $indels"
+    }
     run_dir = "run_dir"
     vcf = meta.patient_id + "_" + meta.sample_id + "-strelka.vcf.gz"
     tbi = vcf + ".tbi"
@@ -29,8 +32,8 @@ process STRELKA_SINGLE_SAMPLE {
         --referenceFasta ${fasta} \
         --runDir $run_dir \
         --callRegions $bed \
-        --indelCandidates $indels \
-        --exome
+        --exome \
+        $options
 
     $run_dir/runWorkflow.py -m local -j ${task.cpus}
 	

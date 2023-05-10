@@ -21,11 +21,19 @@ workflow CNVKIT_PAIRED{
     
         ch_versions = ch_versions.mix(CNVKIT_BATCH_PAIRED.out.versions)
 
-        // this will emit multiple call.cns files so we need to split this into singletons again
-        CNVKIT_EXPORT(
-            CNVKIT_BATCH_PAIRED.out.cns.flatMap {m,cns ->
+        ch_cns = Channel.from([])
+
+        // Results can be one or multiple CNS files, depending on how many tumor samples were used per patient. Need to normalize into meta,cns emission
+        ch_cns = ch_cns.mix( CNVKIT_BATCH_PAIRED.out.cns.filter { m,cns -> !(cns instanceof List) } )
+        ch_cns = ch_cns.mix(
+            CNVKIT_BATCH_PAIRED.out.cns.filter { m,cns -> cns instanceof List }.flatMap { m,cns ->
                 cns.collect{ [ m,file(it) ] }
             }
+        )
+
+        // this will emit multiple call.cns files so we need to split this into singletons again
+        CNVKIT_EXPORT(
+            ch_cns
         )
         
 
