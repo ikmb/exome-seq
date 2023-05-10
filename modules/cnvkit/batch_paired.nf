@@ -22,7 +22,7 @@ process CNVKIT_BATCH_PAIRED {
     results = "cnvkit_${meta.sample_id}"
 
     """
-    cnvkit.py batch $tbam  -n $bam -t $bed -d $results -p ${task.cpus} --segment-method ${params.cnvkit_mode}
+    cnvkit.py batch $tbam  -n $bam -t $bed -d $results -p ${task.cpus} --segment-method ${params.cnvkit_mode_tumor}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

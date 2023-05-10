@@ -93,7 +93,7 @@ workflow GATK_MUTECT2_PAIRED {
 				patient_id: normal[1].patient_id,
 				normal_id: normal[1].sample_id,
 				tumor_id: tumor[1].sample_id,
-				sample_id: "${normal[1].sample_id}_vs_${tumor[1].sample_id}",
+				sample_id: "${tumor[1].sample_id}_vs_${normal[1].sample_id}",
                 original_sample_id: normal[1].original_sample_id
 			],normal[2],tumor[2]]
         }.set { ch_pileup_pairs }

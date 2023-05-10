@@ -351,7 +351,7 @@ workflow EXOME_SEQ {
         ch_recal_bam_normal_cross_joined_filtered.map { i,m,nb,nbi,mt,tb,tbi ->
             [[
             patient_id: m.patient_id,
-            normal_id: "${m.sample_id}",
+            normal_id: m.sample_id,
             tumor_id: "ALL_TUMOR_SAMPLES",
             sample_id: "${m.sample_id}_vs_all_tumors".toString()
             ],nb,nbi,tb,tbi]
@@ -428,12 +428,12 @@ workflow EXOME_SEQ {
     ch_bam_normal_cross_joined_filtered.map { i,m,nb,nbi,mt,tb,tbi ->
         [[
         patient_id: m.patient_id,
-        normal_id: "${m.sample_id}",
+        normal_id: m.sample_id,
         tumor_id: "ALL_TUMOR_SAMPLES",
         sample_id: "${m.sample_id}_vs_all_tumors".toString()
         ],nb,nbi,tb,tbi]
     }.set { ch_bam_normal_grouped_tumor }
-
+    
     // combine each normal sample with each matched tumor sample for _pairwise_ analysis
     ch_bam_normal_cross.cross(ch_bam_tumor_cross).map { normal,tumor ->
         [[
@@ -448,7 +448,7 @@ workflow EXOME_SEQ {
     // SV calling with Manta
     // *********************
 
-    if ('manta' in tools) {
+    if ('manta' in tools || 'strelka' in tools ) {
         
         MANTA_NORMAL(
             ch_bam_normal,
@@ -477,6 +477,7 @@ workflow EXOME_SEQ {
             bedgz.collect(),
             ch_fasta.collect()
         )
+        ch_manta_indels = ch_manta_indels.mix(MANTA_TUMOR.out.small_indels)
 
         ch_versions = ch_versions.mix(MANTA_TUMOR.out.versions)
         ch_manta_vcfs = ch_manta_vcfs.mix(MANTA_TUMOR.out.tumor_sv)
@@ -485,24 +486,11 @@ workflow EXOME_SEQ {
         ch_manta_vcfs = Channel.empty()
     }
 
-
     // STRELKA WORKFLOW
     if ('strelka' in tools) {
 
         // Join Manta normal Indel calls to tumor-normal pair via the normal_id/sample_id
-        ch_bam_calling_pair.map { m,n,nt,t,tt ->
-            [ m.normal_id , m.tumor_id, m,n,nt,t,tt ]
-        }.set { ch_bam_calling_pair_key }
-
-        ch_manta_indels_paired.map { m,v,t ->
-            [ m.normal_id, m.tumor_id, v, t ]
-        }.set { ch_manta_indels_paired_key }
-        
-        ch_bam_calling_pair_key_joined = ch_bam_calling_pair_key.combine(ch_manta_indels_paired_key, by: [0,1])
-
-        ch_bam_calling_pair_key_joined.map { k,l,m,n,nt,t,tt,v,vt ->
-            tuple(m,n,nt,t,tt,v,vt)
-        }.set { ch_bam_calling_pair_manta }
+        ch_bam_calling_pair_manta = ch_bam.join(ch_manta_indels_paired)
 
         // Tumor-normal pairs only with Manta
         STRELKA_SOMATIC_CALLING(
@@ -515,29 +503,21 @@ workflow EXOME_SEQ {
         ch_versions = ch_versions.mix(STRELKA_SOMATIC_CALLING.out.versions)
 
         // Call all samples together
-
-        
         if (params.joint_calling) {
             STRELKA_MULTI_CALLING(
                 ch_bam.map {m,b,i -> [ b,i ] },
                 bedgz,
                 TRIM_AND_ALIGN.out.metas,
                 ch_fasta
-        )
-        ch_vcfs = ch_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf,STRELKA_MULTI_CALLING.out.vcf_multi)
-        ch_phased_vcfs = ch_phased_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf_phased_multi)
-        ch_versions = ch_versions.mix(STRELKA_MULTI_CALLING.out.versions)
+            )
+            ch_vcfs = ch_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf,STRELKA_MULTI_CALLING.out.vcf_multi)
+            ch_phased_vcfs = ch_phased_vcfs.mix(STRELKA_MULTI_CALLING.out.vcf_phased_multi)
+            ch_versions = ch_versions.mix(STRELKA_MULTI_CALLING.out.versions)
 
         // Call each sample individually and merge later
         } else {
 
-            ch_manta_indels.map { m,v,t ->
-                [m.sample_id, m, v, t]
-            }.join(
-                ch_bam.map { m,b,i ->
-                    [ m.sample_id, b, i ]
-                }
-            ).set { ch_bam_manta_single }
+            ch_bam_manta_single = ch_bam.join(ch_manta_indels )
 
             STRELKA_SINGLE_CALLING(
                 ch_bam_manta_single,

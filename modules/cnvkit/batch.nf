@@ -22,8 +22,16 @@ process CNVKIT_BATCH {
     results = "cnvkit_${meta.sample_id}"
     cns = results + "/" + bam.getBaseName() + ".call.cns"
 
+    def options = ""
+
+    if (meta.status == 1) {
+        options = "--segment-method ${params.cnvkit_mode_tumor}"
+    } else {
+        options = "--segment-method ${params.cnvkit_mode}"
+    }
+
     """
-    cnvkit.py batch -r $cnn $bam -d $results -p ${task.cpus} --segment-method ${params.cnvkit_mode}
+    cnvkit.py batch -r $cnn $bam -d $results -p ${task.cpus} $options
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

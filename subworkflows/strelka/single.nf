@@ -10,102 +10,92 @@ include { BCFTOOLS_NORMALIZE as VCF_INDEL_NORMALIZE } from './../../modules/bcft
 
 ch_versions = Channel.from([])
 ch_phased_vcf = Channel.from([])
+ch_merged_vcf = Channel.empty()
+ch_vcf = Channel.empty()
 
 workflow STRELKA_SINGLE_CALLING {
 
-    ch_merged_vcf = Channel.empty()
-    ch_vcf = Channel.empty()
+    take:
+    bam
+    bed
+    sample_names
+    fasta
+    dbsnp
 
-	take:
-	bam
-	bed
-	sample_names
-	fasta
-	dbsnp
+    main:
 
-	main:
+    STRELKA(
+        bam,
+        bed.collect(),
+        fasta.collect()
+    )
 
-	STRELKA(
-		bam,
-		bed.collect(),
-		fasta.collect()
-	)
+    ch_versions = ch_versions.mix(STRELKA.out.versions)
+    
+    VCF_INDEX(
+        STRELKA.out.vcf
+    )
+    VCF_FILTER_PASS(
+        VCF_INDEX.out.vcf.map { m,v,t ->
+            [[
+                patient_id: m.patient_id,
+                sample_id: m.sample_id,
+                variantcaller: "STRELKA"
+            ],v,t]
+        }
+    )
 
-	ch_versions = ch_versions.mix(STRELKA.out.versions)
-
-	VCF_INDEX(
-		STRELKA.out.vcf
-	)
-        VCF_FILTER_PASS(
-		VCF_INDEX.out.vcf.map { m,v,t ->
-			[[
-				patient_id: m.patient_id,
-				sample_id: m.sample_id,
-				variantcaller: "STRELKA"
-			],v,t]
-		}
-	)
-
-	ch_versions = ch_versions.mix(VCF_FILTER_PASS.out.versions)
+    ch_versions = ch_versions.mix(VCF_FILTER_PASS.out.versions)
 
         VCF_ADD_DBSNP(
-		VCF_FILTER_PASS.out.vcf,
-		dbsnp.collect()
-	)
+        VCF_FILTER_PASS.out.vcf,
+        dbsnp.collect()
+    )
 
-	ch_versions = ch_versions.mix(VCF_ADD_DBSNP.out.versions)
+    ch_versions = ch_versions.mix(VCF_ADD_DBSNP.out.versions)
 
-	VCF_ADD_HEADER(
-		VCF_ADD_DBSNP.out.vcf
-	)
-	single_vcf = ch_vcf.mix(VCF_ADD_HEADER.out.vcf)
+    VCF_ADD_HEADER(
+        VCF_ADD_DBSNP.out.vcf
+    )
+    single_vcf = ch_vcf.mix(VCF_ADD_HEADER.out.vcf)
 
-	bam.map { m,b,i -> 
-		new_key = m.sample_id
-		tuple(new_key,b,i)
-	}.set { ch_bams_key }
+    single_vcf.map { m,v,t ->
+        new_key = m.sample_id
+        tuple(new_key,m,v,t)
+    }.set { ch_vcfs_key }
 
-	single_vcf.map { m,v,t ->
-		new_key = m.sample_id
-		tuple(new_key,m,v,t)
-	}.set { ch_vcfs_key }
-
-	//WHATSHAP_SINGLE(
-	//	ch_vcfs_key.join(ch_bams_key).map { n,m,v,t,b,i -> [ m,v,t,b,i ] }
-	//)
-
-	// Fiddly work-around to determine whether we have 1 or multiple vcfs. No merging when n=1
-	VCF_FILTER_PASS.out.vcf.map { m,v,t ->
-			[[
-				id: "all", 
-				sample_id: "UNDEFINED", 
-				patient_id: "UNDEFINED", 
-				variantcaller: "STRELKA" 
-			],v,t]
-	}
-	.groupTuple()
-	.branch { m,v,t ->
+    // Fiddly work-around to determine whether we have 1 or multiple vcfs. No merging when n=1
+    VCF_FILTER_PASS.out.vcf.map { m,v,t ->
+            [[
+                id: "all", 
+                sample_id: "UNDEFINED", 
+                patient_id: "UNDEFINED", 
+                variantcaller: "STRELKA" 
+            ],v,t]
+    }
+    .groupTuple()
+    .branch { m,v,t ->
                         single: v.size() == 1
                         multi: v.size() > 1
         }.set { ch_grouped_vcfs }
 
-	MERGE_VCF(
+    MERGE_VCF(
                 ch_grouped_vcfs.multi.map { m,v,t -> 
-			[ [ 
-				id: "all", 
-				sample_id: "BCFTOOLS", 
-				patient_id: "MERGED_CALLSET", 
-				variantcaller: "STRELKA"
-			],v,t] 
-		}
-	)
-	
-	ch_versions = ch_versions.mix(MERGE_VCF.out.versions)
+            [ [ 
+                id: "all", 
+                sample_id: "BCFTOOLS", 
+                patient_id: "MERGED_CALLSET", 
+                variantcaller: "STRELKA"
+            ],v,t] 
+        }
+    )
+    
+    ch_versions = ch_versions.mix(MERGE_VCF.out.versions)
         ch_merged_vcf = ch_merged_vcf.mix(MERGE_VCF.out.vcf)
 
-	emit:
-	versions = ch_versions
-	vcf = single_vcf
-	vcf_multi = ch_merged_vcf
-	ch_phased_multi = Channel.empty()
+    emit:
+    versions = ch_versions
+    vcf = single_vcf
+    vcf_multi = ch_merged_vcf
+    ch_phased_multi = Channel.empty()
 }
