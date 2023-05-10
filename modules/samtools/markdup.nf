@@ -18,7 +18,7 @@ process SAMTOOLS_MARKDUP {
     path("versions.yml"), emit: versions
 
     script:
-    def prefix = "${meta.patient_id}_${meta.sample_id}-dedup"
+    def prefix = "${meta.sample_id}-dedup"
     outfile_bam = prefix + ".bam"
     outfile_bai = prefix + ".bam.bai"
     outfile_metrics = prefix + "_duplicate_metrics.txt"

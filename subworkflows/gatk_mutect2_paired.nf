@@ -63,7 +63,7 @@ workflow GATK_MUTECT2_PAIRED {
         )
 
         ch_versions = ch_versions.mix(GATK_LEARN_READ_ORIENTATION_MODEL.out.versions)
-
+        
         GATK_GET_PILEUP_SUMMARIES(
             ch_all_bams,
             targets.collect(),

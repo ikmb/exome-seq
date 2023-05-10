@@ -254,7 +254,7 @@ workflow EXOME_SEQ {
     dedup_report      = TRIM_AND_ALIGN.out.dedup_report
     sample_names      = TRIM_AND_ALIGN.out.sample_names
 
-    ch_versions     = ch_versions.mix(TRIM_AND_ALIGN.out.versions)
+    ch_versions       = ch_versions.mix(TRIM_AND_ALIGN.out.versions)
 
     // Create a sub-set of the BAM file using a target BED file
     if ('intersect' in tools) {
@@ -272,9 +272,9 @@ workflow EXOME_SEQ {
             ch_fasta,
             ch_dbsnp_combined
         )
-        dv_vcf         = DV_VARIANT_CALLING.out.vcf
+        dv_vcf            = DV_VARIANT_CALLING.out.vcf
         dv_merged_vcf     = DV_VARIANT_CALLING.out.vcf_multi
-        ch_vcfs     = ch_vcfs.mix(dv_vcf,dv_merged_vcf)
+        ch_vcfs           = ch_vcfs.mix(dv_vcf,dv_merged_vcf)
 
         ch_phased_vcfs = ch_phased_vcfs.mix(
             DV_VARIANT_CALLING.out.vcf_phased_multi,
@@ -343,7 +343,7 @@ workflow EXOME_SEQ {
         ch_recal_bam_tumor_grouped_joined 		    = ch_recal_bam_tumor_grouped.join(ch_recal_bam_normal, remainder: true)
         ch_recal_bam_tumor_grouped_joined_filtered 	= ch_recal_bam_tumor_grouped_joined.filter{ it -> !(it.last()) }
         ch_recal_bam_tumor_grouped_tumor_only 		= ch_recal_bam_tumor_grouped_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
-
+        
         // combining each normal with all matched tumor samples for joint analysis
         ch_recal_bam_normal_cross_joined            = ch_recal_bam_normal_cross.join(ch_recal_bam_tumor_grouped)
         ch_recal_bam_normal_cross_joined_filtered   = ch_recal_bam_normal_cross_joined.filter{ it -> it.last() }
@@ -490,7 +490,7 @@ workflow EXOME_SEQ {
     if ('strelka' in tools) {
 
         // Join Manta normal Indel calls to tumor-normal pair via the normal_id/sample_id
-        ch_bam_calling_pair_manta = ch_bam.join(ch_manta_indels_paired)
+        ch_bam_calling_pair_manta = ch_bam_calling_pair.join(ch_manta_indels_paired)
 
         // Tumor-normal pairs only with Manta
         STRELKA_SOMATIC_CALLING(
