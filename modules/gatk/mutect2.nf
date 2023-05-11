@@ -4,7 +4,7 @@ process GATK_MUTECT2 {
 
 	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/MUTECT2/raw", mode: 'copy'
 
-        container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
+        container 'quay.io/biocontainers/gatk4:4.1.8.0--py38h37ae868_0'
 
         label 'medium_serial'
 
