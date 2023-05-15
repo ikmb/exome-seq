@@ -17,11 +17,11 @@ process GATK_GENOMICSDBIMPORT {
 	script:
 	db = "genomicsdb-" + params.run_name
 
-	"""
-	gatk --java-options "-Xmx4g -Xms4g" GenomicsDBImport \
-		--merge-input-intervals \
-		-V ${gvcfs.join(' -V ')} \
-		--genomicsdb-workspace-path $db \
+    """
+    gatk  --java-options "-Xmx${task.memory.giga}g" GenomicsDBImport \
+        --merge-input-intervals \
+        -V ${gvcfs.join(' -V ')} \
+        --genomicsdb-workspace-path $db \
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

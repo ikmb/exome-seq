@@ -37,7 +37,7 @@ process GATK_MUTECT2 {
 
     """
 
-    gatk Mutect2 \
+    gatk  --java-options "-Xmx${task.memory.giga}g" Mutect2 \
         -R $fasta \
         -I $bam \
         -O $vcf \

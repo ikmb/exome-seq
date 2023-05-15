@@ -20,8 +20,10 @@ process GATK_COMBINEGVCFS {
 	merged_gvcf = "GATK_" + params.run_name + "-merged.g.vcf.gz"
 	merged_gvcf_tbi = merged_gvcf + ".tbi"
 
+	def avail_mem = task.memory.giga
+
     """
-    gatk CombineGVCFs -R $fasta --variant ${gvcfs.join(' --variant ')} \
+    gatk --java-options "-Xmx${avail_mem}g" CombineGVCFs -R $fasta --variant ${gvcfs.join(' --variant ')} \
         -O $merged_gvcf -OVI true -L $intervals -ip $params.interval_padding
 
     cat <<-END_VERSIONS > versions.yml
