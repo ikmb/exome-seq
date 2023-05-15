@@ -50,10 +50,10 @@ workflow GATK_MUTECT2_PAIRED {
 
         GATK_MUTECT2_PAIR(
             bams,
-            targets.collect(),
-            fasta.collect(),
-            mutect_normals.collect(),
-            mutect_normals_tbi.collect()
+            targets,
+            fasta,
+            mutect_normals,
+            mutect_normals_tbi
         )
 
         ch_versions = ch_versions.mix(GATK_MUTECT2_PAIR.out.versions)
@@ -66,8 +66,8 @@ workflow GATK_MUTECT2_PAIRED {
         
         GATK_GET_PILEUP_SUMMARIES(
             ch_all_bams,
-            targets.collect(),
-            fasta.collect()
+            targets,
+            fasta
         )
         
         ch_versions = ch_versions.mix(GATK_GET_PILEUP_SUMMARIES.out.versions)
@@ -131,7 +131,7 @@ workflow GATK_MUTECT2_PAIRED {
 
         GATK_FILTER_MUTECT_CALLS(
             ch_mutect,
-            fasta.collect()
+            fasta
         )
 
         ch_versions = ch_versions.mix(GATK_FILTER_MUTECT_CALLS.out.versions)
@@ -147,7 +147,7 @@ workflow GATK_MUTECT2_PAIRED {
                 def s_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "MUTECT2" ]
                 tuple(s_meta,v,t)
             },
-            dbsnp.collect()
+            dbsnp
         )
         
         ch_versions = ch_versions.mix(BCFTOOLS_ANNOTATE_DBSNP.out.versions)

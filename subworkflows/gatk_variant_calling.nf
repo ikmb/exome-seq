@@ -32,9 +32,9 @@ workflow GATK_VARIANT_CALLING {
 		// Produce gVCFs
 		GATK_HAPLOTYPECALLER_GVCF(
 			bam,
-			intervals.collect(),
+			intervals,
 			"gvcf",
-			fasta.collect()
+			fasta
 		)
 
 		ch_versions = ch_versions.mix(GATK_HAPLOTYPECALLER_GVCF.out.versions)
@@ -43,8 +43,8 @@ workflow GATK_VARIANT_CALLING {
 		GATK_COMBINEGVCFS(
 			GATK_HAPLOTYPECALLER_GVCF.out.vcf.map { m,v,t -> v }.collect(),
 			GATK_HAPLOTYPECALLER_GVCF.out.vcf.map { m,v,t -> t }.collect(),
-			intervals.collect(),
-			fasta.collect()
+			intervals,
+			fasta
         )
 
 		ch_versions = ch_versions.mix(GATK_COMBINEGVCFS.out.versions)
@@ -52,8 +52,8 @@ workflow GATK_VARIANT_CALLING {
 		// Call genotypes from gVCF(s)
 		GATK_GENOTYPEGVCFS(
 			GATK_COMBINEGVCFS.out.gvcf,
-			intervals.collect(),
-			fasta.collect()
+			intervals,
+			fasta
         )
 
 		ch_versions = ch_versions.mix(GATK_GENOTYPEGVCFS.out.versions)
@@ -153,9 +153,9 @@ workflow GATK_VARIANT_CALLING {
 		// Call single samples
 		GATK_HAPLOTYPECALLER_SINGLE(
 			bam,
-			intervals.collect(),
+			intervals,
 			"single",
-			fasta.collect()
+			fasta
 		)
 
 		ch_versions = ch_versions.mix(GATK_HAPLOTYPECALLER_SINGLE.out.versions)
@@ -165,18 +165,18 @@ workflow GATK_VARIANT_CALLING {
 			GATK_HAPLOTYPECALLER_SINGLE.out.vcf.join(
 				GATK_HAPLOTYPECALLER_SINGLE.out.bam
 			),
-			intervals.collect(),
-			fasta.collect()
+			intervals,
+			fasta
 		)
 
 		ch_versions = ch_versions.mix(GATK_CNNSCOREVARIANTS.out.versions)
 
 		GATK_FILTERVARIANTTRANCHES(
 			GATK_CNNSCOREVARIANTS.out.vcf,
-			known_snps.collect(),
-			known_snps_tbi.collect(),
-			known_indels.collect(),
-			known_indels_tbi.collect()
+			known_snps,
+			known_snps_tbi,
+			known_indels,
+			known_indels_tbi
 		)
 
 		ch_versions = ch_versions.mix(GATK_FILTERVARIANTTRANCHES.out.versions)

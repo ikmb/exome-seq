@@ -9,7 +9,10 @@ workflow EXPANSIONS {
 		bam
 		catalog	
 	main:
-		EXPANSION_HUNTER(bam,catalog.collect())
+		EXPANSION_HUNTER(
+                    bam,
+                    catalog
+                )
 
 		ch_versions = ch_versions.mix(EXPANSION_HUNTER.out.versions)
 

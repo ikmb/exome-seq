@@ -16,8 +16,8 @@ workflow STRELKA_SOMATIC_CALLING {
 
         STRELKA_SOMATIC(
             bams,
-            bed.collect(),
-            fasta.collect()
+            bed,
+            fasta
         )
 
 	ch_versions = ch_versions.mix(STRELKA_SOMATIC.out.versions)
@@ -36,7 +36,7 @@ workflow STRELKA_SOMATIC_CALLING {
                     variantcaller: "STRELKA"
                 ],v,t]
             },
-            dbsnp.collect()
+            dbsnp
         )
 
 	ch_versions = ch_versions.mix(BCFTOOLS_ANNOTATE_DBSNP.out.versions)

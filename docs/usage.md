@@ -130,6 +130,8 @@ This option allows users to specify on which annotations to hard-filter the GATK
 ### MUTECT2
 #### `--mutect_normals` [ default = null ]
 Provide a matching panel of normals to help variant mutect2 variant filtration. Must be generated against the same reference assembly using the same capture kit (and preferably sequencing platform). For further instructions, see [here](https://gatk.broadinstitute.org/hc/en-us/articles/360035531132--How-to-Call-somatic-mutations-using-GATK4-Mutect2).
+#### `skip_mutect_pon` [ default = false ]
+If your profile uses a pre-configued panel of normals, set this to true to skip it anyway.
 ### VEP
 #### `--dbnsfp_db` [default = null]
 Path to a copy of the dbNSFP database. 

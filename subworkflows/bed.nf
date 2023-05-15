@@ -13,7 +13,7 @@ workflow CONVERT_BED {
 		BEDTOOLS_SLOP(
 			INTERVAL_TO_BED.out.bed,
 			params.interval_padding,
-			fasta.collect()
+			fasta
 		)
 		BED_TO_BEDGZ(BEDTOOLS_SLOP.out.bed)
 

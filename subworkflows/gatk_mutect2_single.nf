@@ -12,80 +12,80 @@ ch_vcfs 	= Channel.from([])
 
 workflow GATK_MUTECT2_SINGLE {
 
-	take:
-		bam
-		targets
-		fasta
-		dbsnp
-		mutect_normals
-		mutect_normals_tbi
+    take:
+    bam
+    targets
+    fasta
+    dbsnp
+    mutect_normals
+    mutect_normals_tbi
 	
-	main:
+    main:
 
-		GATK_MUTECT2(
-			bam,
-			targets.collect(),
-			fasta.collect(),
-			mutect_normals.collect(),
-			mutect_normals_tbi.collect()
-		)
+    GATK_MUTECT2(
+        bam,
+        targets,
+        fasta,
+        mutect_normals,
+        mutect_normals_tbi
+    )
 
-		ch_versions = ch_versions.mix(GATK_MUTECT2.out.versions)
+    ch_versions = ch_versions.mix(GATK_MUTECT2.out.versions)
 
-		GATK_LEARN_READ_ORIENTATION_MODEL(
-			GATK_MUTECT2.out.f1r2
-		)
+    GATK_LEARN_READ_ORIENTATION_MODEL(
+        GATK_MUTECT2.out.f1r2
+    )
 
-		ch_versions = ch_versions.mix(GATK_LEARN_READ_ORIENTATION_MODEL.out.versions)
+    ch_versions = ch_versions.mix(GATK_LEARN_READ_ORIENTATION_MODEL.out.versions)
 
-		GATK_GET_PILEUP_SUMMARIES(
-			bam,
-			targets.collect(),
-			fasta.collect()
-		)
+    GATK_GET_PILEUP_SUMMARIES(
+        bam,
+        targets,
+        fasta
+    )
 
-		ch_versions = ch_versions.mix(GATK_GET_PILEUP_SUMMARIES.out.versions)
+    ch_versions = ch_versions.mix(GATK_GET_PILEUP_SUMMARIES.out.versions)
 
-		GATK_CALCULATE_CONTAMINATION(
-			GATK_GET_PILEUP_SUMMARIES.out.table
-		)
+    GATK_CALCULATE_CONTAMINATION(
+        GATK_GET_PILEUP_SUMMARIES.out.table
+    )
 
-		ch_versions = ch_versions.mix(GATK_CALCULATE_CONTAMINATION.out.versions)
+    ch_versions = ch_versions.mix(GATK_CALCULATE_CONTAMINATION.out.versions)
 
-		ch_mutect = GATK_MUTECT2.out.vcf.join(
-			GATK_LEARN_READ_ORIENTATION_MODEL.out.model
-		).join(GATK_CALCULATE_CONTAMINATION.out.table)
+    ch_mutect = GATK_MUTECT2.out.vcf.join(
+        GATK_LEARN_READ_ORIENTATION_MODEL.out.model
+    ).join(GATK_CALCULATE_CONTAMINATION.out.table)
 
-		GATK_FILTER_MUTECT_CALLS(
-			ch_mutect,
-			fasta.collect()
-		)
+    GATK_FILTER_MUTECT_CALLS(
+        ch_mutect,
+        fasta
+    )
 
-		ch_versions = ch_versions.mix(GATK_FILTER_MUTECT_CALLS.out.versions)
+    ch_versions = ch_versions.mix(GATK_FILTER_MUTECT_CALLS.out.versions)
 
-		ch_vcfs = ch_vcfs.mix(GATK_FILTER_MUTECT_CALLS.out.vcf)
+    ch_vcfs = ch_vcfs.mix(GATK_FILTER_MUTECT_CALLS.out.vcf)
 
-		BCFTOOLS_VIEW(ch_vcfs)
+    BCFTOOLS_VIEW(ch_vcfs)
 
-		ch_versions = ch_versions.mix(BCFTOOLS_VIEW.out.versions)
+    ch_versions = ch_versions.mix(BCFTOOLS_VIEW.out.versions)
 
-		BCFTOOLS_ANNOTATE_DBSNP(
-            BCFTOOLS_VIEW.out.vcf.map { meta,v,t ->
-                def s_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "MUTECT2" ]
-                tuple(s_meta,v,t)
-            },
-            dbsnp.collect()
-        )
+    BCFTOOLS_ANNOTATE_DBSNP(
+        BCFTOOLS_VIEW.out.vcf.map { meta,v,t ->
+            def s_meta = [ id: meta.id, sample_id: meta.sample_id, patient_id: meta.patient_id, variantcaller: "MUTECT2" ]
+            tuple(s_meta,v,t)
+        },
+        dbsnp
+    )
 		
-		ch_versions = ch_versions.mix(BCFTOOLS_ANNOTATE_DBSNP.out.versions)
+    ch_versions = ch_versions.mix(BCFTOOLS_ANNOTATE_DBSNP.out.versions)
 
-        BCFTOOLS_ANNOTATE(
-			BCFTOOLS_ANNOTATE_DBSNP.out.vcf
-        )
+    BCFTOOLS_ANNOTATE(
+        BCFTOOLS_ANNOTATE_DBSNP.out.vcf
+    )
 
-	emit:
-	versions 	= ch_versions
-	vcf 		= BCFTOOLS_ANNOTATE.out.vcf
+    emit:
+    versions 	= ch_versions
+    vcf 	= BCFTOOLS_ANNOTATE.out.vcf
 		
 }
 

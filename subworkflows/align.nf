@@ -103,7 +103,7 @@ workflow TRIM_AND_ALIGN {
 
             DEDUP(
                 BAM_INDEX.out.bam,
-                fasta.collect()
+                fasta
             )
             
             ch_final_bam     = DEDUP.out.bam

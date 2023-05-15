@@ -22,7 +22,7 @@ workflow GATK_BAM_RECAL {
 
         GATK_SPLITINTERVALS(
                 intervals,
-                fasta.collect()
+                fasta
         )
 
 	ch_versions = ch_versions.mix(GATK_SPLITINTERVALS.out.versions)
@@ -35,7 +35,7 @@ workflow GATK_BAM_RECAL {
         // Add all relevant tags to BAM file
         PICARD_SET_BAM_TAGS(
                 bam,
-                fasta.collect()
+                fasta
         )
 
 	ch_versions = ch_versions.mix(PICARD_SET_BAM_TAGS.out.versions)
@@ -49,11 +49,11 @@ workflow GATK_BAM_RECAL {
         // Recalibrate BAM base quality scores
         GATK_BASERECALIBRATOR(
                 bam.combine(ch_intervals),
-                fasta.collect(),
-                known_snps.collect(),
-                known_snps_tbi.collect(),
-                known_indels.collect(),
-                known_indels_tbi.collect()
+                fasta,
+                known_snps,
+                known_snps_tbi,
+                known_indels,
+                known_indels_tbi
         )
 
 	ch_versions = ch_versions.mix(GATK_BASERECALIBRATOR.out.versions)
@@ -69,8 +69,8 @@ workflow GATK_BAM_RECAL {
 	// Apply recalibration
         GATK_APPLYBQSR(
                 SAMTOOLS_INDEX.out.bam.join(GATK_GATHERBQSRREPORTS.out.report),
-                intervals.collect(),
-                fasta.collect()
+                intervals,
+                fasta
         )
 
 	ch_versions = ch_versions.mix(GATK_APPLYBQSR.out.versions)

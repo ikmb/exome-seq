@@ -26,8 +26,8 @@ workflow STRELKA_SINGLE_CALLING {
 
     STRELKA(
         bam,
-        bed.collect(),
-        fasta.collect()
+        bed,
+        fasta
     )
 
     ch_versions = ch_versions.mix(STRELKA.out.versions)
@@ -49,7 +49,7 @@ workflow STRELKA_SINGLE_CALLING {
 
         VCF_ADD_DBSNP(
         VCF_FILTER_PASS.out.vcf,
-        dbsnp.collect()
+        dbsnp
     )
 
     ch_versions = ch_versions.mix(VCF_ADD_DBSNP.out.versions)
