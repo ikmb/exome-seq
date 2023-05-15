@@ -16,17 +16,17 @@ workflow PICARD_METRICS {
 	main:
 		HYBRID_CAPTURE_METRICS(
 			bam,targets.collect(),
-			baits.collect(),
-			fasta.collect()
+			baits,
+			fasta
 		)
 
 		ch_versions = ch_versions.mix(HYBRID_CAPTURE_METRICS.out.versions)
 
 		MULTI_METRICS(
 			bam,
-			baits.collect(),
-			fasta.collect(),
-			dbsnp.collect()
+			baits,
+			fasta,
+			dbsnp
 
 		)
 
@@ -34,9 +34,9 @@ workflow PICARD_METRICS {
 
 		OXO_METRICS(
 			bam,
-			targets.collect(),
-			fasta.collect(),
-			dbsnp.collect()
+			targets,
+			fasta,
+			dbsnp
 		)
 
 		ch_versions = ch_versions.mix(OXO_METRICS.out.versions)

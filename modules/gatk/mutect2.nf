@@ -30,12 +30,14 @@ process GATK_MUTECT2 {
 	if (mutect_normals) {
 		options += " --panel-of-normals ${mutect_normals}"
 	}
+
 	if (params.gnomad_af_vcf) {
 		options += " --germline-resource ${params.gnomad_af_vcf}"
 	}
 
     """
-    gatk Mutect2 \
+
+    gatk  --java-options "-Xmx${task.memory.giga}g" Mutect2 \
         -R $fasta \
         -I $bam \
         -O $vcf \

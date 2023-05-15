@@ -18,7 +18,7 @@ process GATK_GENOTYPEGVCFS {
 	tbi = vcf + ".tbi"
 
     """
-    gatk --java-options "-Xmx4g" GenotypeGVCFs \
+    gatk  --java-options "-Xmx${task.memory.giga}g" GenotypeGVCFs \
         -R $fasta \
         -V $gvcf -L $intervals -O $vcf \
         -G StandardAnnotation -G AS_StandardAnnotation \

@@ -26,8 +26,8 @@ workflow DV_VARIANT_CALLING {
         
 		DEEPVARIANT(
 			bam,
-			bed.collect(),
-			fasta.collect()
+			bed,
+			fasta
 		)
 
 		ch_versions = ch_versions.mix(DEEPVARIANT.out.versions)
@@ -36,14 +36,14 @@ workflow DV_VARIANT_CALLING {
 		VCF_FILTER_PASS(VCF_INDEX.out.vcf)
 		VCF_ADD_DBSNP(
 			VCF_FILTER_PASS.out.vcf.map { meta,v,t ->
-                [[
-                id: meta.id,
-                    sample_id: meta.sample_id,
-                    patient_id: meta.patient_id,
-                    variantcaller: "DEEPVARIANT"
-                    ],v,t]
-            },
-			dbsnp.collect()
+                            [[
+                                id: meta.id,
+                                sample_id: meta.sample_id,
+                                patient_id: meta.patient_id,
+                                variantcaller: "DEEPVARIANT"
+                            ],v,t]
+                        },
+			dbsnp
 		)
 		VCF_ADD_HEADER(
 			VCF_ADD_DBSNP.out.vcf
@@ -63,7 +63,7 @@ workflow DV_VARIANT_CALLING {
 						tuple(new_b_key,b,i)
 					}
 				).map { n,m,v,t,b,i -> [ m,v,t,b,i ] },
-				fasta.collect()
+				fasta
 			)
 			ch_phased_single = ch_phased_single.mix(WHATSHAP_SINGLE.out.vcf)
 			ch_versions = ch_versions.mix(WHATSHAP_SINGLE.out.versions)
@@ -113,7 +113,7 @@ workflow DV_VARIANT_CALLING {
 				WHATSHAP(
 					merged_vcf,
 					bam.map{m,b,i -> tuple(b,i) }.collect(),
-					fasta.collect()
+					fasta
 				)
 
 				ch_phased_multi = ch_phased_multi.mix(WHATSHAP.out.vcf)

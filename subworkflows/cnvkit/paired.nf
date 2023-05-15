@@ -15,8 +15,8 @@ workflow CNVKIT_PAIRED{
 
         CNVKIT_BATCH_PAIRED(
             bam,
-            targets.collect(),
-            fasta.collect()
+            targets,
+            fasta
         )
     
         ch_versions = ch_versions.mix(CNVKIT_BATCH_PAIRED.out.versions)

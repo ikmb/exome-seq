@@ -13,7 +13,7 @@ workflow PANEL_QC {
 	main:
 		PANEL_COVERAGE(
 			bam.combine(panels),
-			targets.collect()
+			targets
 		)
 
 		ch_versions = ch_versions.mix(PANEL_COVERAGE.out.versions)

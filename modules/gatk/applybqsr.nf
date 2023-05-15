@@ -20,7 +20,7 @@ process GATK_APPLYBQSR {
 	recal_bai = bam.getBaseName() + "-recal.cram.bai"
 
     """
-    gatk ApplyBQSR -R $fasta -I $bam -O $recal_bam -L $intervals -bqsr $recal \
+    gatk  --java-options "-Xmx${task.memory.giga}g"  ApplyBQSR -R $fasta -I $bam -O $recal_bam -L $intervals -bqsr $recal \
         --static-quantized-quals 10 --static-quantized-quals 20 --static-quantized-quals 30 \
         --add-output-sam-program-record \
         --create-output-bam-md5 \

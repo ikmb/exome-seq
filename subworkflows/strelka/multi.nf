@@ -15,16 +15,16 @@ vcf_phased_multi = Channel.from([])
 
 workflow STRELKA_MULTI_CALLING {
 
-	take:
-	bams
-	bed
-	metas
-	fasta
+    take:
+    bams
+    bed
+    metas
+    fasta
 
-	main:
+    main:
 
-	ch_merged_vcf = Channel.empty()
-	ch_phased_multi = Channel.empty()
+    ch_merged_vcf = Channel.empty()
+    ch_phased_multi = Channel.empty()
     ch_vcf = Channel.empty()
     
     bams.map { b,i -> 
@@ -36,8 +36,8 @@ workflow STRELKA_MULTI_CALLING {
 
 	STRELKA_JOINT_CALLING(
         ch_bams.map { m,b,i -> [ b,i]},
-        bed.collect(),
-        fasta.collect()
+        bed,
+        fasta
     )
 
     ch_versions = ch_versions.mix(STRELKA_JOINT_CALLING.out.versions)
@@ -64,7 +64,7 @@ workflow STRELKA_MULTI_CALLING {
 	
     VCF_GET_SAMPLE(
         ch_merged_vcf.collect(),
-		metas
+	metas
     )
 
     ch_versions = ch_versions.mix(VCF_GET_SAMPLE.out.versions)

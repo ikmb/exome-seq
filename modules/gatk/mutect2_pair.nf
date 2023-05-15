@@ -35,7 +35,7 @@ process GATK_MUTECT2_PAIR {
 	}
 
 	"""
-    gatk Mutect2 \
+    gatk  --java-options "-Xmx${task.memory.giga}g" Mutect2 \
         -R $fasta \
         -I $normal_bam \
         -I ${tumor_bams.join(' -I ')} \

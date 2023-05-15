@@ -10,7 +10,8 @@ process CNVKIT_BATCH {
 
     input:
     tuple val(meta),path(bam),path(bai)
-    tuple val(meta_c),path(cnn)
+    path(cnn)
+    path(targets)
     tuple path(fasta),path(fai),path(dict)
 
     output:
@@ -23,15 +24,32 @@ process CNVKIT_BATCH {
     cns = results + "/" + bam.getBaseName() + ".call.cns"
 
     def options = ""
+    def pre = ""
+    def cnn_clean = ""
+
+    if (cnn) {
+        if ( cnn.getName().contains(".gz") ) {
+           cnn_clean = cnn.getBaseName()
+           pre = "gunzip -c $cnn > $cnn_clean"
+        }
+        options += " -r $cnn_clean"
+    } else {
+        options += " -f $fasta "
+        if (targets) {
+            options += " -t $targets"
+        }
+    }
 
     if (meta.status == 1) {
-        options = "--segment-method ${params.cnvkit_mode_tumor}"
+        options += " --segment-method ${params.cnvkit_mode_tumor}"
     } else {
-        options = "--segment-method ${params.cnvkit_mode}"
+        options += " --segment-method ${params.cnvkit_mode}"
     }
 
     """
-    cnvkit.py batch -r $cnn $bam -d $results -p ${task.cpus} $options
+    $pre
+
+    cnvkit.py batch $bam $options -d $results -p ${task.cpus}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

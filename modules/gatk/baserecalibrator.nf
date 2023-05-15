@@ -22,7 +22,7 @@ process GATK_BASERECALIBRATOR {
 	report = bam.getBaseName() + "-" + intervals.getBaseName() + "-recal.txt"	
 
     """
-    gatk BaseRecalibrator -R ${fasta}  -I $bam -O $report \
+    gatk  --java-options "-Xmx${task.memory.giga}g" BaseRecalibrator -R ${fasta}  -I $bam -O $report \
         -L $intervals --use-original-qualities --known-sites ${snps.join(' --known-sites ')} \
         --known-sites ${indels.join(' --known-sites ')} \
         -ip $params.interval_padding
