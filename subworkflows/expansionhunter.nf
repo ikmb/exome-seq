@@ -5,20 +5,20 @@ ch_versions = Channel.from([])
 
 workflow EXPANSIONS {
 
-	take:
-		bam
-		catalog	
-	main:
-		EXPANSION_HUNTER(
+    take:
+        bam
+        catalog    
+    main:
+        EXPANSION_HUNTER(
                     bam,
                     catalog
                 )
 
-		ch_versions = ch_versions.mix(EXPANSION_HUNTER.out.versions)
+        ch_versions = ch_versions.mix(EXPANSION_HUNTER.out.versions)
 
-		EXPANSIONS2XLSX(EXPANSION_HUNTER.out[0])
+        EXPANSIONS2XLSX(EXPANSION_HUNTER.out[0])
 
-	emit:
-		expansions = EXPANSIONS2XLSX.out
-		versions = ch_versions	
+    emit:
+        expansions = EXPANSIONS2XLSX.out
+        versions = ch_versions    
 }

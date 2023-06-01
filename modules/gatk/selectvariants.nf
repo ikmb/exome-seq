@@ -15,7 +15,7 @@ process GATK_SELECTVARIANTS {
     path("versions.yml"), emit: versions
 
     script:
-    def prefix = meta.patient_id + "_" + meta.sample_id
+    def prefix = meta.sample_id
     vcf_sample = prefix + "-" + m_f.variantcaller + "-split.vcf.gz"
     vcf_sample_index = vcf_sample + ".tbi"
 

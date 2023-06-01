@@ -1,25 +1,25 @@
 process GATK_BASERECALIBRATOR {
 
-	tag "${meta.patient_id}|${meta.sample_id}"
+    tag "${meta.patient_id}|${meta.sample_id}"
 
-	container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
+    container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
 
         label 'medium_serial'
 
-	input:
-	tuple val(meta),path(bam),path(bai),path(intervals)
-	tuple path(fasta),path(fai),path(dict)
-	path(snps)
-	path(snps_tbi)
-	path(indels)
-	path(indels_tbi)
+    input:
+    tuple val(meta),path(bam),path(bai),path(intervals)
+    tuple path(fasta),path(fai),path(dict)
+    path(snps)
+    path(snps_tbi)
+    path(indels)
+    path(indels_tbi)
 
-	output:
-	tuple val(meta),path(report), emit: report
-	path("versions.yml"), emit: versions
+    output:
+    tuple val(meta),path(report), emit: report
+    path("versions.yml"), emit: versions
 
-	script:
-	report = bam.getBaseName() + "-" + intervals.getBaseName() + "-recal.txt"	
+    script:
+    report = bam.getBaseName() + "-" + intervals.getBaseName() + "-recal.txt"    
 
     """
     gatk  --java-options "-Xmx${task.memory.giga}g" BaseRecalibrator -R ${fasta}  -I $bam -O $report \

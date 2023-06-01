@@ -20,11 +20,11 @@ process GATK_SPLITINTERVALS {
     gatk SplitIntervals -R ${fasta} -L $intervals \
         --scatter-count 10 \
         -O results
-		
+        
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         gatk4: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$//')
     END_VERSIONS
-	"""
+    """
 
 }

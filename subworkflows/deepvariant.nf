@@ -16,26 +16,26 @@ ch_vcf = Channel.from([])
 
 workflow DV_VARIANT_CALLING {
 
-	take:
-		bam
-		bed
-		fasta		
-		dbsnp
+    take:
+        bam
+        bed
+        fasta        
+        dbsnp
 
-	main:
+    main:
         
-		DEEPVARIANT(
-			bam,
-			bed,
-			fasta
-		)
+        DEEPVARIANT(
+            bam,
+            bed,
+            fasta
+        )
 
-		ch_versions = ch_versions.mix(DEEPVARIANT.out.versions)
+        ch_versions = ch_versions.mix(DEEPVARIANT.out.versions)
 
-		VCF_INDEX(DEEPVARIANT.out.vcf)
-		VCF_FILTER_PASS(VCF_INDEX.out.vcf)
-		VCF_ADD_DBSNP(
-			VCF_FILTER_PASS.out.vcf.map { meta,v,t ->
+        VCF_INDEX(DEEPVARIANT.out.vcf)
+        VCF_FILTER_PASS(VCF_INDEX.out.vcf)
+        VCF_ADD_DBSNP(
+            VCF_FILTER_PASS.out.vcf.map { meta,v,t ->
                             [[
                                 id: meta.id,
                                 sample_id: meta.sample_id,
@@ -43,50 +43,50 @@ workflow DV_VARIANT_CALLING {
                                 variantcaller: "DEEPVARIANT"
                             ],v,t]
                         },
-			dbsnp
-		)
-		VCF_ADD_HEADER(
-			VCF_ADD_DBSNP.out.vcf
-		)
+            dbsnp
+        )
+        VCF_ADD_HEADER(
+            VCF_ADD_DBSNP.out.vcf
+        )
 
-		ch_vcf = ch_vcf.mix(VCF_ADD_HEADER.out.vcf)
+        ch_vcf = ch_vcf.mix(VCF_ADD_HEADER.out.vcf)
 
-		if (params.phase) {
-			// Phase single VCF
-			WHATSHAP_SINGLE(
-				VCF_ADD_HEADER.out.vcf.map {m,v,t ->
-					new_key = m.sample_id
-					tuple(new_key,m,v,t)
-				}.join(
-					bam.map { m,b,i ->
-						new_b_key = m.sample_id
-						tuple(new_b_key,b,i)
-					}
-				).map { n,m,v,t,b,i -> [ m,v,t,b,i ] },
-				fasta
-			)
-			ch_phased_single = ch_phased_single.mix(WHATSHAP_SINGLE.out.vcf)
-			ch_versions = ch_versions.mix(WHATSHAP_SINGLE.out.versions)
-		}
+        if (params.phase) {
+            // Phase single VCF
+            WHATSHAP_SINGLE(
+                VCF_ADD_HEADER.out.vcf.map {m,v,t ->
+                    new_key = m.sample_id
+                    tuple(new_key,m,v,t)
+                }.join(
+                    bam.map { m,b,i ->
+                        new_b_key = m.sample_id
+                        tuple(new_b_key,b,i)
+                    }
+                ).map { n,m,v,t,b,i -> [ m,v,t,b,i ] },
+                fasta
+            )
+            ch_phased_single = ch_phased_single.mix(WHATSHAP_SINGLE.out.vcf)
+            ch_versions = ch_versions.mix(WHATSHAP_SINGLE.out.versions)
+        }
 
-		// Fiddly work-around to determine whether we have 1 or multiple vcfs. No merging when n=1
-		VCF_FILTER_PASS.out.vcf.map { m,v,t ->
-			[[
-				id: "all", 
-				sample_id: "UNDEFINED", 
-				patient_id: "UNDEFINED", 
-				variantcaller: "DEEPVARIANT" 
-			],v,t ]
-		}.set { ch_variants_pass }
+        // Fiddly work-around to determine whether we have 1 or multiple vcfs. No merging when n=1
+        VCF_FILTER_PASS.out.vcf.map { m,v,t ->
+            [[
+                id: "all", 
+                sample_id: "UNDEFINED", 
+                patient_id: "UNDEFINED", 
+                variantcaller: "DEEPVARIANT" 
+            ],v,t ]
+        }.set { ch_variants_pass }
 
-		ch_variants_pass
-		.groupTuple()
-		.branch { m,v,t ->
-			single: v.size() == 1
-			multi: v.size() > 1
-		}.set { ch_grouped_vcfs }
-		
-		// Joint calling with GLNexus - or simple merging
+        ch_variants_pass
+        .groupTuple()
+        .branch { m,v,t ->
+            single: v.size() == 1
+            multi: v.size() > 1
+        }.set { ch_grouped_vcfs }
+        
+        // Joint calling with GLNexus - or simple merging
         if (params.joint_calling) {
             
             MERGE_GVCFS(
@@ -99,51 +99,51 @@ workflow DV_VARIANT_CALLING {
             joint_vcf = MERGE_GVCFS.out.vcf
             
             ch_merged_vcf = ch_merged_vcf.mix(
-				joint_vcf.map { v,t -> 
-					[[
-						id: "JOINT_CALLING", 
-						sample_id: "GLNEXUS_DEEPVARIANT", 
-						patient_id: "MERGED_CALLSET", 
-						variantcaller: "DEEPVARIANT"
-					],v,t]
+                joint_vcf.map { v,t -> 
+                    [[
+                        id: "JOINT_CALLING", 
+                        sample_id: "GLNEXUS_DEEPVARIANT", 
+                        patient_id: "MERGED_CALLSET", 
+                        variantcaller: "DEEPVARIANT"
+                    ],v,t]
                 }
-			)
-			if (params.phase) {	
+            )
+            if (params.phase) {    
 
-				WHATSHAP(
-					merged_vcf,
-					bam.map{m,b,i -> tuple(b,i) }.collect(),
-					fasta
-				)
+                WHATSHAP(
+                    merged_vcf,
+                    bam.map{m,b,i -> tuple(b,i) }.collect(),
+                    fasta
+                )
 
-				ch_phased_multi = ch_phased_multi.mix(WHATSHAP.out.vcf)
+                ch_phased_multi = ch_phased_multi.mix(WHATSHAP.out.vcf)
 
-				ch_versions = ch_versions.mix(WHATSHAP.out.versions)
-			}
+                ch_versions = ch_versions.mix(WHATSHAP.out.versions)
+            }
 
         } else {
             MERGE_VCF(
                 ch_grouped_vcfs.multi.map { m,v,t -> 
-					[[ 
-					id: "DEEPVARIANT", 
-					sample_id: "BCFTOOLS", 
-					patient_id: "MERGED_CALLSET", 
-					variantcaller: "DEEPVARIANT"
-					],v,t ]
-				}
-			)
+                    [[ 
+                    id: "DEEPVARIANT", 
+                    sample_id: "BCFTOOLS", 
+                    patient_id: "MERGED_CALLSET", 
+                    variantcaller: "DEEPVARIANT"
+                    ],v,t ]
+                }
+            )
 
             ch_merged_vcf = ch_merged_vcf.mix(MERGE_VCF.out.vcf)
 
-			ch_versions = ch_versions.mix(MERGE_VCF.out.versions)
+            ch_versions = ch_versions.mix(MERGE_VCF.out.versions)
         }
 
-	emit:
-		vcf 				= ch_vcf
-		vcf_phased_single 	= ch_phased_single
-		sample_names 		= DEEPVARIANT.out.sample_name
-		gvcf 				= DEEPVARIANT.out.gvcf
-		vcf_multi 			= ch_merged_vcf
-		vcf_phased_multi 	= ch_phased_multi
-		versions 			= ch_versions
+    emit:
+        vcf                 = ch_vcf
+        vcf_phased_single     = ch_phased_single
+        sample_names         = DEEPVARIANT.out.sample_name
+        gvcf                 = DEEPVARIANT.out.gvcf
+        vcf_multi             = ch_merged_vcf
+        vcf_phased_multi     = ch_phased_multi
+        versions             = ch_versions
 }

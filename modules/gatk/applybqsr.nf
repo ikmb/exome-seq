@@ -2,22 +2,22 @@ process GATK_APPLYBQSR {
 
     tag "${meta.patient_id}|${meta.sample_id}"
 
-	container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
+    container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
 
-	label 'medium_serial'
+    label 'medium_serial'
 
-	input:
-	tuple val(meta),path(bam),path(bai),path(recal)
-	path(intervals)
-	tuple path(fasta),path(fai),path(dict)
+    input:
+    tuple val(meta),path(bam),path(bai),path(recal)
+    path(intervals)
+    tuple path(fasta),path(fai),path(dict)
 
-	output:
-	tuple val(meta),path(recal_bam),path(recal_bai), emit: bam
-	path("versions.yml"), emit: versions
+    output:
+    tuple val(meta),path(recal_bam),path(recal_bai), emit: bam
+    path("versions.yml"), emit: versions
 
-	script:
-	recal_bam = bam.getBaseName() + "-recal.cram"
-	recal_bai = bam.getBaseName() + "-recal.cram.bai"
+    script:
+    recal_bam = bam.getBaseName() + "-recal.cram"
+    recal_bai = bam.getBaseName() + "-recal.cram.bai"
 
     """
     gatk  --java-options "-Xmx${task.memory.giga}g"  ApplyBQSR -R $fasta -I $bam -O $recal_bam -L $intervals -bqsr $recal \
