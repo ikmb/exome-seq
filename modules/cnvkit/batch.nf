@@ -11,8 +11,6 @@ process CNVKIT_BATCH {
     input:
     tuple val(meta),path(bam),path(bai)
     path(cnn)
-    path(targets)
-    tuple path(fasta),path(fai),path(dict)
 
     output:
     tuple val(meta),path(results), emit: results
@@ -27,17 +25,11 @@ process CNVKIT_BATCH {
     def pre = ""
     def cnn_clean = ""
 
-    if (cnn) {
-        if ( cnn.getName().contains(".gz") ) {
-           cnn_clean = cnn.getBaseName()
-           pre = "gunzip -c $cnn > $cnn_clean"
-        }
-        options += " -r $cnn_clean"
+    if ( cnn.getName().contains(".gz") ) {
+        cnn_clean = cnn.getBaseName()
+        pre = "gunzip -c $cnn > $cnn_clean"
     } else {
-        options += " -f $fasta "
-        if (targets) {
-            options += " -t $targets"
-        }
+        cnn_clean = cnn
     }
 
     if (meta.status == 1) {
@@ -49,7 +41,7 @@ process CNVKIT_BATCH {
     """
     $pre
 
-    cnvkit.py batch $bam $options -d $results -p ${task.cpus}
+    cnvkit.py batch $bam -r $cnn_clean $options -d $results -p ${task.cpus}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

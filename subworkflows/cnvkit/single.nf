@@ -4,23 +4,17 @@ include { CNVKIT_EXPORT } from "./../../modules/cnvkit/export"
 
 ch_versions = Channel.from([])
 
-ch_cnn = Channel.value([])
-
 workflow CNVKIT_SINGLE {
 
     take:
         bam
         cnn_gz
-        bed
-        fasta
 
     main:
 
         CNVKIT_BATCH(
             bam,
-            cnn_gz,
-            bed,
-            fasta
+            cnn_gz.collect()
         )
     
         ch_versions = ch_versions.mix(CNVKIT_BATCH.out.versions)

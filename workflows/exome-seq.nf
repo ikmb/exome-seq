@@ -72,12 +72,15 @@ if (params.aligner == "dragmap") {
 // ************************************
 // CNVkit reference
 // ************************************
+cnv_ref = false
 if (params.skip_cnv_gz) {
     ch_cnv_gz 		= Channel.value([])
 } else if (params.cnv_gz) {
-    ch_cnv_gz 		= Channel.fromPath(params.cnv_gz).collect()
+    cnv_ref             = true
+    ch_cnv_gz 		= Channel.fromPath(params.cnv_gz)
 } else if ( params.kit && params.genomes[ params.assembly ].kits[ params.kit ].cnv_ref) { 
-    ch_cnv_gz 		= Channel.fromPath(params.genomes[ params.assembly ].kits[ params.kit ].cnv_ref).collect()
+    cnv_ref             = true
+    ch_cnv_gz 		= Channel.fromPath(params.genomes[ params.assembly ].kits[ params.kit ].cnv_ref)
 } else { 
     ch_cnv_gz 		= Channel.value([])
 }
@@ -139,7 +142,7 @@ if ('expansionhunter' in tools) {
         ecatalog = file(params.genomes[params.assembly].expansion_catalog, checkIfExists: true )
         Channel.fromPath(ecatalog)
         .ifEmpty { exit 1, "Could not find a matching ExpansionHunter catalog for this assembly" }
-        .set { expansion_catalog }.collect()
+        .set { expansion_catalog }
 } else {
         expansion_catalog = Channel.empty()
 }
@@ -224,6 +227,7 @@ include { SEX_CHECK} from "./../modules/qc/main"
 include { XHLA } from "./../modules/xhla"
 include { CNVKIT_SINGLE } from "./../subworkflows/cnvkit/single"
 include { CNVKIT_PAIRED } from "./../subworkflows/cnvkit/paired"
+include { CNVKIT_MAKE_REFERENCE } from "./../subworkflows/cnvkit/make_reference"
 include { VALIDATE_SAMPLESHEET } from "./../modules/validate_samplesheet"
 include { CUSTOM_DUMPSOFTWAREVERSIONS } from "./../modules/custom/dumpsoftwareversions/main"
 
@@ -253,7 +257,7 @@ workflow EXOME_SEQ {
         genome_index,
         ch_fasta
     )
-    ch_bam          = TRIM_AND_ALIGN.out.bam
+    ch_bam		= TRIM_AND_ALIGN.out.bam
     ch_bam_nodedup	= TRIM_AND_ALIGN.out.bam_nodedup
     trim_report		= TRIM_AND_ALIGN.out.qc
     dedup_report	= TRIM_AND_ALIGN.out.dedup_report
@@ -361,6 +365,8 @@ workflow EXOME_SEQ {
             sample_id: "${m.sample_id}_vs_all_tumors".toString()
             ],nb,nbi,tb,tbi]
         }.set { ch_recal_bam_normal_grouped_tumor }
+
+	ch_recal_bam_normal_grouped_tumor.view()
 
         // combining each normal sample with each tumor sample for pair-wise analysis
         ch_recal_bam_tumor_joined 			= ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
@@ -548,14 +554,22 @@ workflow EXOME_SEQ {
 
     // CNV calling
     if ('cnvkit' in tools) {
-            
+
+        if (cnv_ref) {
+            cnv_cnn_ref = ch_cnv_gz
+        } else {            
+            CNVKIT_MAKE_REFERENCE(
+                ch_bam_normal,
+                bed,
+                ch_fasta
+            )
+            cnv_cnn_ref = CNVKIT_MAKE_REFERENCE.out.cnn
+        }
+
         CNVKIT_SINGLE(
             ch_bam,
-            ch_cnv_gz,
-            bed,
-            ch_fasta
+            cnv_cnn_ref
         )
-        ch_versions = ch_versions.mix(CNVKIT_SINGLE.out.versions)
 
         CNVKIT_PAIRED(
             ch_bam_normal_grouped_tumor,
@@ -568,7 +582,10 @@ workflow EXOME_SEQ {
         
     // Expansions
     if ('expansionhunter' in tools) {
-        EXPANSIONS(ch_bam,expansion_catalog)
+        EXPANSIONS(
+            ch_bam,
+            expansion_catalog.collect()
+        )
         ch_versions = ch_versions.mix(EXPANSIONS.out.versions)
     }
 
