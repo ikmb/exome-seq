@@ -1,28 +1,28 @@
 process GATK_FILTERVARIANTTRANCHES {
 
-	tag "${meta.patient_id}|${meta.sample_id}"
+    tag "${meta.patient_id}|${meta.sample_id}"
 
         container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
 
         label 'medium_serial'
 
-	publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/GATK", mode: 'copy'
-	
-	input:
-	tuple val(meta),path(vcf),path(tbi)
-	path(snps)
-	path(snps_tbi)
-	path(indels)
-	path(indels_tbi)
+    publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/GATK", mode: 'copy'
+    
+    input:
+    tuple val(meta),path(vcf),path(tbi)
+    path(snps)
+    path(snps_tbi)
+    path(indels)
+    path(indels_tbi)
 
-	output:
-	tuple val(meta),path(vcf_filtered),path(vcf_filtered_tbi), emit: vcf
-	path("versions.yml"), emit: versions
+    output:
+    tuple val(meta),path(vcf_filtered),path(vcf_filtered_tbi), emit: vcf
+    path("versions.yml"), emit: versions
 
-	script:
-	
-	vcf_filtered = vcf.getSimpleName() + "-filtered_tranches.vcf.gz"
-	vcf_filtered_tbi = vcf_filtered + ".tbi"
+    script:
+    
+    vcf_filtered = vcf.getSimpleName() + "-filtered_tranches.vcf.gz"
+    vcf_filtered_tbi = vcf_filtered + ".tbi"
 
     """
     gatk FilterVariantTranches \

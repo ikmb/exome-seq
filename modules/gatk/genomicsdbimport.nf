@@ -1,21 +1,21 @@
 process GATK_GENOMICSDBIMPORT {
 
-	tag "ALL"
-	
-        container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
+    tag "ALL"
+    
+    container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
 
-        label 'long_serial'
+    label 'long_serial'
 
-	input:
-	path(gvcfs)
-	path(tbis)
+    input:
+    path(gvcfs)
+    path(tbis)
 
-	output:
-	path(db), emit: db
-	path("versions.yml"), emit: versions
+    output:
+    path(db), emit: db
+    path("versions.yml"), emit: versions
 
-	script:
-	db = "genomicsdb-" + params.run_name
+    script:
+    db = "genomicsdb-" + params.run_name
 
     """
     gatk  --java-options "-Xmx${task.memory.giga}g" GenomicsDBImport \
@@ -28,5 +28,5 @@ process GATK_GENOMICSDBIMPORT {
         gatk4: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$//')
     END_VERSIONS
 
-	"""	
+    """    
 }

@@ -1,21 +1,21 @@
 process GATK_GENOTYPEGVCFS {
 
-        container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
+    container 'quay.io/biocontainers/gatk4:4.3.0.0--py36hdfd78af_0'
 
-        label 'long_serial'
+    label 'long_serial'
 
-	input:
-	tuple path(gvcf),path(tbi)
-	path(intervals)
-	tuple path(fasta),path(fai),path(dict)
+    input:
+    tuple path(gvcf),path(tbi)
+    path(intervals)
+    tuple path(fasta),path(fai),path(dict)
 
-	output:
-	tuple path(vcf),path(tbi), emit: vcf
-	path("versions.yml"), emit: versions
+    output:
+    tuple path(vcf),path(tbi), emit: vcf
+    path("versions.yml"), emit: versions
 
-	script:
-	vcf = gvcf.getSimpleName() + "-genotyped.vcf.gz"
-	tbi = vcf + ".tbi"
+    script:
+    vcf = gvcf.getSimpleName() + "-genotyped.vcf.gz"
+    tbi = vcf + ".tbi"
 
     """
     gatk  --java-options "-Xmx${task.memory.giga}g" GenotypeGVCFs \

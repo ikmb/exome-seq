@@ -8,18 +8,18 @@
 // Input Channels and data
 // ************************************
 
-ch_dbsnp 		= Channel.fromPath(params.dbsnp)
-ch_dbsnp_tbi 		= Channel.fromPath(params.dbsnp + ".tbi")
-ch_hapmap 		= Channel.fromPath(params.hapmap)
-ch_hapmap_tbi 		= Channel.fromPath(params.hapmap + ".tbi")
-ch_omni 		= Channel.fromPath(params.omni)
-ch_omni_tbi 		= Channel.fromPath(params.omni + ".tbi")
-ch_mills 		= Channel.fromPath(params.mills)
-ch_mills_tbi 		= Channel.fromPath(params.mills + ".tbi")
-ch_g1k 			= Channel.fromPath(params.g1k)
-ch_g1k_tbi 		= Channel.fromPath(params.g1k + ".tbi")
-ch_axiom 		= Channel.fromPath(params.axiom)
-ch_axiom_tbi 		= Channel.fromPath(params.axiom + ".tbi")
+ch_dbsnp        = Channel.fromPath(params.dbsnp)
+ch_dbsnp_tbi    = Channel.fromPath(params.dbsnp + ".tbi")
+ch_hapmap       = Channel.fromPath(params.hapmap)
+ch_hapmap_tbi   = Channel.fromPath(params.hapmap + ".tbi")
+ch_omni         = Channel.fromPath(params.omni)
+ch_omni_tbi     = Channel.fromPath(params.omni + ".tbi")
+ch_mills        = Channel.fromPath(params.mills)
+ch_mills_tbi    = Channel.fromPath(params.mills + ".tbi")
+ch_g1k          = Channel.fromPath(params.g1k)
+ch_g1k_tbi      = Channel.fromPath(params.g1k + ".tbi")
+ch_axiom        = Channel.fromPath(params.axiom)
+ch_axiom_tbi    = Channel.fromPath(params.axiom + ".tbi")
 
 // ************************************
 // combine all SNPs, for GATK calibration
@@ -31,11 +31,10 @@ ch_known_snps_tbi 	= ch_dbsnp_tbi.mix(ch_hapmap_tbi, ch_omni_tbi, ch_g1k_tbi).co
 // ************************************
 // combine all INDELs, for GATK calibration
 // ************************************
+ch_known_indels     = ch_mills.mix(ch_axiom).collect()
+ch_known_indels_tbi = ch_mills_tbi.mix(ch_axiom_tbi).collect()
 
-ch_known_indels 	= ch_mills.mix(ch_axiom).collect()
-ch_known_indels_tbi 	= ch_mills_tbi.mix(ch_axiom_tbi).collect()
-
-ch_dbsnp_combined 	= Channel.fromList( [ params.dbsnp, params.dbsnp + ".tbi" ] ).collect()
+ch_dbsnp_combined   = Channel.fromList( [ params.dbsnp, params.dbsnp + ".tbi" ] ).collect()
 
 // ************************************
 // Provide a BED file with amplicon locations
@@ -45,7 +44,7 @@ if (params.amplicon_bed) { ch_amplicon_bed = Channel.fromPath(file(params.amplic
 // *************************************
 // A GTF file for protein-level effect prediction
 // *************************************
-ch_gtf 			= Channel.fromPath(params.csq_gtf)
+ch_gtf              = Channel.fromPath(params.csq_gtf)
 
 // *************************************
 // The reference genome with relevant helper files
@@ -55,7 +54,6 @@ ch_fasta = Channel.fromList( [ file(params.fasta , checkIfExists: true), file(pa
 // ************************************
 // Mapping tool and corresponding index
 // ************************************
-
 if (!params.aligners_allowed.contains(params.aligner)) {
     exit 1, "Invalid aligner specified - valid options are: ${params.aligners_allowed.join(',')}"
 }
@@ -64,17 +62,16 @@ if (!params.aligners_allowed.contains(params.aligner)) {
 // Choose your aligner
 // ************************************
 if (params.aligner == "dragmap") {
-    genome_index 	= params.dragmap_index
+    genome_index        = params.dragmap_index
 } else if (params.aligner == "bwa2") {
-        genome_index 	= params.bwa2_index
+        genome_index    = params.bwa2_index
 } else {
-    genome_index 	= params.bwa_index
+    genome_index        = params.bwa_index
 }
 
 // ************************************
 // CNVkit reference
 // ************************************
-
 if (params.skip_cnv_gz) {
     ch_cnv_gz 		= Channel.value([])
 } else if (params.cnv_gz) {
@@ -89,6 +86,9 @@ if (params.skip_cnv_gz) {
 // Targets and bait file
 // ************************************
 
+if (!params.kit && !params.targets || !params.kit && !params.baits) {
+    exit 1, "No exome kit or custom targets (--targets) and/or baits (--baits) file specified!"
+}
 TARGETS = params.targets ?: params.genomes[params.assembly].kits[ params.kit ].targets
 BAITS = params.baits ?: params.genomes[params.assembly].kits[ params.kit ].baits
 
@@ -104,8 +104,8 @@ baits = Channel.from(file(BAITS, checkIfExists: true)).collect()
 // ************************************
 
 if (params.panel) {
-    panel 		= params.genomes[params.assembly].panels[params.panel].intervals
-    panels 		= Channel.fromPath(panel)
+    panel           = params.genomes[params.assembly].panels[params.panel].intervals
+    panels          = Channel.fromPath(panel)
 } else if (params.panel_intervals) {
     Channel.fromPath(params.panel_intervals)
     .ifEmpty { exit 1; "Could not find the specified gene panel (--panel_intervals)" }
@@ -125,19 +125,16 @@ if (params.panel) {
 // ************************************
 // A single exon only covered in male samples - simple sex check
 // ************************************
-
 sry_region  = params.sry_bed ?: params.genomes[params.assembly].sry_bed
 
 // ************************************
 // List of tools to run
 // ************************************
-
 tools = params.tools ? params.tools.split(',').collect{it.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '')} : []
 
 // ************************************
 // Expansion hunter references
 // ************************************
-
 if ('expansionhunter' in tools) {
         ecatalog = file(params.genomes[params.assembly].expansion_catalog, checkIfExists: true )
         Channel.fromPath(ecatalog)
@@ -145,10 +142,6 @@ if ('expansionhunter' in tools) {
         .set { expansion_catalog }.collect()
 } else {
         expansion_catalog = Channel.empty()
-}
-
-if ('strelka' in tools && 'manta' !in tools) {
-    log.info "Requested Strelka but not Manta - will not run Strelka on tumor/normal pairs!"
 }
 
 // **********************************
@@ -174,7 +167,7 @@ if ('mutect2' in tools) {
         ch_mutect_pon_tbi 	= Channel.value([])
     }
 } else {
-    ch_mutect_pon 		= Channel.value([])
+    ch_mutect_pon           = Channel.value([])
     ch_mutect_pon_tbi 		= Channel.value([])
 }
 
@@ -188,14 +181,14 @@ ch_samplesheet 			= Channel.fromPath(params.samples)
 // set optional channels
 // ************************************
 
-ch_vcfs 			= Channel.from([])
+ch_vcfs                 = Channel.from([])
 ch_phased_vcfs 			= Channel.from([])
 ch_recal_bam 			= Channel.from([])
 ch_manta_indels 		= Channel.from([])
 ch_multiqc_files 		= Channel.from([])
 ch_versions 			= Channel.from([])
 ch_manta_vcfs 			= Channel.from([])
-ch_manta_indels_paired 		= Channel.from([])
+ch_manta_indels_paired  = Channel.from([])
 
 // ************************************
 // import subworkflows and modules
@@ -244,7 +237,7 @@ workflow EXOME_SEQ {
         targets,
         ch_fasta
     )
-    padded_bed 		= CONVERT_BED.out.bed_padded.collect()
+    padded_bed  = CONVERT_BED.out.bed_padded.collect()
     bedgz		= CONVERT_BED.out.bed_gz.collect()
     bed 		= CONVERT_BED.out.bed.collect()
 
@@ -260,7 +253,7 @@ workflow EXOME_SEQ {
         genome_index,
         ch_fasta
     )
-    ch_bam		= TRIM_AND_ALIGN.out.bam
+    ch_bam          = TRIM_AND_ALIGN.out.bam
     ch_bam_nodedup	= TRIM_AND_ALIGN.out.bam_nodedup
     trim_report		= TRIM_AND_ALIGN.out.qc
     dedup_report	= TRIM_AND_ALIGN.out.dedup_report
@@ -344,21 +337,21 @@ workflow EXOME_SEQ {
         }.set { ch_recal_bam_status }
             
         // Fetch tumor and normal samples and group by patient ID into channel for paired calling (if any)
-        ch_recal_bam_normal				= ch_recal_bam_status.normal
-        ch_recal_bam_tumor				= ch_recal_bam_status.tumor
+        ch_recal_bam_normal                         = ch_recal_bam_status.normal
+        ch_recal_bam_tumor                          = ch_recal_bam_status.tumor
 
-        ch_recal_bam_normal_cross			= ch_recal_bam_normal.map { m,b,i -> [ m.patient_id,m,b,i] }
-        ch_recal_bam_tumor_cross			= ch_recal_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i] }
+        ch_recal_bam_normal_cross                   = ch_recal_bam_normal.map { m,b,i -> [ m.patient_id,m,b,i] }
+        ch_recal_bam_tumor_cross                    = ch_recal_bam_tumor.map { m,b,i -> [ m.patient_id,m,b,i] }
 
         // all tumor samples belonging to the same patient
-        ch_recal_bam_tumor_grouped 			        = ch_recal_bam_tumor_cross.groupTuple()
-        ch_recal_bam_tumor_grouped_joined 		= ch_recal_bam_tumor_grouped.join(ch_recal_bam_normal, remainder: true)
-        ch_recal_bam_tumor_grouped_joined_filtered 	= ch_recal_bam_tumor_grouped_joined.filter{ it -> !(it.last()) }
-        ch_recal_bam_tumor_grouped_tumor_only 		= ch_recal_bam_tumor_grouped_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+        ch_recal_bam_tumor_grouped                  = ch_recal_bam_tumor_cross.groupTuple()
+        ch_recal_bam_tumor_grouped_joined           = ch_recal_bam_tumor_grouped.join(ch_recal_bam_normal, remainder: true)
+        ch_recal_bam_tumor_grouped_joined_filtered  = ch_recal_bam_tumor_grouped_joined.filter{ it -> !(it.last()) }
+        ch_recal_bam_tumor_grouped_tumor_only       = ch_recal_bam_tumor_grouped_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
         
         // combining each normal with all matched tumor samples for joint analysis
-        ch_recal_bam_normal_cross_joined		= ch_recal_bam_normal_cross.join(ch_recal_bam_tumor_grouped)
-        ch_recal_bam_normal_cross_joined_filtered	= ch_recal_bam_normal_cross_joined.filter{ it -> it.last() }
+        ch_recal_bam_normal_cross_joined            = ch_recal_bam_normal_cross.join(ch_recal_bam_tumor_grouped)
+        ch_recal_bam_normal_cross_joined_filtered   = ch_recal_bam_normal_cross_joined.filter{ it -> it.last() }
 
         ch_recal_bam_normal_cross_joined_filtered.map { i,m,nb,nbi,mt,tb,tbi ->
             [[
@@ -371,7 +364,7 @@ workflow EXOME_SEQ {
 
         // combining each normal sample with each tumor sample for pair-wise analysis
         ch_recal_bam_tumor_joined 			= ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
-        ch_recal_bam_tumor_joined_filtered		= ch_recal_bam_tumor_joined.filter{ it ->  !(it.last()) }
+        ch_recal_bam_tumor_joined_filtered              = ch_recal_bam_tumor_joined.filter{ it ->  !(it.last()) }
         ch_recal_bam_tumor_only 			= ch_recal_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
 
         ch_recal_bam_normal_cross.cross(ch_recal_bam_tumor_cross).map { normal,tumor ->
