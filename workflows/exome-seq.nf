@@ -72,12 +72,15 @@ if (params.aligner == "dragmap") {
 // ************************************
 // CNVkit reference
 // ************************************
+cnv_ref = false
 if (params.skip_cnv_gz) {
     ch_cnv_gz 		= Channel.value([])
 } else if (params.cnv_gz) {
-    ch_cnv_gz 		= Channel.fromPath(params.cnv_gz).collect()
+    cnv_ref             = true
+    ch_cnv_gz 		= Channel.fromPath(params.cnv_gz)
 } else if ( params.kit && params.genomes[ params.assembly ].kits[ params.kit ].cnv_ref) { 
-    ch_cnv_gz 		= Channel.fromPath(params.genomes[ params.assembly ].kits[ params.kit ].cnv_ref).collect()
+    cnv_ref             = true
+    ch_cnv_gz 		= Channel.fromPath(params.genomes[ params.assembly ].kits[ params.kit ].cnv_ref)
 } else { 
     ch_cnv_gz 		= Channel.value([])
 }
@@ -139,7 +142,7 @@ if ('expansionhunter' in tools) {
         ecatalog = file(params.genomes[params.assembly].expansion_catalog, checkIfExists: true )
         Channel.fromPath(ecatalog)
         .ifEmpty { exit 1, "Could not find a matching ExpansionHunter catalog for this assembly" }
-        .set { expansion_catalog }.collect()
+        .set { expansion_catalog }
 } else {
         expansion_catalog = Channel.empty()
 }
@@ -189,6 +192,7 @@ ch_multiqc_files 		= Channel.from([])
 ch_versions 			= Channel.from([])
 ch_manta_vcfs 			= Channel.from([])
 ch_manta_indels_paired  = Channel.from([])
+ch_bam_normal			= Channel.from([])
 
 // ************************************
 // import subworkflows and modules
@@ -224,6 +228,7 @@ include { SEX_CHECK} from "./../modules/qc/main"
 include { XHLA } from "./../modules/xhla"
 include { CNVKIT_SINGLE } from "./../subworkflows/cnvkit/single"
 include { CNVKIT_PAIRED } from "./../subworkflows/cnvkit/paired"
+include { CNVKIT_MAKE_REFERENCE } from "./../subworkflows/cnvkit/make_reference"
 include { VALIDATE_SAMPLESHEET } from "./../modules/validate_samplesheet"
 include { CUSTOM_DUMPSOFTWAREVERSIONS } from "./../modules/custom/dumpsoftwareversions/main"
 
@@ -253,7 +258,7 @@ workflow EXOME_SEQ {
         genome_index,
         ch_fasta
     )
-    ch_bam          = TRIM_AND_ALIGN.out.bam
+    ch_bam		= TRIM_AND_ALIGN.out.bam
     ch_bam_nodedup	= TRIM_AND_ALIGN.out.bam_nodedup
     trim_report		= TRIM_AND_ALIGN.out.qc
     dedup_report	= TRIM_AND_ALIGN.out.dedup_report
@@ -362,6 +367,8 @@ workflow EXOME_SEQ {
             ],nb,nbi,tb,tbi]
         }.set { ch_recal_bam_normal_grouped_tumor }
 
+	ch_recal_bam_normal_grouped_tumor.view()
+
         // combining each normal sample with each tumor sample for pair-wise analysis
         ch_recal_bam_tumor_joined 			= ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
         ch_recal_bam_tumor_joined_filtered              = ch_recal_bam_tumor_joined.filter{ it ->  !(it.last()) }
@@ -414,7 +421,7 @@ workflow EXOME_SEQ {
     }.set { ch_bam_status }
 
     // Fetch tumor and normal samples and group by patient ID into channel for paired calling (if any)
-    ch_bam_normal           = ch_bam_status.normal
+    ch_bam_normal           = ch_bam_normal.mix(ch_bam_status.normal)
     ch_bam_tumor            = ch_bam_status.tumor
 
     ch_bam_normal_cross     = ch_bam_normal.map { m,b,i -> [ m.patient_id,m,b,i] }
@@ -548,14 +555,22 @@ workflow EXOME_SEQ {
 
     // CNV calling
     if ('cnvkit' in tools) {
-            
+
+        if (cnv_ref) {
+            cnv_cnn_ref = ch_cnv_gz
+        } else {            
+            CNVKIT_MAKE_REFERENCE(
+                ch_bam_normal,
+                bed,
+                ch_fasta
+            )
+            cnv_cnn_ref = CNVKIT_MAKE_REFERENCE.out.cnn
+        }
+
         CNVKIT_SINGLE(
             ch_bam,
-            ch_cnv_gz,
-            bed,
-            ch_fasta
+            cnv_cnn_ref
         )
-        ch_versions = ch_versions.mix(CNVKIT_SINGLE.out.versions)
 
         CNVKIT_PAIRED(
             ch_bam_normal_grouped_tumor,
@@ -568,7 +583,10 @@ workflow EXOME_SEQ {
         
     // Expansions
     if ('expansionhunter' in tools) {
-        EXPANSIONS(ch_bam,expansion_catalog)
+        EXPANSIONS(
+            ch_bam,
+            expansion_catalog.collect()
+        )
         ch_versions = ch_versions.mix(EXPANSIONS.out.versions)
     }
 
