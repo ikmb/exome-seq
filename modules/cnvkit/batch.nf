@@ -2,7 +2,7 @@ process CNVKIT_BATCH {
 
     label 'medium_parallel'
 
-    tag "${meta.patient_id}|${meta.sample_id}"
+    tag "${meta.patient_id}|${meta.sample_id}|${cnn}"
 
     publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/CNVkit", mode: 'copy'
     
@@ -18,7 +18,7 @@ process CNVKIT_BATCH {
     path("versions.yml"), emit: versions
 
     script:
-    results = "cnvkit_${meta.sample_id}"
+    results = "cnvkit_${cnn}_${meta.sample_id}"
     cns = results + "/" + bam.getBaseName() + ".call.cns"
 
     def options = ""

@@ -13,7 +13,7 @@ process CNVKIT_MAKE_REF {
     val(nsamples)
    
     output:
-    path(cnn_f), emit: cnn
+    path(cnn_f), optional: true,  emit: cnn
 
     script:
    
@@ -32,16 +32,8 @@ process CNVKIT_MAKE_REF {
 
         """
     } else {
-
         """
-        cnvkit.py access $fasta -x ${baseDir}/assets/cnvkit/GRCh38/hg38.encode_exclusion_list.bed -o access.bed
-        cnvkit.py antitarget $bed -g access.bed -o antitargets.bed
-        cnvkit.py reference -o $cnn_f -f $fasta -t $bed -a antitargets.bed
-
-        cat <<-END_VERSIONS > versions.yml
-        "${task.process}":
-            cnvkit: \$( cnvkit.py version )
-        END_VERSIONS
+            touch no.txt
         """
     }
 }

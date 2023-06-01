@@ -1,4 +1,4 @@
-include { CNVKIT_MAKE_REF } from "../../modules/cnvkit/make_ref" 
+include { CNVKIT_MAKE_FLAT_REF } from "../../modules/cnvkit/make_flat_ref"
 include { GZIP } from "../../modules/gzip"
 
 workflow CNVKIT_MAKE_REFERENCE {
@@ -9,18 +9,17 @@ workflow CNVKIT_MAKE_REFERENCE {
     fasta
 
     main:
-
-    CNVKIT_MAKE_REF(
-        bams.map { m,b,i -> 
-           [ b,i ]
-        }.collect(),
+ 
+    CNVKIT_MAKE_FLAT_REF(
         bed.collect(),
-        fasta.collect(),
-        bams.count()
+        fasta.collect()
     )
 
+    cnv_ref = CNVKIT_MAKE_FLAT_REF.out.cnn
+
+
     emit:
-    cnn = CNVKIT_MAKE_REF.out.cnn
+    cnn = cnv_ref
 
 }
 

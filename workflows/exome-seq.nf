@@ -192,6 +192,7 @@ ch_multiqc_files 		= Channel.from([])
 ch_versions 			= Channel.from([])
 ch_manta_vcfs 			= Channel.from([])
 ch_manta_indels_paired  = Channel.from([])
+ch_bam_normal			= Channel.from([])
 
 // ************************************
 // import subworkflows and modules
@@ -420,7 +421,7 @@ workflow EXOME_SEQ {
     }.set { ch_bam_status }
 
     // Fetch tumor and normal samples and group by patient ID into channel for paired calling (if any)
-    ch_bam_normal           = ch_bam_status.normal
+    ch_bam_normal           = ch_bam_normal.mix(ch_bam_status.normal)
     ch_bam_tumor            = ch_bam_status.tumor
 
     ch_bam_normal_cross     = ch_bam_normal.map { m,b,i -> [ m.patient_id,m,b,i] }
