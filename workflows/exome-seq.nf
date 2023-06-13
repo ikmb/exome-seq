@@ -85,6 +85,7 @@ if (params.skip_cnv_gz) {
     ch_cnv_gz 		= Channel.value([])
 }
 
+
 // ************************************
 // Targets and bait file
 // ************************************
@@ -134,6 +135,10 @@ sry_region  = params.sry_bed ?: params.genomes[params.assembly].sry_bed
 // List of tools to run
 // ************************************
 tools = params.tools ? params.tools.split(',').collect{it.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '')} : []
+
+if (!cnv_ref && 'cnvkit' in tools) {
+    log.info "Requesting CNVkit but no reference panel provided; will produce flat reference but results will be suboptimal!"
+}
 
 // ************************************
 // Expansion hunter references
@@ -366,8 +371,6 @@ workflow EXOME_SEQ {
             sample_id: "${m.sample_id}_vs_all_tumors".toString()
             ],nb,nbi,tb,tbi]
         }.set { ch_recal_bam_normal_grouped_tumor }
-
-	ch_recal_bam_normal_grouped_tumor.view()
 
         // combining each normal sample with each tumor sample for pair-wise analysis
         ch_recal_bam_tumor_joined 			= ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)

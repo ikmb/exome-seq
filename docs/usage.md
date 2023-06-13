@@ -115,8 +115,14 @@ Your Email address in quotes to which the pipeline report is sent upon completio
 ## Tool-specific options
 
 ### CNVkit
+CNVKit runs in two separate modes: single and paired. In single mode, every patient sample will run stand-alone using a reference panel. This reference panel can be provided by the user through the option `--cnv_gz` (also see [here](https://cnvkit.readthedocs.io/en/stable/pipeline.html)) or will be built on-the-fly as a flat reference. Using a flat reference as usually not a good idea for exome data, since bait capture efficiency is not uniform, and neither is the coverage across exons. 
+Paired mode on the other hand compares a normal sample with all tumor samples from the same patient and does not need a pre-existing reference panel.
+Naturally, single mode always runs whereas the paired mode only activates if the right data is provided (i.e. at least one tumor and one normal sample from the same patient). 
+
+For xGen v2, a reference panel is included and used automatically. Since this panel was produced from our own in-house data, you may want to override this option tho. 
+
 #### `--cnv_gz`
-If you wish to overwrite the default CNVKit reference file, you can provide it with this option. This file must be compressed with gzip (.cnn.gz) and match the assembly and exome kit!
+If you wish to provide a CNVKit reference panel, this option is for you. This file must be compressed with gzip (.cnn.gz) and match the assembly and exome kit!
 #### `--cnvkit_mode` [ default = "hmm-germline" ]
 The segmentation mode for CNV intervals. Default is hmm-germline. Other options are documented [here](https://cnvkit.readthedocs.io/en/stable/pipeline.html#segment).
 #### `--cnvkit_mode_tumor` [ default = "cbs" ]

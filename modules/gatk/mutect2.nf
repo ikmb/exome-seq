@@ -6,7 +6,7 @@ process GATK_MUTECT2 {
 
     container 'quay.io/biocontainers/gatk4:4.1.8.0--py38h37ae868_0'
 
-    label 'medium_serial'
+    label 'long_serial'
 
     input:
     tuple val(meta),path(bam),path(bai)
