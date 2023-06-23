@@ -11,7 +11,7 @@ workflow GATK_BAM_RECAL {
 
     take:
     bam
-    intervals
+    ch_intervals
     fasta
     known_snps
     known_snps_tbi

@@ -1,4 +1,5 @@
 include { GATK_MUTECT2_PAIR } from "./../modules/gatk/mutect2_pair"
+include { GATK_SPLITINTERVALS } from './../modules/gatk/splitintervals'
 include { GATK_FILTER_MUTECT_CALLS } from "./../modules/gatk/filter_mutect_calls"
 include { BCFTOOLS_VIEW } from "./../modules/bcftools/view"
 include { BCFTOOLS_ANNOTATE_DBSNP } from "./../modules/bcftools/annotate_dbsnp"
@@ -21,6 +22,14 @@ workflow GATK_MUTECT2_PAIRED {
         mutect_normals_tbi
 
     main:
+
+        // Make split targets
+        GATK_SPLITINTERVALS(
+            targets
+        )
+        GATK_SPLITINTERVALS.out.intervals.flatMap { i ->
+            i.collect { file(it) }
+        }.set { targets_split }
 
         // extract all the normal bams from the per-patient data drop
         ch_normal_bam = bams.map { m,nb,nbi,tb,tbi ->
@@ -50,7 +59,7 @@ workflow GATK_MUTECT2_PAIRED {
 
         GATK_MUTECT2_PAIR(
             bams,
-            targets,
+            targets_split,
             fasta,
             mutect_normals,
             mutect_normals_tbi

@@ -206,6 +206,7 @@ ch_bam_normal			= Channel.from([])
 include { CONVERT_BED } from "./../subworkflows/bed"
 include { TRIM_AND_ALIGN } from "./../subworkflows/align"
 include { DV_VARIANT_CALLING } from "./../subworkflows/deepvariant"
+include { GATK_SPLITINTERVALS } from "./../modules/gatk/splitintervals"
 include { GATK_VARIANT_CALLING } from "./../subworkflows/gatk_variant_calling"
 include { GATK_BAM_RECAL } from "./../subworkflows/gatk_bqsr"
 include { GATK_MUTECT2_SINGLE } from "./../subworkflows/gatk_mutect2_single"
@@ -263,7 +264,7 @@ workflow EXOME_SEQ {
         genome_index,
         ch_fasta
     )
-    ch_bam		= TRIM_AND_ALIGN.out.bam
+    ch_bam_dedup    = TRIM_AND_ALIGN.out.bam
     ch_bam_nodedup	= TRIM_AND_ALIGN.out.bam_nodedup
     trim_report		= TRIM_AND_ALIGN.out.qc
     dedup_report	= TRIM_AND_ALIGN.out.dedup_report
@@ -306,7 +307,7 @@ workflow EXOME_SEQ {
     if ('gatk' in tools || 'mutect2' in tools) {
         GATK_BAM_RECAL(
             ch_bam,
-            targets,
+            targets_split,
             ch_fasta,
             ch_known_snps,
             ch_known_snps_tbi,
@@ -403,7 +404,7 @@ workflow EXOME_SEQ {
         // Variant calling for tumor-only samples
         GATK_MUTECT2_SINGLE(
             ch_recal_bam_tumor_only,
-            targets,
+            targets_split,
             ch_fasta,
             ch_dbsnp_combined,
             ch_mutect_pon,
