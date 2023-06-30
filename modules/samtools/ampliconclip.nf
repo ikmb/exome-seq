@@ -6,7 +6,7 @@ process SAMTOOLS_AMPLICONCLIP {
 
     tag "${meta.patient_id}|${meta.sample_id}"
 
-    publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/", mode: 'copy'
+    //publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/", mode: 'copy'
 
     input:
     tuple val(meta),path(bam_raw),path(bai_raw)

@@ -4,7 +4,7 @@ process SAMTOOLS_AMPLICONSTATS {
 
     tag "${meta.patient_id}|${meta.sample_id}"
 
-    publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Stats", mode: 'copy'
+    publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Processing/Ampliconstats", mode: 'copy'
 
     input:
     tuple val(meta),path(bam),path(bai)
