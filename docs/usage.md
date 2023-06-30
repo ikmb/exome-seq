@@ -72,7 +72,7 @@ The pipeline offers various tools for the analysis of variant information. Speci
 1. SNPS and INDELs
    - [Deepvariant](https://github.com/google/deepvariant) (deepvariant)
    - [Strelka](https://github.com/Illumina/strelka) (strelka)
-   - [GATK](https://github.com/broadinstitute/gatk) (gatk)
+   - [Haplotyecaller](https://github.com/broadinstitute/gatk) (haplotypecaller)
 2. Somatic variant calling
    - [Mutect2](https://github.com/broadinstitute/gatk) (mutect2)
 2. Structural variants

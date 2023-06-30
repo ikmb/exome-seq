@@ -43,10 +43,16 @@ foreach my $line (@lines) {
 
 	$lc += 1;
 
-	my @el = split(";", $line);
+	my @el = split("\t", $line);
+
+        my $start = @el[1] ;
+        my $stop = @el[2] ;
+        my $len = $stop-$start ;
+
+        $len < 40 or die "The length of the primer binding site in line $lc seems too large! Sure you are providing primer positions?\n"
 
 	scalar(@el) == 6 or die "Incorrect number of elements detected in line $lc of your amplicon BED file (should be 6)!\n";
-	
+
 }
 
 close($IN);

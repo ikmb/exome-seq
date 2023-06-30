@@ -310,10 +310,10 @@ workflow EXOME_SEQ {
     }
 
     // Make GATK-compliant BAM file
-    if ('gatk' in tools || 'mutect2' in tools) {
+    if ('haplotypecaller' in tools || 'mutect2' in tools) {
         GATK_BAM_RECAL(
             ch_bam,
-            targets_split,
+            targets,
             ch_fasta,
             ch_known_snps,
             ch_known_snps_tbi,
@@ -325,7 +325,7 @@ workflow EXOME_SEQ {
     }
                 
     // GATK HAPLOTYPECALLER WORKFLOW
-    if ('gatk' in tools) {
+    if ('haplotypecaller' in tools) {
         GATK_VARIANT_CALLING(
             ch_recal_bam,
             targets,
