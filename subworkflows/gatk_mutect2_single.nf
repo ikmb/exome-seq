@@ -3,9 +3,11 @@ include { GATK_FILTER_MUTECT_CALLS } from "./../modules/gatk/filter_mutect_calls
 include { BCFTOOLS_VIEW } from "./../modules/bcftools/view"
 include { BCFTOOLS_ANNOTATE_DBSNP } from "./../modules/bcftools/annotate_dbsnp"
 include { BCFTOOLS_ANNOTATE } from "./../modules/bcftools/annotate"
+include { GATK_SPLITINTERVALS } from './../modules/gatk/splitintervals'
 include { GATK_LEARN_READ_ORIENTATION_MODEL } from "./../modules/gatk/learn_read_orientation_model"
 include { GATK_GET_PILEUP_SUMMARIES } from "./../modules/gatk/get_pileup_summaries"
 include { GATK_CALCULATE_CONTAMINATION } from "./../modules/gatk/calculate_contamination"
+include { PICARD_MERGEVCFS } from "./../modules/picard/mergevcfs"
 
 ch_versions = Channel.from([])
 ch_vcfs 	= Channel.from([])
@@ -22,9 +24,17 @@ workflow GATK_MUTECT2_SINGLE {
 	
     main:
 
+ // Make split targets
+    GATK_SPLITINTERVALS(
+        targets
+    )
+    GATK_SPLITINTERVALS.out.intervals.flatMap { i ->
+        i.collect { file(it) }
+    }.set { targets_split }
+
     GATK_MUTECT2(
         bam,
-        targets,
+        targets_split,
         fasta,
         mutect_normals,
         mutect_normals_tbi
@@ -32,8 +42,12 @@ workflow GATK_MUTECT2_SINGLE {
 
     ch_versions = ch_versions.mix(GATK_MUTECT2.out.versions)
 
+    PICARD_MERGEVCFS(
+        GATK_MUTECT2.out.vcf.groupTuple()
+    )
+
     GATK_LEARN_READ_ORIENTATION_MODEL(
-        GATK_MUTECT2.out.f1r2
+        GATK_MUTECT2.out.f1r2.groupTuple()
     )
 
     ch_versions = ch_versions.mix(GATK_LEARN_READ_ORIENTATION_MODEL.out.versions)
@@ -52,7 +66,7 @@ workflow GATK_MUTECT2_SINGLE {
 
     ch_versions = ch_versions.mix(GATK_CALCULATE_CONTAMINATION.out.versions)
 
-    ch_mutect = GATK_MUTECT2.out.vcf.join(
+    ch_mutect = PICARD_MERGEVCFS.out.vcf.join(
         GATK_LEARN_READ_ORIENTATION_MODEL.out.model
     ).join(GATK_CALCULATE_CONTAMINATION.out.table)
 

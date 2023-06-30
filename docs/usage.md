@@ -72,7 +72,7 @@ The pipeline offers various tools for the analysis of variant information. Speci
 1. SNPS and INDELs
    - [Deepvariant](https://github.com/google/deepvariant) (deepvariant)
    - [Strelka](https://github.com/Illumina/strelka) (strelka)
-   - [GATK](https://github.com/broadinstitute/gatk) (gatk)
+   - [Haplotyecaller](https://github.com/broadinstitute/gatk) (haplotypecaller)
 2. Somatic variant calling
    - [Mutect2](https://github.com/broadinstitute/gatk) (mutect2)
 2. Structural variants
@@ -154,7 +154,7 @@ Path to a local copy of the Mastermind database.
 If you have used any other type of kit for your enrichment, you are able to provide the target and bait definitions from the command line during execution using `--baits` and 
 `--targets`, respectively. Please note that these files must be in the Picard 
 [interval_list](https://gatkforums.broadinstitute.org/gatk/discussion/1319/collected-faqs-about-interval-lists) format and have to be matched 
-to the genome assembly (i.e. must have identical dictionary headers). 
+to the genome assembly (i.e. must have identical dictionary headers). Also note that these two files must not have the same name to avoid file name collisions throughout the workflow. 
 ### `--panel`
 For practical reasons, it can be desirable to determine the coverage of a discrete set of target genes, such as for a gene panel. The pipeline currently 
 supports the following panels:
@@ -199,3 +199,13 @@ Give this run a meaningful name (like a LIMS or project ID)
 
 ### `--amplicon_bed`
 A BED file specifying the location of amplicon primer positions. These will be masked from the final BAM file; no deduplication will be performed. Must match the assembly version. 
+
+See the samtools documentation for an example of how this file needs to be formatted [here](http://www.htslib.org/doc/samtools-ampliconstats.html).
+
+| Chromosome | Start | Stop | primer_name | score | strand |
+| ---------- | ----- | ---- | ----------- | ----- | ------ |
+| MN908947.3 | 1875  | 1897 | nCoV-2019_7_LEFT | 60 | + |
+| MN908947.3 | 1868  | 1890 |  nCoV-2019_7_LEFT_alt0 | 60 | + |
+| MN908947.3 | 2247  | 2269 | nCoV-2019_7_RIGHT | 60 | - |
+
+Note that the table header is shown for clarification; BED files must not have an actual header included. 

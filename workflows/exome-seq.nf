@@ -25,8 +25,8 @@ ch_axiom_tbi    = Channel.fromPath(params.axiom + ".tbi")
 // combine all SNPs, for GATK calibration
 // ************************************
 
-ch_known_snps		= ch_dbsnp.mix(ch_hapmap, ch_omni, ch_g1k).collect()
-ch_known_snps_tbi 	= ch_dbsnp_tbi.mix(ch_hapmap_tbi, ch_omni_tbi, ch_g1k_tbi).collect()
+ch_known_snps       = ch_dbsnp.mix(ch_hapmap, ch_omni, ch_g1k).collect()
+ch_known_snps_tbi   = ch_dbsnp_tbi.mix(ch_hapmap_tbi, ch_omni_tbi, ch_g1k_tbi).collect()
 
 // ************************************
 // combine all INDELs, for GATK calibration
@@ -175,7 +175,7 @@ if ('mutect2' in tools) {
         ch_mutect_pon_tbi 	= Channel.value([])
     }
 } else {
-    ch_mutect_pon           = Channel.value([])
+    ch_mutect_ponb              = Channel.value([])
     ch_mutect_pon_tbi 		= Channel.value([])
 }
 
@@ -189,14 +189,14 @@ ch_samplesheet 			= Channel.fromPath(params.samples)
 // set optional channels
 // ************************************
 
-ch_vcfs                 = Channel.from([])
+ch_vcfs                         = Channel.from([])
 ch_phased_vcfs 			= Channel.from([])
 ch_recal_bam 			= Channel.from([])
 ch_manta_indels 		= Channel.from([])
 ch_multiqc_files 		= Channel.from([])
 ch_versions 			= Channel.from([])
 ch_manta_vcfs 			= Channel.from([])
-ch_manta_indels_paired  = Channel.from([])
+ch_manta_indels_paired          = Channel.from([])
 ch_bam_normal			= Channel.from([])
 
 // ************************************
@@ -206,6 +206,7 @@ ch_bam_normal			= Channel.from([])
 include { CONVERT_BED } from "./../subworkflows/bed"
 include { TRIM_AND_ALIGN } from "./../subworkflows/align"
 include { DV_VARIANT_CALLING } from "./../subworkflows/deepvariant"
+include { GATK_SPLITINTERVALS } from "./../modules/gatk/splitintervals"
 include { GATK_VARIANT_CALLING } from "./../subworkflows/gatk_variant_calling"
 include { GATK_BAM_RECAL } from "./../subworkflows/gatk_bqsr"
 include { GATK_MUTECT2_SINGLE } from "./../subworkflows/gatk_mutect2_single"
@@ -247,7 +248,7 @@ workflow EXOME_SEQ {
         targets,
         ch_fasta
     )
-    padded_bed  = CONVERT_BED.out.bed_padded.collect()
+    padded_bed		= CONVERT_BED.out.bed_padded.collect()
     bedgz		= CONVERT_BED.out.bed_gz.collect()
     bed 		= CONVERT_BED.out.bed.collect()
 
@@ -263,13 +264,19 @@ workflow EXOME_SEQ {
         genome_index,
         ch_fasta
     )
-    ch_bam		= TRIM_AND_ALIGN.out.bam
+    ch_bam_dedup	= TRIM_AND_ALIGN.out.bam
     ch_bam_nodedup	= TRIM_AND_ALIGN.out.bam_nodedup
     trim_report		= TRIM_AND_ALIGN.out.qc
     dedup_report	= TRIM_AND_ALIGN.out.dedup_report
     sample_names	= TRIM_AND_ALIGN.out.sample_names
 
     ch_versions		= ch_versions.mix(TRIM_AND_ALIGN.out.versions)
+
+    if (params.amplicon_bed) {
+        ch_bam = ch_bam_dedup
+    } else {
+        ch_bam = ch_bam_nodedup
+    }
 
     // Create a sub-set of the BAM file using a target BED file
     if ('intersect' in tools) {
@@ -303,7 +310,7 @@ workflow EXOME_SEQ {
     }
 
     // Make GATK-compliant BAM file
-    if ('gatk' in tools || 'mutect2' in tools) {
+    if ('haplotypecaller' in tools || 'mutect2' in tools) {
         GATK_BAM_RECAL(
             ch_bam,
             targets,
@@ -318,7 +325,7 @@ workflow EXOME_SEQ {
     }
                 
     // GATK HAPLOTYPECALLER WORKFLOW
-    if ('gatk' in tools) {
+    if ('haplotypecaller' in tools) {
         GATK_VARIANT_CALLING(
             ch_recal_bam,
             targets,
@@ -403,7 +410,7 @@ workflow EXOME_SEQ {
         // Variant calling for tumor-only samples
         GATK_MUTECT2_SINGLE(
             ch_recal_bam_tumor_only,
-            targets,
+            targets_split,
             ch_fasta,
             ch_dbsnp_combined,
             ch_mutect_pon,
