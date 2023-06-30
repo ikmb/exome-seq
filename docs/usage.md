@@ -199,3 +199,12 @@ Give this run a meaningful name (like a LIMS or project ID)
 
 ### `--amplicon_bed`
 A BED file specifying the location of amplicon primer positions. These will be masked from the final BAM file; no deduplication will be performed. Must match the assembly version. 
+
+See the samtools documentation for an example of how this file needs to be formatted [here](http://www.htslib.org/doc/samtools-ampliconstats.html).
+
+| Chromosome | Start | Stop | primer_name | score | strand |
+| ---------- | ----- | ---- | ----------- | ----- | ------ |
+| MN908947.3 | 1875  | 1897 | nCoV-2019_7_LEFT | 60 | + |
+| MN908947.3 | 1868  | 1890 |  nCoV-2019_7_LEFT_alt0 | 60 | + |
+| MN908947.3 | 2247  | 2269 | nCoV-2019_7_RIGHT | 60 | - |
+
