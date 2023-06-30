@@ -84,69 +84,64 @@ workflow GATK_VARIANT_CALLING {
 
         }
         
-        if (params.amplicon_bed) {
-
-                        ch_vcf_multi = ch_multi_vcf_filtered
+        ch_vcf_multi = ch_multi_vcf_filtered
                         
-        } else {
 
-            // Produce a sites-only vcf to speed up variant recalibration
-            GATK_MAKESITESONLYVCF(
-                ch_multi_vcf_filtered
-            )
+        // Produce a sites-only vcf to speed up variant recalibration
+        GATK_MAKESITESONLYVCF(
+            ch_multi_vcf_filtered
+        )
 
-            ch_versions = ch_versions.mix(GATK_MAKESITESONLYVCF.out.versions)
+        ch_versions = ch_versions.mix(GATK_MAKESITESONLYVCF.out.versions)
 
-            // Compute indel recalibration
-            GATK_INDEL_RECALIBRATOR(
-                GATK_MAKESITESONLYVCF.out.vcf,
-                "INDEL"
-            )    
+        // Compute indel recalibration
+        GATK_INDEL_RECALIBRATOR(
+            GATK_MAKESITESONLYVCF.out.vcf,
+            "INDEL"
+        )    
             
-            ch_versions = ch_versions.mix(GATK_INDEL_RECALIBRATOR.out.versions)
+        ch_versions = ch_versions.mix(GATK_INDEL_RECALIBRATOR.out.versions)
 
-            // Compute snp recalibration
-            GATK_SNP_RECALIBRATOR(
-                GATK_MAKESITESONLYVCF.out.vcf,
-                "SNP"
+        // Compute snp recalibration
+        GATK_SNP_RECALIBRATOR(
+            GATK_MAKESITESONLYVCF.out.vcf,
+            "SNP"
+        )
+            
+        ch_versions = ch_versions.mix(GATK_SNP_RECALIBRATOR.out.versions)
+            
+        // Apply indel recalibration
+        GATK_INDEL_VQSR(
+            ch_multi_vcf_filtered,
+            GATK_INDEL_RECALIBRATOR.out.recal,
+            GATK_INDEL_RECALIBRATOR.out.tranches,
+            "INDEL"
+        )
+            
+        ch_versions = ch_versions.mix(GATK_INDEL_VQSR.out.versions)
+            
+        // Apply snp recalibration
+        GATK_SNP_VQSR(
+            ch_multi_vcf_filtered,
+            GATK_SNP_RECALIBRATOR.out.recal,
+            GATK_SNP_RECALIBRATOR.out.tranches,
+            "SNP"
+        )
+        ch_versions = ch_versions.mix(GATK_SNP_VQSR.out.versions)
+            
+        // Merge indel snd snp recalibrated vcfs
+        GATK_MERGEVCFS(
+            GATK_SNP_VQSR.out.vcf.map { m,v,t -> [ m,v ] }.join(
+                GATK_INDEL_VQSR.out.vcf.map { m,v,t -> [ m,v ] }
+            ),
+            GATK_SNP_VQSR.out.vcf.map { m,v,t -> [ m,t ] }.join(
+                GATK_INDEL_VQSR.out.vcf.map { m,v,t -> [ m,t ] }
             )
+        )
             
-            ch_versions = ch_versions.mix(GATK_SNP_RECALIBRATOR.out.versions)
-            
-            // Apply indel recalibration
-            GATK_INDEL_VQSR(
-                ch_multi_vcf_filtered,
-                GATK_INDEL_RECALIBRATOR.out.recal,
-                GATK_INDEL_RECALIBRATOR.out.tranches,
-                "INDEL"
-            )
-            
-            ch_versions = ch_versions.mix(GATK_INDEL_VQSR.out.versions)
-            
-            // Apply snp recalibration
-            GATK_SNP_VQSR(
-                ch_multi_vcf_filtered,
-                GATK_SNP_RECALIBRATOR.out.recal,
-                GATK_SNP_RECALIBRATOR.out.tranches,
-                "SNP"
-            )
-            ch_versions = ch_versions.mix(GATK_SNP_VQSR.out.versions)
-            
-            // Merge indel snd snp recalibrated vcfs
-            GATK_MERGEVCFS(
-                GATK_SNP_VQSR.out.vcf.map { m,v,t -> [ m,v ] }.join(
-                    GATK_INDEL_VQSR.out.vcf.map { m,v,t -> [ m,v ] }
-                ),
-                GATK_SNP_VQSR.out.vcf.map { m,v,t -> [ m,t ] }.join(
-                    GATK_INDEL_VQSR.out.vcf.map { m,v,t -> [ m,t ] }
-                )
-            )
-            
-            ch_versions = ch_versions.mix(GATK_MERGEVCFS.out.versions)
-            
-            ch_vcf_multi = ch_vcf_multi.mix(GATK_MERGEVCFS.out.vcf)
-
-        }
+        ch_versions = ch_versions.mix(GATK_MERGEVCFS.out.versions)
+       
+        ch_vcf_multi = ch_vcf_multi.mix(GATK_MERGEVCFS.out.vcf)
     
     } else {
 
@@ -179,15 +174,24 @@ workflow GATK_VARIANT_CALLING {
             known_indels_tbi
         )
 
+        GATK_FILTERVARIANTTRANCHES.out.vcf.map { m,v,t ->
+            [[
+                id: m.sample_id,
+                sample_id: m.sample_id,
+                patient_id: m.patient_id,
+                variantcaller: "GATK"
+            ],v,t]
+        }.set { vcf_single_filtered }
+
         ch_versions = ch_versions.mix(GATK_FILTERVARIANTTRANCHES.out.versions)
 
-        ch_vcf_single = ch_vcf_single.mix(GATK_FILTERVARIANTTRANCHES.out.vcf)
+        ch_vcf_single = ch_vcf_single.mix(vcf_single_filtered)
 
     }
 
     emit:
     versions     = ch_versions
-    vcf         = ch_vcf_single
-    vcf_multi     = ch_vcf_multi
+    vcf          = ch_vcf_single
+    vcf_multi    = ch_vcf_multi
 
 }
