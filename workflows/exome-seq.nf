@@ -25,8 +25,8 @@ ch_axiom_tbi    = Channel.fromPath(params.axiom + ".tbi")
 // combine all SNPs, for GATK calibration
 // ************************************
 
-ch_known_snps		= ch_dbsnp.mix(ch_hapmap, ch_omni, ch_g1k).collect()
-ch_known_snps_tbi 	= ch_dbsnp_tbi.mix(ch_hapmap_tbi, ch_omni_tbi, ch_g1k_tbi).collect()
+ch_known_snps       = ch_dbsnp.mix(ch_hapmap, ch_omni, ch_g1k).collect()
+ch_known_snps_tbi   = ch_dbsnp_tbi.mix(ch_hapmap_tbi, ch_omni_tbi, ch_g1k_tbi).collect()
 
 // ************************************
 // combine all INDELs, for GATK calibration
@@ -175,7 +175,7 @@ if ('mutect2' in tools) {
         ch_mutect_pon_tbi 	= Channel.value([])
     }
 } else {
-    ch_mutect_pon           = Channel.value([])
+    ch_mutect_ponb              = Channel.value([])
     ch_mutect_pon_tbi 		= Channel.value([])
 }
 
@@ -189,14 +189,14 @@ ch_samplesheet 			= Channel.fromPath(params.samples)
 // set optional channels
 // ************************************
 
-ch_vcfs                 = Channel.from([])
+ch_vcfs                         = Channel.from([])
 ch_phased_vcfs 			= Channel.from([])
 ch_recal_bam 			= Channel.from([])
 ch_manta_indels 		= Channel.from([])
 ch_multiqc_files 		= Channel.from([])
 ch_versions 			= Channel.from([])
 ch_manta_vcfs 			= Channel.from([])
-ch_manta_indels_paired  = Channel.from([])
+ch_manta_indels_paired          = Channel.from([])
 ch_bam_normal			= Channel.from([])
 
 // ************************************
@@ -248,7 +248,7 @@ workflow EXOME_SEQ {
         targets,
         ch_fasta
     )
-    padded_bed  = CONVERT_BED.out.bed_padded.collect()
+    padded_bed		= CONVERT_BED.out.bed_padded.collect()
     bedgz		= CONVERT_BED.out.bed_gz.collect()
     bed 		= CONVERT_BED.out.bed.collect()
 
@@ -264,7 +264,7 @@ workflow EXOME_SEQ {
         genome_index,
         ch_fasta
     )
-    ch_bam_dedup    = TRIM_AND_ALIGN.out.bam
+    ch_bam_dedup	= TRIM_AND_ALIGN.out.bam
     ch_bam_nodedup	= TRIM_AND_ALIGN.out.bam_nodedup
     trim_report		= TRIM_AND_ALIGN.out.qc
     dedup_report	= TRIM_AND_ALIGN.out.dedup_report

@@ -1,6 +1,6 @@
 process SAMTOOLS_MARKDUP {
 
-    container 'quay.io/biocontainers/samtools:1.16.1--h6899075_1'	
+    container 'quay.io/biocontainers/samtools:1.17--hd87286a_1'	
 
     label 'medium_parallel'
 
