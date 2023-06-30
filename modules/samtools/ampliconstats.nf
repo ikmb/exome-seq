@@ -2,6 +2,8 @@ process SAMTOOLS_AMPLICONSTATS {
 
     container 'quay.io/biocontainers/samtools:1.17--hd87286a_1'	
 
+    label 'medium_serial'
+
     tag "${meta.patient_id}|${meta.sample_id}"
 
     publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/Processing/Ampliconstats", mode: 'copy'
