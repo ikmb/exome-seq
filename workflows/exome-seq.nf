@@ -337,7 +337,7 @@ workflow EXOME_SEQ {
         )
         gatk_vcf        = GATK_VARIANT_CALLING.out.vcf
         gatk_merged_vcf = GATK_VARIANT_CALLING.out.vcf_multi
-        ch_vcfs         = ch_vcfs.mix(GATK_VARIANT_CALLING.out.vcf_multi)
+        ch_vcfs         = ch_vcfs.mix(GATK_VARIANT_CALLING.out.vcf_multi,gatk_vcf)
         ch_versions     = ch_versions.mix(GATK_VARIANT_CALLING.out.versions)
             
     } else {
