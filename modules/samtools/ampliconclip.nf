@@ -21,7 +21,7 @@ process SAMTOOLS_AMPLICONCLIP {
     bam_masked_bai = bam_masked + ".bai"
 
     """
-    samtools ampliconclip -b $bed $bam_raw | samtools sort -o $bam_masked
+    samtools ampliconclip --filter-len 35 -b $bed $bam_raw | samtools sort -o $bam_masked
     samtools index $bam_masked
 
     cat <<-END_VERSIONS > versions.yml
