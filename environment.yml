@@ -14,3 +14,4 @@ dependencies:
   - bioconda::perl-json-parse=0.62
   - bioconda::picard=3.0.0
   - gzip
+  - ruby 
