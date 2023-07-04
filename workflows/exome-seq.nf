@@ -221,6 +221,7 @@ include { MANTA_PAIRED } from "./../modules/manta/paired"
 include { PICARD_METRICS } from "./../subworkflows/picard"
 include { EXPANSIONS } from "./../subworkflows/expansionhunter"
 include { VEP_VEP as VEP } from "./../modules/vep/vep"
+include { VEP2XLSX } from "./../modules/helper/vep2xlsx"
 include { HAPLOSAURUS } from "./../modules/haplosaurus"
 include { MULTIQC as  multiqc_fastq ; MULTIQC as multiqc_library ; MULTIQC as multiqc_sample } from "./../modules/multiqc/main"
 include { BCFTOOLS_MERGE as MERGE_VCF } from "./../modules/bcftools/merge"
@@ -631,7 +632,9 @@ workflow EXOME_SEQ {
             ch_vcfs,
             ch_fasta.collect()
         )
-            //ch_versions = ch_versions.mix(VEP.out.versions)
+        VEP2XLSX(
+            VEP.out.vcf
+        )
     }
     if ('csq' in tools) {
         CSQ(

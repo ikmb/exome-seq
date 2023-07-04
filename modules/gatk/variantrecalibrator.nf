@@ -20,16 +20,15 @@ process GATK_VARIANTRECALIBRATOR {
 
     def options = ""
     if (modus == "INDEL") {
-        options = options.concat("-an FS -an ReadPosRankSum -an MQRankSum -an QD -an SOR -an DP ")
+        options = options.concat("-an FS -an ReadPosRankSum -an MQRankSum -an QD -an SOR ")
         mills = params.genomes[ params.assembly ].mills        
         options = options.concat("--resource:mills,known=false,training=true,truth=true,prior=12 ${mills} ")
         axiom = params.genomes[ params.assembly ].axiom
         options = options.concat("--resource:axiomPoly,known=false,training=true,truth=false,prior=10 ${axiom} ")
         dbsnp = params.genomes[ params.assembly ].dbsnp
         options = options.concat("--resource:dbsnp,known=true,training=false,truth=false,prior=2 ${dbsnp} ")
-        options = options.concat("-max-gaussians 4 ")        
     } else {
-        options = options.concat("-an QD -an MQRankSum -an ReadPosRankSum -an FS -an MQ -an SOR -an DP ")
+        options = options.concat("-an QD -an MQRankSum -an ReadPosRankSum -an FS -an MQ -an SOR ")
         options = options.concat("-max-gaussians 6 ")
         hapmap = params.genomes[ params.assembly ].hapmap
         options = options.concat("--resource:hapmap,known=false,training=true,truth=true,prior=15 ${hapmap} ")
