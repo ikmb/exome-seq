@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # == NAME
-# metadata_set_to_table.rb
+# vep2xlsx.rb
 #
 # == AUTHOR
 #  Marc Hoeppner, mphoeppner@gmail.com
@@ -214,7 +214,6 @@ while (line = input_stream.gets)
 
         total = samples.length
         has_data = 0    
-
         
         samples.each_with_index do |s,i|
             col += 1
@@ -223,9 +222,6 @@ while (line = input_stream.gets)
             has_data += 1 unless gt.empty?
             sheet.add_cell(counter,col,gt.join("/"))
         end
-
-        #puts this_info unless has_data == 1
-        #warn "Skipping entry as singleton" if has_data == 1
 
     end    
 
