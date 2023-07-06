@@ -7,8 +7,6 @@
 
 require 'optparse'
 require 'ostruct'
-require 'rest_client'
-require 'json'
 require 'rubyXL'
 require 'rubyXL/convenience_methods/cell'
 require 'rubyXL/convenience_methods/color'

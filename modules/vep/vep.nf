@@ -13,7 +13,7 @@ process VEP_VEP {
     tuple path(fasta),path(fai),path(dict)
 
     output:
-    path(vcf_vep), emit: vcf
+    tuple val(meta),path(vcf_vep), emit: vcf
     path(vcf_alissa), emit: alissa
     path('*.html'), emit: html
     path("versions.yml"), emit: versions

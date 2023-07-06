@@ -15,7 +15,7 @@ process CNVKIT_BATCH_PAIRED {
 
     output:
     tuple val(meta),path(results), emit: results
-    tuple val(meta),path("${results}/*dedup.call.cns"), emit: cns
+    tuple val(meta),path("${results}/*dedup.call.cns"), optional: true, emit: cns
     path("versions.yml"), emit: versions
 
     script:

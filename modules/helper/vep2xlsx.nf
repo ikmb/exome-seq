@@ -8,13 +8,13 @@ process VEP2XLSX {
     tuple val(meta),path(vcf)
 
     output:
-    tuple val(meta),path(xlsx), emit: xlsx
+    tuple val(meta),path(sheet), emit: xlsx
 
     script:
-    xlsx = vcf.getBaseName() + ".xlsx"
+    sheet = vcf.getBaseName() + ".xlsx"
 
     """
-    ruby vep2xlsx.rb -i $vcf -o $xlsx
+    vep2xls.rb -i $vcf -o $sheet
     """
 
 }

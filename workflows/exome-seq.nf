@@ -411,7 +411,7 @@ workflow EXOME_SEQ {
         // Variant calling for tumor-only samples
         GATK_MUTECT2_SINGLE(
             ch_recal_bam_tumor_only,
-            targets_split,
+            targets,
             ch_fasta,
             ch_dbsnp_combined,
             ch_mutect_pon,

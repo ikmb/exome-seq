@@ -16,14 +16,15 @@ process GATK_MUTECT2 {
     path(mutect_normals_tbi)
 
     output:
-    tuple val(meta),path(vcf),path(tbi),path(stats), emit: vcf
+    tuple val(meta),path(vcf),path(tbi), emit: vcf
+    tuple val(meta),path(stats_file), emit: stats
     tuple val(meta),path(f1r2), emit: f1r2
     path("versions.yml"), emit: versions
 
     script:
     vcf = bam.getBaseName() + "-mutect2.vcf.gz"
     tbi = vcf + ".tbi"
-    stats = vcf + ".stats"
+    stats_file = vcf + ".stats"
     f1r2 =  bam.getBaseName() + "-f1r2.tar.gz"
 
     def options = ""

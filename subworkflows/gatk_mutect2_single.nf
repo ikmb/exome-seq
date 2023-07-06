@@ -26,7 +26,8 @@ workflow GATK_MUTECT2_SINGLE {
 
  // Make split targets
     GATK_SPLITINTERVALS(
-        targets
+        targets,
+        fasta
     )
     GATK_SPLITINTERVALS.out.intervals.flatMap { i ->
         i.collect { file(it) }
@@ -40,6 +41,7 @@ workflow GATK_MUTECT2_SINGLE {
         mutect_normals_tbi
     )
 
+    ch_mutect_stats = GATK_MUTECT2.out.stats
     ch_versions = ch_versions.mix(GATK_MUTECT2.out.versions)
 
     PICARD_MERGEVCFS(
@@ -67,8 +69,12 @@ workflow GATK_MUTECT2_SINGLE {
     ch_versions = ch_versions.mix(GATK_CALCULATE_CONTAMINATION.out.versions)
 
     ch_mutect = PICARD_MERGEVCFS.out.vcf.join(
-        GATK_LEARN_READ_ORIENTATION_MODEL.out.model
-    ).join(GATK_CALCULATE_CONTAMINATION.out.table)
+            ch_mutect_stats
+        ).join(
+            GATK_LEARN_READ_ORIENTATION_MODEL.out.model
+        ).join(
+            GATK_CALCULATE_CONTAMINATION.out.table
+        )
 
     GATK_FILTER_MUTECT_CALLS(
         ch_mutect,
