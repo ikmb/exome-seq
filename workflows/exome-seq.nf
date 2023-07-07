@@ -522,7 +522,7 @@ workflow EXOME_SEQ {
             ch_fasta,
             ch_dbsnp_combined
         )
-        ch_vcfs = ch_vcfs.mix(STRELKA_SOMATIC_CALLING.out.vcf)
+        //ch_vcfs = ch_vcfs.mix(STRELKA_SOMATIC_CALLING.out.vcf)
         ch_versions = ch_versions.mix(STRELKA_SOMATIC_CALLING.out.versions)
 
         // Call all samples together
