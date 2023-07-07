@@ -6,7 +6,6 @@ process PICARD_MERGEVCFS {
 
     input:
     tuple val(meta),path(vcfs),path(tbis)
-
     output:
     tuple val(meta),path(vcf_merged),path(tbi_merged), emit: vcf
     path("versions.yml"), emit: versions

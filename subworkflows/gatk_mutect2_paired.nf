@@ -25,7 +25,8 @@ workflow GATK_MUTECT2_PAIRED {
 
         // Make split targets
         GATK_SPLITINTERVALS(
-            targets
+            targets,
+            fasta
         )
         GATK_SPLITINTERVALS.out.intervals.flatMap { i ->
             i.collect { file(it) }

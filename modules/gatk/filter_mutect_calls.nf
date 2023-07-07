@@ -9,7 +9,7 @@ process GATK_FILTER_MUTECT_CALLS {
     publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/MUTECT2", mode: 'copy'
 
     input:
-    tuple val(meta),path(vcf),path(tbi),path(vcf_stats),path(read_orientation_model),path(contamination_table)
+    tuple val(meta),path(vcf),path(tbi),path(stats),path(read_orientation_model),path(contamination_table)
     tuple path(fasta),path(fai),path(dict)
 
     output:
@@ -28,6 +28,7 @@ process GATK_FILTER_MUTECT_CALLS {
         -O $vcf_filtered \
         --ob-priors $read_orientation_model \
         --contamination-table ${ contamination_table.join(' --contamination-table ')} \
+        --stats ${stats.join(' --stats ')} \
         -OVI true
 
     cat <<-END_VERSIONS > versions.yml
