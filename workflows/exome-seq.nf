@@ -249,7 +249,7 @@ workflow EXOME_SEQ {
         targets,
         ch_fasta
     )
-    padded_bed		= CONVERT_BED.out.bed_padded.collect()
+    padded_bed	= CONVERT_BED.out.bed_padded.collect()
     bedgz		= CONVERT_BED.out.bed_gz.collect()
     bed 		= CONVERT_BED.out.bed.collect()
 
