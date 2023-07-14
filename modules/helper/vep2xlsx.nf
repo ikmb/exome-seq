@@ -2,7 +2,7 @@ process VEP2XLSX {
 
     container 'ikmb/exome-seq:5.2'
 
-    publishDir "${params.outdir}/VEP", mode: 'copy'
+    publishDir "${params.outdir}/VEP/${meta.variantcaller}", mode: 'copy'
     
     input:
     tuple val(meta),path(vcf)
@@ -14,7 +14,7 @@ process VEP2XLSX {
     sheet = vcf.getBaseName() + ".xlsx"
 
     """
-    vep2xls.rb -i $vcf -o $sheet
+    vep2xls_fast.rb -i $vcf -o $sheet
     """
 
 }

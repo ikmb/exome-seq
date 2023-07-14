@@ -20,6 +20,7 @@ process GATK_VARIANTRECALIBRATOR {
 
     def options = ""
     if (modus == "INDEL") {
+        options = options.concat(" -max-gaussians 4 ")  
         options = options.concat("-an FS -an ReadPosRankSum -an MQRankSum -an QD -an SOR ")
         mills = params.genomes[ params.assembly ].mills        
         options = options.concat("--resource:mills,known=false,training=true,truth=true,prior=12 ${mills} ")
@@ -43,7 +44,7 @@ process GATK_VARIANTRECALIBRATOR {
     """
     gatk VariantRecalibrator \
         --trust-all-polymorphic \
-        -tranche 100.0 -tranche 99.95 -tranche 99.9 -tranche 99.5 -tranche 99.0 -tranche 97.0 -tranche 96.0 -tranche 95.0 -tranche 94.0 -tranche 93.5 -tranche 93.0 -tranche 92.0 -tranche 91.0 -tranche 90.0 \
+        -tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0 \
         $options \
         -mode $modus \
         -O $recal \
