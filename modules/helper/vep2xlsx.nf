@@ -1,8 +1,8 @@
 process VEP2XLSX {
 
-    container 'ikmb/exome-seq:devel'
+    container 'ikmb/exome-seq:5.2'
 
-    publishDir "${params.outdir}/VEP", mode: 'copy'
+    publishDir "${params.outdir}/VEP/${meta.variantcaller}", mode: 'copy'
     
     input:
     tuple val(meta),path(vcf)
