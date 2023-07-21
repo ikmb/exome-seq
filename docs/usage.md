@@ -107,6 +107,7 @@ for capture. This information is important so the pipeline knows which regions o
 We have included these files for the following kits and genome assemblies:
 
 `xGen_v2` (v2 release of the IDT xGen kit) [all assemblies]
+
 `Agilent_v7` (v7 release of the Agilent SureSelect kit) [all assemblies]
 
 ### `--email`

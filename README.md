@@ -33,6 +33,7 @@ The result will be a multi-sample VCF file as well as a list of VCF files for ea
 3. [Running the pipeline](docs/usage.md)
 4. [Output](docs/output.md)
 5. [Troubleshooting](docs/troubleshooting.md)
+6. [Developer guide](docs/developer.md)
 
 ## Benchmarking
 
