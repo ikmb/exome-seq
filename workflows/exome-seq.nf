@@ -274,9 +274,9 @@ workflow EXOME_SEQ {
     ch_versions		= ch_versions.mix(TRIM_AND_ALIGN.out.versions)
 
     if (params.amplicon_bed) {
-        ch_bam = ch_bam_dedup
-    } else {
         ch_bam = ch_bam_nodedup
+    } else {
+        ch_bam = ch_bam_dedup
     }
 
     // Create a sub-set of the BAM file using a target BED file
