@@ -1,6 +1,6 @@
 # You can use this file to create a conda environment for this pipeline:
 #   conda env create -f environment.yml
-name: exome-seq-5.0
+name: exome-seq-5.2
 channels:
   - defaults
   - conda-forge
@@ -8,9 +8,9 @@ channels:
 dependencies:
   - bioconda::fastqc=0.11.9
   - bioconda::bwa=0.7.17
-  - bioconda::samtools=1.16.1
-  - bioconda::htslib=1.16
+  - bioconda::samtools=1.17
+  - bioconda::htslib=1.17
   - bioconda::perl-excel-writer-xlsx
-  - bioconda::perl-json-parse=0.55
-  - bioconda::picard=2.18.11
-
+  - bioconda::perl-json-parse=0.62
+  - bioconda::picard=3.0.0
+  - gzip

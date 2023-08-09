@@ -1,13 +1,15 @@
 process SAMTOOLS_AMPLICONCLIP {
 
-    container 'quay.io/biocontainers/samtools:1.16.1--h6899075_1'	
+    container 'quay.io/biocontainers/samtools:1.17--hd87286a_1'	
+
+    label 'medium_serial' 
 
     tag "${meta.patient_id}|${meta.sample_id}"
 
-    publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/", mode: 'copy'
+    //publishDir "${params.outdir}/${meta.patient_id}/${meta.sample_id}/", mode: 'copy'
 
     input:
-    tuple val(meta),path(bam),path(bai)
+    tuple val(meta),path(bam_raw),path(bai_raw)
     path(bed)
 
     output:
@@ -15,11 +17,11 @@ process SAMTOOLS_AMPLICONCLIP {
     path("versions.yml"), emit: versions
 
     script:
-    bam_masked = bam.getBaseName() + "-amplicon_clipped.bam"
+    bam_masked = bam_raw.getBaseName() + "-amplicon_clipped.bam"
     bam_masked_bai = bam_masked + ".bai"
 
     """
-    samtools ampliconclip -b $bed $bam | samtools sort -o $bam_masked
+    samtools ampliconclip --filter-len 35 -b $bed $bam_raw | samtools sort -o $bam_masked
     samtools index $bam_masked
 
     cat <<-END_VERSIONS > versions.yml

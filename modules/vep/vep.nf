@@ -13,9 +13,9 @@ process VEP_VEP {
     tuple path(fasta),path(fai),path(dict)
 
     output:
-    path(vcf_vep)
-    path(vcf_alissa)
-    path('*.html')
+    tuple val(meta),path(vcf_vep), emit: vcf
+    path(vcf_alissa), emit: alissa
+    path('*.html'), emit: html
     path("versions.yml"), emit: versions
 
     script:
@@ -52,7 +52,7 @@ process VEP_VEP {
         --af_gnomade \
         --fasta $fasta \
         --fork ${task.cpus} \
-	--buffer_size 100  \
+        --buffer_size 100  \
         --vcf \
         --per_gene \
         --sift p \

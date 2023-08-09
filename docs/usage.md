@@ -72,7 +72,7 @@ The pipeline offers various tools for the analysis of variant information. Speci
 1. SNPS and INDELs
    - [Deepvariant](https://github.com/google/deepvariant) (deepvariant)
    - [Strelka](https://github.com/Illumina/strelka) (strelka)
-   - [GATK](https://github.com/broadinstitute/gatk) (gatk)
+   - [Haplotyecaller](https://github.com/broadinstitute/gatk) (haplotypecaller)
 2. Somatic variant calling
    - [Mutect2](https://github.com/broadinstitute/gatk) (mutect2)
 2. Structural variants
@@ -107,6 +107,7 @@ for capture. This information is important so the pipeline knows which regions o
 We have included these files for the following kits and genome assemblies:
 
 `xGen_v2` (v2 release of the IDT xGen kit) [all assemblies]
+
 `Agilent_v7` (v7 release of the Agilent SureSelect kit) [all assemblies]
 
 ### `--email`
@@ -115,8 +116,14 @@ Your Email address in quotes to which the pipeline report is sent upon completio
 ## Tool-specific options
 
 ### CNVkit
+CNVKit runs in two separate modes: single and paired. In single mode, every patient sample will run stand-alone using a reference panel. This reference panel can be provided by the user through the option `--cnv_gz` (also see [here](https://cnvkit.readthedocs.io/en/stable/pipeline.html)) or will be built on-the-fly as a flat reference. Using a flat reference as usually not a good idea for exome data, since bait capture efficiency is not uniform, and neither is the coverage across exons. 
+Paired mode on the other hand compares a normal sample with all tumor samples from the same patient and does not need a pre-existing reference panel.
+Naturally, single mode always runs whereas the paired mode only activates if the right data is provided (i.e. at least one tumor and one normal sample from the same patient). 
+
+For xGen v2, a reference panel is included and used automatically. Since this panel was produced from our own in-house data, you may want to override this option tho. 
+
 #### `--cnv_gz`
-If you wish to overwrite the default CNVKit reference file, you can provide it with this option. This file must be compressed with gzip (.cnn.gz) and match the assembly and exome kit!
+If you wish to provide a CNVKit reference panel, this option is for you. This file must be compressed with gzip (.cnn.gz) and match the assembly and exome kit!
 #### `--cnvkit_mode` [ default = "hmm-germline" ]
 The segmentation mode for CNV intervals. Default is hmm-germline. Other options are documented [here](https://cnvkit.readthedocs.io/en/stable/pipeline.html#segment).
 #### `--cnvkit_mode_tumor` [ default = "cbs" ]
@@ -148,7 +155,7 @@ Path to a local copy of the Mastermind database.
 If you have used any other type of kit for your enrichment, you are able to provide the target and bait definitions from the command line during execution using `--baits` and 
 `--targets`, respectively. Please note that these files must be in the Picard 
 [interval_list](https://gatkforums.broadinstitute.org/gatk/discussion/1319/collected-faqs-about-interval-lists) format and have to be matched 
-to the genome assembly (i.e. must have identical dictionary headers). 
+to the genome assembly (i.e. must have identical dictionary headers). Also note that these two files must not have the same name to avoid file name collisions throughout the workflow. 
 ### `--panel`
 For practical reasons, it can be desirable to determine the coverage of a discrete set of target genes, such as for a gene panel. The pipeline currently 
 supports the following panels:
@@ -193,3 +200,13 @@ Give this run a meaningful name (like a LIMS or project ID)
 
 ### `--amplicon_bed`
 A BED file specifying the location of amplicon primer positions. These will be masked from the final BAM file; no deduplication will be performed. Must match the assembly version. 
+
+See the samtools documentation for an example of how this file needs to be formatted [here](http://www.htslib.org/doc/samtools-ampliconstats.html).
+
+| Chromosome | Start | Stop | primer_name | score | strand |
+| ---------- | ----- | ---- | ----------- | ----- | ------ |
+| MN908947.3 | 1875  | 1897 | nCoV-2019_7_LEFT | 60 | + |
+| MN908947.3 | 1868  | 1890 |  nCoV-2019_7_LEFT_alt0 | 60 | + |
+| MN908947.3 | 2247  | 2269 | nCoV-2019_7_RIGHT | 60 | - |
+
+Note that the table header is shown for clarification; BED files must not have an actual header included. 

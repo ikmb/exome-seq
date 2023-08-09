@@ -24,7 +24,7 @@ class WorkflowMain {
 
     public static String header(workflow) {
         def headr = ''
-        def info_line = "IKMB Diagnostic Exome pipeline | version ${workflow.manifest.version}"
+        def info_line = "IKMB Research Exome pipeline | version ${workflow.manifest.version}"
         headr = """
     ===============================================================================
     ${info_line}

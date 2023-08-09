@@ -5,9 +5,11 @@ include { DRAGMAP_ALIGN } from "./../modules/dragmap/align"
 include { SAMTOOLS_MERGE as MERGE_MULTI_LANE } from "./../modules/samtools/merge" 
 include { SAMTOOLS_INDEX as BAM_INDEX; SAMTOOLS_INDEX as BAM_INDEX_FILTERED } from "./../modules/samtools/index"
 include { SAMTOOLS_MARKDUP as DEDUP } from "./../modules/samtools/markdup"
-include { SAMTOOLS_AMPLICONCLIP as AMPLICON_CLIP } from "./../modules/samtools/ampliconclip"
+include { SAMTOOLS_AMPLICONCLIP } from "./../modules/samtools/ampliconclip"
+include { SAMTOOLS_AMPLICONSTATS } from "./../modules/samtools/ampliconstats"
 include { SAMTOOLS_BAM2CRAM } from "./../modules/samtools/bam2cram"
 include { BAM_MD5 } from "./../modules/bam_md5"
+include { VALIDATE_AMPLICONBED } from "./../modules/validate_ampliconbed.nf"
 
 ch_align_log = Channel.from([])
 ch_versions = Channel.from([])
@@ -19,6 +21,7 @@ workflow TRIM_AND_ALIGN {
         amplicon_bed
         genome_index
         fasta
+
     main:
 
         samplesheet
@@ -89,15 +92,27 @@ workflow TRIM_AND_ALIGN {
         BAM_INDEX(MERGE_MULTI_LANE.out.bam.mix( bam_to_merge.single ))
 
         ch_report = Channel.from([])
+
+        // Data is from amplicon sequencing, remove amplicon artifacts
         if (params.amplicon_bed) {
 
-            //AMPLICON_CLIP(
-            //    BAM_INDEX.out.bam,
-            //    amplicon_bed.collect()
-            //)
-            //ch_final_bam = AMPLICON_CLIP.out.bam
+            VALIDATE_AMPLICONBED(
+                amplicon_bed
+            )
+
+            SAMTOOLS_AMPLICONCLIP(
+                BAM_INDEX.out.bam,
+                VALIDATE_AMPLICONBED.out.bed.collect()
+            )
+
+            ch_final_bam = SAMTOOLS_AMPLICONCLIP.out.bam
+
+            SAMTOOLS_AMPLICONSTATS(
+                ch_final_bam,
+                VALIDATE_AMPLICONBED.out.bed.collect()
+            )
             
-            ch_final_bam = BAM_INDEX.out.bam
+            //ch_final_bam = BAM_INDEX.out.bam
 
         } else {
 
@@ -107,8 +122,8 @@ workflow TRIM_AND_ALIGN {
             )
             
             ch_final_bam     = DEDUP.out.bam
-            ch_report         = ch_report.mix(DEDUP.out.report)
-            ch_versions     = ch_versions.mix(DEDUP.out.versions)
+            ch_report        = ch_report.mix(DEDUP.out.report)
+            ch_versions      = ch_versions.mix(DEDUP.out.versions)
         }
 
         //convert bam to cram and stage out
