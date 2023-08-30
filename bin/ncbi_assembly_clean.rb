@@ -58,25 +58,25 @@ lookup = {}
 
 report.each do |line|
 
-        next if line.match(/^#.*/)
+    next if line.match(/^#.*/)
 
-        e = line.strip.split("\t").collect{|m| m.strip }
+    e = line.strip.split("\t").collect{|m| m.strip }
 
-        acc = e[6]
-        ucsc = e[-1]
+    acc = e[6]
+    ucsc = e[-1]
 
-        if ucsc == "na"
-                t = e[1]
-                a = e[4]
-                c = e[2]
-                base = "chr#{c}_#{a.upcase.gsub('.','v')}"
-                t == "novel-patch" ? ucsc = "#{base}_alt" : ucsc = "#{base}_fix"
-                warn "Renamed na to #{ucsc} (#{t})"
-        end
+    if ucsc == "na"
+        t = e[1]
+        a = e[4]
+        c = e[2]
+        base = "chr#{c}_#{a.upcase.gsub('.','v')}"
+        t == "novel-patch" ? ucsc = "#{base}_alt" : ucsc = "#{base}_fix"
+        warn "Renamed na to #{ucsc} (#{t})"
+    end
 
-	l.puts "#{acc}\t#{ucsc}"
+    l.puts "#{acc}\t#{ucsc}"
 
-        lookup[acc] = ucsc
+    lookup[acc] = ucsc
 
 end
 
@@ -86,34 +86,34 @@ skip = false
 
 while (line = file.gets)
 
-        line.strip!
+    line.strip!
 
-        if line.match(/^>.*/)
-                this_acc = line.strip.split(" ")[0].gsub(">", "")
-                if lookup.has_key?(this_acc)
-			acc = lookup[this_acc]
+    if line.match(/^>.*/)
+        this_acc = line.strip.split(" ")[0].gsub(">", "")
+        if lookup.has_key?(this_acc)
+            acc = lookup[this_acc]
 
-			# if we are building a non-alt ref
-			if alt
-				# skip all entries that are either ALT or FIX patches
-				if acc.include?("_alt") || acc.include?("_fix") 
-					skip = true 
-				else
-					skip = false
-				end
-			end
-
-                        out.puts ">#{acc}" unless skip
-		
+            # if we are building a non-alt ref
+            if alt
+                # skip all entries that are either ALT or FIX patches
+                if acc.include?("_alt") || acc.include?("_fix") 
+                    skip = true 
                 else
-                        abort line
+                    skip = false
                 end
+            end
 
+            out.puts ">#{acc}" unless skip
+        
         else
-
-                out.puts line unless skip
-
+                abort line
         end
+
+    else
+
+        out.puts line unless skip
+
+    end
 
 end
 

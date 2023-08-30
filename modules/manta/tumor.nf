@@ -17,7 +17,7 @@ process MANTA_TUMOR {
 	tuple val(meta),path(sv),path(sv_tbi), emit: tumor_sv
 	tuple val(meta),path(sv_can),path(sv_can_tbi), emit: candidate_sv
 	tuple val(meta),path(indel),path(indel_tbi), emit: small_indels
-	path("manta")
+	//path("manta")
 	path("versions.yml"), emit: versions
 
 	script:

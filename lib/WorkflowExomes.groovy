@@ -29,6 +29,10 @@ class WorkflowExomes {
             log.info "Building references...!"
         }
 
+        if (params.assembly == "CHM13v2") {
+            log.info "WARNING!!! Use of the T2T reference is highly experimental and not supported by some of the available tools..."
+        }
+
     }
 
     private static void genomeExistsError(params, log) {
