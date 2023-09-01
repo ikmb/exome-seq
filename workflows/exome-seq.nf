@@ -4,6 +4,20 @@
 // Modules and workflows to include
 //
 
+// Validation of assembly name
+valid_assemblies = params.genomes.keySet()
+if (!valid_assemblies.contains(params.assembly)) {
+    log.info "Provided an invalid reference assembly name (${params.assembly}) - allowed options are: ${valid_assemblies.join(' ')}"
+    System.exit(1)
+}
+
+// Validation of kit, if any
+if (params.kit) {
+    valid_kits = params.genomes[params.assembly].kits.keySet()
+    if (!valid_kits.contains(params.kit)) {
+        log.info "Provided an invalid kit name (${params.kit}) for this assembly - allowed options are: ${valid_kits.join(' ')}"
+    }
+}
 // ************************************
 // Input Channels and data
 // ************************************
