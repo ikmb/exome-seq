@@ -46,10 +46,13 @@ The following human genome assembly versions are supported on MedCluster (see re
 * GRCh38_p14 (patch 14 without further modifications, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
 * GRCh38_no_alt_p14 (patch 14 without ALT contigs, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
 * hg38 (the BROAD version of GRCh38, part of the GATK bundle, see [here](https://gatk.broadinstitute.org/hc/en-us/articles/360035890811-Resource-bundle) )
+* CHM13v2 (The telomere-to-telomere reference with the fully assembled Y chromosome, masked PAR regions and the mitochondrial genome rCRS, see [here](https://github.com/marbl/CHM13) )
 
 The choice is with the user, although we recommend a non-ALT version because downstream variant callers and effect prediction tools are not able to deal with ALT-located variants in a meaningful way. 
 
 Basically: If you want a version that is optimized for short read alignment, use GRCh38_no_alt. If you need your data to be compatible with results from the Illumina Dragen platform, use GRCh38_g1k. If you need to work with the latest patch level, use GRCh38_no_alt_p14. 
+
+The inclusion of the CHM13v2 reference is purely experimental - you won't be able to use it with GATK or run effect prediction with VEP, for the time being. While we have lifted the xGen v2 kit to CHM13v2, please note that over 1000 targets could not be mapped - primarily those coming from the Y chromosome.
 
 ### `--genomes_base` 
 The root directory of the pre-installed indices. See "--build_references" on how to create this folder structure. 

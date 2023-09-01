@@ -62,6 +62,7 @@ Allowed reference assemblies are:
 * GRCh38_p14 (patch 14 without further modifications, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
 * GRCh38_no_alt_p14 (patch 14 without ALT contigs, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
 * hg38 (the BROAD version of GRCh38, part of the GATK bundle, see [here](https://gatk.broadinstitute.org/hc/en-us/articles/360035890811-Resource-bundle) )
+* CHM13v2 (The telomere-to-telomere reference with the fully assembled Y chromosome, masked PAR regions and the mitochondrial genome rCRS, see [here](https://github.com/marbl/CHM13) )
 
 If you plan on using effect prediction via VEP, you will also need to install the cache and plugins:
 

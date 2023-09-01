@@ -4,22 +4,36 @@
 // Modules and workflows to include
 //
 
+// Validation of assembly name
+valid_assemblies = params.genomes.keySet()
+if (!valid_assemblies.contains(params.assembly)) {
+    log.info "Provided an invalid reference assembly name (${params.assembly}) - allowed options are: ${valid_assemblies.join(' ')}"
+    System.exit(1)
+}
+
+// Validation of kit, if any
+if (params.kit) {
+    valid_kits = params.genomes[params.assembly].kits.keySet()
+    if (!valid_kits.contains(params.kit)) {
+        log.info "Provided an invalid kit name (${params.kit}) for this assembly - allowed options are: ${valid_kits.join(' ')}"
+    }
+}
 // ************************************
 // Input Channels and data
 // ************************************
 
-ch_dbsnp        = Channel.fromPath(params.dbsnp)
-ch_dbsnp_tbi    = Channel.fromPath(params.dbsnp + ".tbi")
-ch_hapmap       = Channel.fromPath(params.hapmap)
-ch_hapmap_tbi   = Channel.fromPath(params.hapmap + ".tbi")
-ch_omni         = Channel.fromPath(params.omni)
-ch_omni_tbi     = Channel.fromPath(params.omni + ".tbi")
-ch_mills        = Channel.fromPath(params.mills)
-ch_mills_tbi    = Channel.fromPath(params.mills + ".tbi")
-ch_g1k          = Channel.fromPath(params.g1k)
-ch_g1k_tbi      = Channel.fromPath(params.g1k + ".tbi")
-ch_axiom        = Channel.fromPath(params.axiom)
-ch_axiom_tbi    = Channel.fromPath(params.axiom + ".tbi")
+ch_dbsnp        = params.dbsnp ? Channel.fromPath(params.dbsnp)             : Channel.empty()
+ch_dbsnp_tbi    = params.dbsnp ? Channel.fromPath(params.dbsnp + ".tbi")    : Channel.empty()
+ch_hapmap       = params.hapmap ? Channel.fromPath(params.hapmap)           : Channel.empty()
+ch_hapmap_tbi   = params.hapmap ? Channel.fromPath(params.hapmap + ".tbi")  : Channel.empty()
+ch_omni         = params.omni ? Channel.fromPath(params.omni)               : Channel.empty()
+ch_omni_tbi     = params.omni ? Channel.fromPath(params.omni + ".tbi")      : Channel.empty()
+ch_mills        = params.mills ? Channel.fromPath(params.mills)             : Channel.empty()
+ch_mills_tbi    = params.mills ? Channel.fromPath(params.mills + ".tbi")    : Channel.empty()
+ch_g1k          = params.g1k ? Channel.fromPath(params.g1k)                 : Channel.empty()
+ch_g1k_tbi      = params.g1k ? Channel.fromPath(params.g1k + ".tbi")        : Channel.empty()
+ch_axiom        = params.axiom ? Channel.fromPath(params.axiom)             : Channel.empty()
+ch_axiom_tbi    = params.axiom ? Channel.fromPath(params.axiom + ".tbi")    : Channel.empty()
 
 // ************************************
 // combine all SNPs, for GATK calibration
@@ -49,7 +63,7 @@ ch_gtf              = Channel.fromPath(params.csq_gtf)
 // *************************************
 // The reference genome with relevant helper files
 // *************************************
-ch_fasta = Channel.fromList( [ file(params.fasta , checkIfExists: true), file(params.fasta_fai, checkIfExits: true), file(params.dict, checkIfExists: true) ] ).collect()
+ch_fasta            = Channel.fromList( [ file(params.fasta , checkIfExists: true), file(params.fasta_fai, checkIfExits: true), file(params.dict, checkIfExists: true) ] ).collect()
 
 // ************************************
 // Mapping tool and corresponding index
@@ -74,15 +88,15 @@ if (params.aligner == "dragmap") {
 // ************************************
 cnv_ref = false
 if (params.skip_cnv_gz) {
-    ch_cnv_gz 		= Channel.value([])
+    ch_cnv_gz         = Channel.value([])
 } else if (params.cnv_gz) {
-    cnv_ref             = true
-    ch_cnv_gz 		= Channel.fromPath(params.cnv_gz)
+    cnv_ref           = true
+    ch_cnv_gz         = Channel.fromPath(params.cnv_gz)
 } else if ( params.kit && params.genomes[ params.assembly ].kits[ params.kit ].cnv_ref) { 
     cnv_ref             = true
-    ch_cnv_gz 		= Channel.fromPath(params.genomes[ params.assembly ].kits[ params.kit ].cnv_ref)
+    ch_cnv_gz         = Channel.fromPath(params.genomes[ params.assembly ].kits[ params.kit ].cnv_ref)
 } else { 
-    ch_cnv_gz 		= Channel.value([])
+    ch_cnv_gz         = Channel.value([])
 }
 
 
@@ -115,10 +129,10 @@ if (params.panel) {
     .ifEmpty { exit 1; "Could not find the specified gene panel (--panel_intervals)" }
     .set { panels }
 } else if (params.all_panels) {
-    panel_list 		= []
-    panel_names 	= params.genomes[params.assembly].panels.keySet()
+    panel_list         = []
+    panel_names     = params.genomes[params.assembly].panels.keySet()
     panel_names.each {
-        interval 	= params.genomes[params.assembly].panels[it].intervals
+        interval     = params.genomes[params.assembly].panels[it].intervals
         panel_list << file(interval)
     }
     panels = Channel.fromList(panel_list)
@@ -159,84 +173,84 @@ if ('mutect2' in tools) {
 
     // Skip PONs no matter what
     if (params.skip_mutect_pon) {
-        ch_mutect_pon 		= Channel.value([])
-        ch_mutect_pon_tbi 	= Channel.value([])
+        ch_mutect_pon         = Channel.value([])
+        ch_mutect_pon_tbi     = Channel.value([])
     // Use a user-supplied PON
     }else if (params.mutect_normals) {
-        ch_mutect_pon 		= Channel.fromPath(file(params.mutect_normals), checkIfExists: true).collect()
-        ch_mutect_pon_tbi 	= Channel.fromPath(file(params.mutect_normals + ".tbi"), checkIfExists: true).collect()
+        ch_mutect_pon         = Channel.fromPath(file(params.mutect_normals), checkIfExists: true).collect()
+        ch_mutect_pon_tbi     = Channel.fromPath(file(params.mutect_normals + ".tbi"), checkIfExists: true).collect()
     // See if there is a pre-configured PON
     } else if ( params.kit && params.genomes[params.assembly].kits[params.kit].mutect_pon) {
-        ch_mutect_pon 		= Channel.fromPath(file(params.genomes[params.assembly].kits[params.kit].mutect_pon), checkIfExists: true).collect()
-        ch_mutect_pon_tbi 	= Channel.fromPath(file(params.genomes[params.assembly].kits[params.kit].mutect_pon + ".tbi"), checkIfExists: true).collect()
+        ch_mutect_pon         = Channel.fromPath(file(params.genomes[params.assembly].kits[params.kit].mutect_pon), checkIfExists: true).collect()
+        ch_mutect_pon_tbi     = Channel.fromPath(file(params.genomes[params.assembly].kits[params.kit].mutect_pon + ".tbi"), checkIfExists: true).collect()
     // Or else return empty channels
     } else {
-        ch_mutect_pon 		= Channel.value([])
-        ch_mutect_pon_tbi 	= Channel.value([])
+        ch_mutect_pon         = Channel.value([])
+        ch_mutect_pon_tbi     = Channel.value([])
     }
 } else {
-    ch_mutect_ponb              = Channel.value([])
-    ch_mutect_pon_tbi 		= Channel.value([])
+    ch_mutect_ponb          = Channel.value([])
+    ch_mutect_pon_tbi       = Channel.value([])
 }
 
 // ************************************
 // Read sample file
 // ************************************
 
-ch_samplesheet 			= Channel.fromPath(params.samples)
+ch_samplesheet              = Channel.fromPath(params.samples)
 
 // ************************************
 // set optional channels
 // ************************************
 
-ch_vcfs                         = Channel.from([])
-ch_phased_vcfs 			= Channel.from([])
-ch_recal_bam 			= Channel.from([])
-ch_manta_indels 		= Channel.from([])
-ch_multiqc_files 		= Channel.from([])
-ch_versions 			= Channel.from([])
-ch_manta_vcfs 			= Channel.from([])
-ch_manta_indels_paired          = Channel.from([])
-ch_bam_normal			= Channel.from([])
+ch_vcfs                     = Channel.from([])
+ch_phased_vcfs              = Channel.from([])
+ch_recal_bam                = Channel.from([])
+ch_manta_indels             = Channel.from([])
+ch_multiqc_files            = Channel.from([])
+ch_versions                 = Channel.from([])
+ch_manta_vcfs               = Channel.from([])
+ch_manta_indels_paired      = Channel.from([])
+ch_bam_normal               = Channel.from([])
 
 // ************************************
 // import subworkflows and modules
 // ************************************
 
-include { CONVERT_BED } from "./../subworkflows/bed"
-include { TRIM_AND_ALIGN } from "./../subworkflows/align"
-include { DV_VARIANT_CALLING } from "./../subworkflows/deepvariant"
-include { GATK_SPLITINTERVALS } from "./../modules/gatk/splitintervals"
-include { GATK_VARIANT_CALLING } from "./../subworkflows/gatk_variant_calling"
-include { GATK_BAM_RECAL } from "./../subworkflows/gatk_bqsr"
-include { GATK_MUTECT2_SINGLE } from "./../subworkflows/gatk_mutect2_single"
-include { GATK_MUTECT2_PAIRED } from "./../subworkflows/gatk_mutect2_paired"
-include { STRELKA_SINGLE_CALLING } from "./../subworkflows/strelka/single"
-include { STRELKA_MULTI_CALLING } from "./../subworkflows/strelka/multi"
+include { CONVERT_BED }             from "./../subworkflows/bed"
+include { TRIM_AND_ALIGN }          from "./../subworkflows/align"
+include { DV_VARIANT_CALLING }      from "./../subworkflows/deepvariant"
+include { GATK_SPLITINTERVALS }     from "./../modules/gatk/splitintervals"
+include { GATK_VARIANT_CALLING }    from "./../subworkflows/gatk_variant_calling"
+include { GATK_BAM_RECAL }          from "./../subworkflows/gatk_bqsr"
+include { GATK_MUTECT2_SINGLE }     from "./../subworkflows/gatk_mutect2_single"
+include { GATK_MUTECT2_PAIRED }     from "./../subworkflows/gatk_mutect2_paired"
+include { STRELKA_SINGLE_CALLING }  from "./../subworkflows/strelka/single"
+include { STRELKA_MULTI_CALLING }   from "./../subworkflows/strelka/multi"
 include { STRELKA_SOMATIC_CALLING } from "./../subworkflows/strelka/somatic"
-include { GLNEXUS as MERGE_GVCFS } from "./../modules/glnexus"
-include { MANTA_NORMAL } from "./../modules/manta/normal"
-include { MANTA_TUMOR } from "./../modules/manta/tumor"
-include { MANTA_PAIRED } from "./../modules/manta/paired"
-include { PICARD_METRICS } from "./../subworkflows/picard"
-include { EXPANSIONS } from "./../subworkflows/expansionhunter"
-include { VEP_VEP as VEP } from "./../modules/vep/vep"
-include { VEP2XLSX } from "./../modules/helper/vep2xlsx"
-include { HAPLOSAURUS } from "./../modules/haplosaurus"
+include { GLNEXUS as MERGE_GVCFS }  from "./../modules/glnexus"
+include { MANTA_NORMAL }            from "./../modules/manta/normal"
+include { MANTA_TUMOR }             from "./../modules/manta/tumor"
+include { MANTA_PAIRED }            from "./../modules/manta/paired"
+include { PICARD_METRICS }          from "./../subworkflows/picard"
+include { EXPANSIONS }              from "./../subworkflows/expansionhunter"
+include { VEP_VEP as VEP }          from "./../modules/vep/vep"
+include { VEP2XLSX }                from "./../modules/helper/vep2xlsx"
+include { HAPLOSAURUS }             from "./../modules/haplosaurus"
 include { MULTIQC as  multiqc_fastq ; MULTIQC as multiqc_library ; MULTIQC as multiqc_sample } from "./../modules/multiqc/main"
 include { BCFTOOLS_MERGE as MERGE_VCF } from "./../modules/bcftools/merge"
 include { BCFTOOLS_ANNOTATE_DBSNP as VCF_ADD_DBSNP } from "./../modules/bcftools/annotate_dbsnp"
 include { BCFTOOLS_STATS as VCF_STATS } from "./../modules/bcftools/stats"
-include { TABIX as VCF_INDEX } from "./../modules/htslib/tabix"
-include { PANEL_QC } from "./../subworkflows/panels"
-include { BCFTOOLS_CSQ as CSQ } from "./../modules/bcftools/csq"
+include { TABIX as VCF_INDEX }      from "./../modules/htslib/tabix"
+include { PANEL_QC }                from "./../subworkflows/panels"
+include { BCFTOOLS_CSQ as CSQ }     from "./../modules/bcftools/csq"
 include { BCFTOOLS_CONCAT as CONCAT } from "./../modules/bcftools/concat"
-include { SEX_CHECK} from "./../modules/qc/main"
-include { XHLA } from "./../modules/xhla"
-include { CNVKIT_SINGLE } from "./../subworkflows/cnvkit/single"
-include { CNVKIT_PAIRED } from "./../subworkflows/cnvkit/paired"
-include { CNVKIT_MAKE_REFERENCE } from "./../subworkflows/cnvkit/make_reference"
-include { VALIDATE_SAMPLESHEET } from "./../modules/validate_samplesheet"
+include { SEX_CHECK}                from "./../modules/qc/main"
+include { XHLA }                    from "./../modules/xhla"
+include { CNVKIT_SINGLE }           from "./../subworkflows/cnvkit/single"
+include { CNVKIT_PAIRED }           from "./../subworkflows/cnvkit/paired"
+include { CNVKIT_MAKE_REFERENCE }   from "./../subworkflows/cnvkit/make_reference"
+include { VALIDATE_SAMPLESHEET }    from "./../modules/validate_samplesheet"
 include { CUSTOM_DUMPSOFTWAREVERSIONS } from "./../modules/custom/dumpsoftwareversions/main"
 
 // Start the main workflow
@@ -249,9 +263,9 @@ workflow EXOME_SEQ {
         targets,
         ch_fasta
     )
-    padded_bed	= CONVERT_BED.out.bed_padded.collect()
-    bedgz		= CONVERT_BED.out.bed_gz.collect()
-    bed 		= CONVERT_BED.out.bed.collect()
+    padded_bed      = CONVERT_BED.out.bed_padded.collect()
+    bedgz           = CONVERT_BED.out.bed_gz.collect()
+    bed             = CONVERT_BED.out.bed.collect()
 
     // Make sure the format of the samplesheet is correct
     VALIDATE_SAMPLESHEET(
@@ -265,13 +279,13 @@ workflow EXOME_SEQ {
         genome_index,
         ch_fasta
     )
-    ch_bam_dedup	= TRIM_AND_ALIGN.out.bam
-    ch_bam_nodedup	= TRIM_AND_ALIGN.out.bam_nodedup
-    trim_report		= TRIM_AND_ALIGN.out.qc
-    dedup_report	= TRIM_AND_ALIGN.out.dedup_report
-    sample_names	= TRIM_AND_ALIGN.out.sample_names
+    ch_bam_dedup    = TRIM_AND_ALIGN.out.bam
+    ch_bam_nodedup  = TRIM_AND_ALIGN.out.bam_nodedup
+    trim_report     = TRIM_AND_ALIGN.out.qc
+    dedup_report    = TRIM_AND_ALIGN.out.dedup_report
+    sample_names    = TRIM_AND_ALIGN.out.sample_names
 
-    ch_versions		= ch_versions.mix(TRIM_AND_ALIGN.out.versions)
+    ch_versions        = ch_versions.mix(TRIM_AND_ALIGN.out.versions)
 
     if (params.amplicon_bed) {
         ch_bam = ch_bam_nodedup
@@ -381,9 +395,9 @@ workflow EXOME_SEQ {
         }.set { ch_recal_bam_normal_grouped_tumor }
 
         // combining each normal sample with each tumor sample for pair-wise analysis
-        ch_recal_bam_tumor_joined 			= ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
+        ch_recal_bam_tumor_joined             = ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
         ch_recal_bam_tumor_joined_filtered              = ch_recal_bam_tumor_joined.filter{ it ->  !(it.last()) }
-        ch_recal_bam_tumor_only 			= ch_recal_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+        ch_recal_bam_tumor_only             = ch_recal_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
 
         ch_recal_bam_normal_cross.cross(ch_recal_bam_tumor_cross).map { normal,tumor ->
             [[
