@@ -50,8 +50,9 @@ While the input to the pipeline is a csv-formatted samplesheet, most channels pa
 
 #### Normal versus somatic samples
 
-This pipeline deals differently with input data depending on whether or not it comes from a normal (germline) sample and/or somatic sample. And even more complexity is added if a a patient as a normal and multiple somatic samples. 
-The logic behind this comes into play both for GATK-specific processing as well as non-GATK processing. This is because GATK requires score-recalibrated BAM files (because: reasons) and all other tools do not. In either case, the logic is the same - tag BAM files into "normal" and "tumor", group Channels by patient and sample IDs and then check which of these groupings has a) no somatic samples, b) no normal samples or c) normal and one or more somatic samples. These 
+This pipeline deals differently with input data depending on whether or not it comes from a normal (germline) sample and/or somatic sample. And even more complexity is added if a patient has a normal and multiple somatic samples. 
+The logic behind this comes into play both for GATK-specific processing as well as non-GATK processing. This is because GATK requires score-recalibrated BAM files (because: reasons) and all other tools do not. In either case, the logic is 
+the same - tag BAM files into "normal" and "tumor", group Channels by patient and sample IDs and then check which of these groupings has a) no somatic samples, b) no normal samples or c) normal and one or more somatic samples. These 
 resulting channels are then plugged into the appropriate processing chains. 
 
 ### Adding a new exome kit
@@ -81,7 +82,7 @@ First, you need to obtain your genic regions of interest in BED format. Typicall
 that will produce this file for you, given a text file with canonical (HGNC-compliant) gene names. For this script to work, you must have a working installation of the [EnsEMBL Perl API](https://www.ensembl.org/info/docs/api/api_installation.html) 
 installed. Note that the Perl API is version-locked. So to get data from a specific release of EnsEMBL, you must install that version specifically. 
 
-Second, once you have your BED file, you should convert it into an [interval list]((https://gatk.broadinstitute.org/hc/en-us/articles/360035531852-Intervals-and-interval-lists) and store it in the respective asset [folders](https://github.com/ikmb/exome-seq/tree/master/assets/panels).
+Second, once you have your BED file, you should convert it into an [interval list](https://gatk.broadinstitute.org/hc/en-us/articles/360035531852-Intervals-and-interval-lists) and store it in the respective asset [folders](https://github.com/ikmb/exome-seq/tree/master/assets/panels).
 Analogous to the exome kits, it is recommended to just set up a gene panel for all possible genome references to avoid unnecessary confusion. 
 
 Finally, the pipeline needs to know about the new panel, which you can configure in [resources.config](https://github.com/ikmb/exome-seq/blob/master/conf/resources.config). Take any of the existing panels to see how this works. 
@@ -99,6 +100,9 @@ So, what do you need?
 It is recommended to collect at least 25-50 samples. These should all meet highest quality standards (coverage, read quality, etc) and must not be biased towards any given disease/phenotype to avoid training real CNVs as base line. 
 
 Once this is in place, there is a detailed instruction on how to build a reference available from the [CNVkit documentation](https://cnvkit.readthedocs.io/en/stable/pipeline.html).
+
+CNV references are currently configured in the global [resources.config](https://github.com/ikmb/exome-seq/blob/master/conf/resources.config) since they are quite small when gzipped. See any of the existing CNVkit reference configurations to 
+learn how to add a new one.  
 
 ### Building a Mutect2 reference
 
