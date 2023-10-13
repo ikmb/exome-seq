@@ -16,13 +16,19 @@ process FASTP {
 
     script:
 
+    def options = ""
+
+    if (params.umi) {
+        options = params.fastp_umi_options
+    }
+
     left = file(fastqR1).getBaseName() + "_trimmed.fastq.gz"
     right = file(fastqR2).getBaseName() + "_trimmed.fastq.gz"
     json = file(fastqR1).getBaseName() + ".fastp.json"
     html = file(fastqR1).getBaseName() + ".fastp.html"
     
     """
-    fastp -c --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right --detect_adapter_for_pe -w ${task.cpus} -j $json -h $html --length_required 35
+    fastp -c $options --in1 $fastqR1 --in2 $fastqR2 --out1 $left --out2 $right --detect_adapter_for_pe -w ${task.cpus} -j $json -h $html --length_required 35
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

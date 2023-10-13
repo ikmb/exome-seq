@@ -175,20 +175,25 @@ supports the following panels:
 - Intellectual disability [ Intellectual_disability ]
 
 Please note that this will also create additional run metrics, including a per-sample list of target exons that fall below a minimum sequence coverage. 
+
 ### `--all_panels`
 This is a short-cut function to enable the production of statistics for all currently defined panels (for a given reference assembly!). Mutually exclusive with `--panel` and `--panel_intervals`. 
+
 ### `--panel_intervals`
 This option allows the user to run non-defined panels. Must be in picard interval list format and match the sequence dictionary of the
 genome assembly to run against (use with care!!!). Usually, you would start with a target list in BED format and convert this into an interval list
 using the Picard Tools "BedToIntervalList" command.
+
 ### `--panel_coverage`
 This option changes the cut-off for reporting lowly covered panel intervals (default: 10)
+
 ## Misc arguments
 
-### `--kill`
-For panel-based statistics, it is desirable to mark any exons that are known to underperform in exome sequencing - for example due to homology and
-resulting multimapping (MAPQ = 0). This options allows the user to provide a list of panel targets that are to be listed as "KNOWN BAD" when compiling the
-coverage report. An example is included for the IDT xGen v2 kit and assembly GRCh38 [here](../assets/kits/hg38_no_alt/idt_xgen_v2/kill.txt) .
+### `--umi` [default = false]
+Treat reads has containing UMIs and perform deduplication using UMI information (see next option for details)
+
+### `--fastp_umi_options` [default = '--umi --umi_loc per_read --umi_len 8']
+Set options to allow fastP to extract UMIs and place them in the read name for downstream UMI-aware deduplication. See available options [here](https://github.com/OpenGene/fastp#unique-molecular-identifier-umi-processing).
 
 ### `--interval_padding`
 Set this to a positive number to include flanking regions of exon targets in the analysis. Default: 10
