@@ -18,13 +18,17 @@ process SAMTOOLS_MARKDUP {
     path("versions.yml"), emit: versions
 
     script:
+    def options = ""
+    if (params.umi) {
+        options = "--barcode-name"
+    }
     def prefix = "${meta.sample_id}-dedup"
     outfile_bam = prefix + ".bam"
     outfile_bai = prefix + ".bam.bai"
     outfile_metrics = prefix + "_duplicate_metrics.txt"
 
     """
-    samtools markdup -@ ${task.cpus} --reference $fasta $merged_bam $outfile_bam
+    samtools markdup -@ ${task.cpus} $options --reference $fasta $merged_bam $outfile_bam
     samtools index $outfile_bam
     samtools stats $outfile_bam > $outfile_metrics
 

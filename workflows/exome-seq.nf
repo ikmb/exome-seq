@@ -301,30 +301,7 @@ workflow EXOME_SEQ {
         )
     }
 
-    // DEEPVARIANT WORKFLOW
-    if ('deepvariant' in tools) {
-        DV_VARIANT_CALLING(
-            ch_bam,
-            padded_bed,
-            ch_fasta,
-            ch_dbsnp_combined
-        )
-        dv_vcf            = DV_VARIANT_CALLING.out.vcf
-        dv_merged_vcf     = DV_VARIANT_CALLING.out.vcf_multi
-        ch_vcfs           = ch_vcfs.mix(dv_vcf,dv_merged_vcf)
-
-        ch_phased_vcfs = ch_phased_vcfs.mix(
-            DV_VARIANT_CALLING.out.vcf_phased_multi,
-            DV_VARIANT_CALLING.out.vcf_phased_single
-        )
-            
-        ch_versions = ch_versions.mix(DV_VARIANT_CALLING.out.versions)
-    } else {
-        dv_vcf = Channel.empty()
-        dv_merged_vcf = Channel.empty()
-    }
-
-    // Make GATK-compliant BAM file
+    // Make GATK-compliant BAM file and create channels
     if ('haplotypecaller' in tools || 'mutect2' in tools) {
         GATK_BAM_RECAL(
             ch_bam,
@@ -337,31 +314,6 @@ workflow EXOME_SEQ {
         )
         ch_recal_bam    = ch_recal_bam.mix(GATK_BAM_RECAL.out.bam)
         ch_versions     = ch_versions.mix(GATK_BAM_RECAL.out.versions)
-    }
-                
-    // GATK HAPLOTYPECALLER WORKFLOW
-    if ('haplotypecaller' in tools) {
-        GATK_VARIANT_CALLING(
-            ch_recal_bam,
-            targets,
-            ch_fasta,
-            ch_known_snps,
-            ch_known_snps_tbi,
-            ch_known_indels,
-            ch_known_indels_tbi    
-        )
-        gatk_vcf        = GATK_VARIANT_CALLING.out.vcf
-        gatk_merged_vcf = GATK_VARIANT_CALLING.out.vcf_multi
-        ch_vcfs         = ch_vcfs.mix(GATK_VARIANT_CALLING.out.vcf_multi,gatk_vcf)
-        ch_versions     = ch_versions.mix(GATK_VARIANT_CALLING.out.versions)
-            
-    } else {
-        gatk_vcf = Channel.empty()
-        gatk_merged_vcf = Channel.empty()
-    }
-
-    // MUTECT2 workflow - only works with tumor or tumor-normal pairs. 
-    if ('mutect2' in tools) {
 
         ch_recal_bam.branch { m,b,i ->
             normal: m.status == 0
@@ -408,6 +360,35 @@ workflow EXOME_SEQ {
             ],normal[2],normal[3],tumor[2],tumor[3]]
         
         }.set { ch_recal_bam_calling_pair }
+
+        // We grab all the normal samples and join this with all orhpan tumor samples for germline variant calling
+        ch_recal_bam_normal_and_orphan_tumor = ch_recal_bam_normal.mix(ch_recal_bam_tumor_only)
+
+    }
+                
+    // GATK HAPLOTYPECALLER WORKFLOW
+    if ('haplotypecaller' in tools) {
+        GATK_VARIANT_CALLING(
+            ch_recal_bam_normal_and_orphan_tumor,
+            targets,
+            ch_fasta,
+            ch_known_snps,
+            ch_known_snps_tbi,
+            ch_known_indels,
+            ch_known_indels_tbi    
+        )
+        gatk_vcf        = GATK_VARIANT_CALLING.out.vcf
+        gatk_merged_vcf = GATK_VARIANT_CALLING.out.vcf_multi
+        ch_vcfs         = ch_vcfs.mix(GATK_VARIANT_CALLING.out.vcf_multi,gatk_vcf)
+        ch_versions     = ch_versions.mix(GATK_VARIANT_CALLING.out.versions)
+            
+    } else {
+        gatk_vcf = Channel.empty()
+        gatk_merged_vcf = Channel.empty()
+    }
+
+    // MUTECT2 workflow - only works with tumor or tumor-normal pairs. 
+    if ('mutect2' in tools) {
 
         // Variant calling for paired tumor-normal samples
         GATK_MUTECT2_PAIRED(
@@ -481,10 +462,37 @@ workflow EXOME_SEQ {
         ],normal[2],normal[3],tumor[2],tumor[3]]
     }.set { ch_bam_calling_pair }
 
+    ch_bam_normal_and_orphan_tumor = ch_bam_normal.mix(ch_bam_tumor_cross_grouped_tumor_only)
+
+    // ***********************
+    // DEEPVARIANT WORKFLOW
+    // We are using normal samples and unmatched tumor samples as proxy for normal
+    // ***********************
+    if ('deepvariant' in tools) {
+        DV_VARIANT_CALLING(
+            ch_bam_normal_and_orphan_tumor,
+            padded_bed,
+            ch_fasta,
+            ch_dbsnp_combined
+        )
+        dv_vcf            = DV_VARIANT_CALLING.out.vcf
+        dv_merged_vcf     = DV_VARIANT_CALLING.out.vcf_multi
+        ch_vcfs           = ch_vcfs.mix(dv_vcf,dv_merged_vcf)
+
+        ch_phased_vcfs = ch_phased_vcfs.mix(
+            DV_VARIANT_CALLING.out.vcf_phased_multi,
+            DV_VARIANT_CALLING.out.vcf_phased_single
+        )
+            
+        ch_versions = ch_versions.mix(DV_VARIANT_CALLING.out.versions)
+    } else {
+        dv_vcf = Channel.empty()
+        dv_merged_vcf = Channel.empty()
+    }
+
     // *********************
     // SV calling with Manta
     // *********************
-
     if ('manta' in tools || 'strelka' in tools ) {
         
         MANTA_NORMAL(
