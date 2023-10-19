@@ -113,6 +113,8 @@ We have included these files for the following kits and genome assemblies:
 
 `Agilent_v7` (v7 release of the Agilent SureSelect kit) [all assemblies]
 
+`xGen_pan_cancer` [all assemblies]
+
 ### `--email`
 Your Email address in quotes to which the pipeline report is sent upon completion. 
 

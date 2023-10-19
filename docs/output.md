@@ -4,8 +4,8 @@
 
 All outputs, by default, will be written into the folder "results" (or other path specified via `--outdir`). Within this folder, you will find the following:
 
-* One of more "patient" folders, named after the "patient" provided through the samplesheet. Within each patient folder, there will be one folder per sample 
-associated with that patient and therein the CRAM files, variant calls and effect predictions (divided by tools). If tumor-normal pairs were provided, an additional folder with relevant pairwise calling results will be present. 
+* One of more "patient" folders, named after the "patient" provided through the sample sheet. Within each patient folder, there will be one folder per sample 
+associated with that patient and therein the CRAM files, variant calls and effect predictions (divided by tools). If tumor-normal pairs were provided, additional folder with relevant pairwise calling results will be present. The exact structure depends on the processing tools requested. 
 
 * A folder "pipeline_info" containing basic information about this pipeline run, such as run time, the workflow graph etc. 
 
