@@ -20,7 +20,7 @@ process SAMTOOLS_MARKDUP {
     script:
     def options = ""
     if (params.umi) {
-        options = "--barcode-name"
+        options = "--barcode-name -r"
     }
     def prefix = "${meta.sample_id}-dedup"
     outfile_bam = prefix + ".bam"
