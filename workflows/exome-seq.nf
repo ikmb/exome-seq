@@ -329,9 +329,9 @@ workflow EXOME_SEQ {
 
         // all tumor samples belonging to the same patient
         ch_recal_bam_tumor_grouped                  = ch_recal_bam_tumor_cross.groupTuple()
-        ch_recal_bam_tumor_grouped_joined           = ch_recal_bam_tumor_grouped.join(ch_recal_bam_normal, remainder: true)
+        ch_recal_bam_tumor_grouped_joined           = ch_recal_bam_tumor_grouped.join(ch_recal_bam_normal_cross, remainder: true)
         ch_recal_bam_tumor_grouped_joined_filtered  = ch_recal_bam_tumor_grouped_joined.filter{ it -> !(it.last()) }
-        ch_recal_bam_tumor_grouped_tumor_only       = ch_recal_bam_tumor_grouped_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+        ch_recal_bam_tumor_grouped_tumor_only       = ch_recal_bam_tumor_grouped_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }.groupTuple()
         
         // combining each normal with all matched tumor samples for joint analysis
         ch_recal_bam_normal_cross_joined            = ch_recal_bam_normal_cross.join(ch_recal_bam_tumor_grouped)
@@ -348,8 +348,8 @@ workflow EXOME_SEQ {
 
         // combining each normal sample with each tumor sample for pair-wise analysis
         ch_recal_bam_tumor_joined             = ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
-        ch_recal_bam_tumor_joined_filtered              = ch_recal_bam_tumor_joined.filter{ it ->  !(it.last()) }
-        ch_recal_bam_tumor_only             = ch_recal_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
+        ch_recal_bam_tumor_joined_filtered    = ch_recal_bam_tumor_joined.filter{ it ->  !(it.last()) }
+        ch_recal_bam_tumor_only               = ch_recal_bam_tumor_joined_filtered.transpose().map{ it -> [it[1], it[2], it[3]] }
 
         ch_recal_bam_normal_cross.cross(ch_recal_bam_tumor_cross).map { normal,tumor ->
             [[
@@ -392,7 +392,7 @@ workflow EXOME_SEQ {
 
         // Variant calling for paired tumor-normal samples
         GATK_MUTECT2_PAIRED(
-            ch_recal_bam_normal_grouped_tumor,
+            ch_recal_bam_normal_grouped_tumor.collect(),
             targets,
             ch_fasta,
             ch_dbsnp_combined,
@@ -405,7 +405,7 @@ workflow EXOME_SEQ {
 
         // Variant calling for tumor-only samples
         GATK_MUTECT2_SINGLE(
-            ch_recal_bam_tumor_only,
+            ch_recal_bam_tumor_grouped_tumor_only,
             targets,
             ch_fasta,
             ch_dbsnp_combined,
