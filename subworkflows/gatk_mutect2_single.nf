@@ -35,6 +35,8 @@ workflow GATK_MUTECT2_SINGLE {
     }.set { targets_split }
 
     ch_bam_with_target = bam.combine(targets_split)
+
+    ch_bam_with_target.view()
     
     GATK_MUTECT2(
         ch_bam_with_target,
