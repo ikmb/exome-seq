@@ -19,7 +19,7 @@ process MANTA_PAIRED {
 	tuple val(meta),path(indel),path(indel_tbi), emit: small_indels
         tuple val(meta),path(somatic),path(somatic_tbi), emit: somatic_sv
 
-	path("manta")
+	//path("manta")
 	path("versions.yml"), emit: versions
 
 	script:

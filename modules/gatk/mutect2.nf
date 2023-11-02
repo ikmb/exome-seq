@@ -9,8 +9,7 @@ process GATK_MUTECT2 {
     label 'long_serial'
 
     input:
-    tuple val(meta),path(bam),path(bai)
-    path(intervals)
+    tuple val(meta),path(bam),path(bai),path(intervals)
     tuple path(fasta),path(fai),path(dict)
     path(mutect_normals)
     path(mutect_normals_tbi)
@@ -22,10 +21,11 @@ process GATK_MUTECT2 {
     path("versions.yml"), emit: versions
 
     script:
-    vcf = bam.getBaseName() + "-mutect2.vcf.gz"
+    chunk = intervals.getBaseName() 
+    vcf = meta.sample_id + "-" + chunk + "-no_normal-mutect2.vcf.gz"
     tbi = vcf + ".tbi"
     stats_file = vcf + ".stats"
-    f1r2 =  bam.getBaseName() + "-f1r2.tar.gz"
+    f1r2 =  meta.sample_id + "-" + chunk + "-f1r2.tar.gz"
 
     def options = ""
     if (mutect_normals) {
@@ -40,7 +40,7 @@ process GATK_MUTECT2 {
 
     gatk  --java-options "-Xmx${task.memory.giga}g" Mutect2 \
         -R $fasta \
-        -I $bam \
+        -I ${bam} \
         -O $vcf \
         -L $intervals \
         --f1r2-tar-gz $f1r2 \

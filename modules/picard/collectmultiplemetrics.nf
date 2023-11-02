@@ -19,7 +19,7 @@ process MULTI_METRICS {
     path("versions.yml"), emit: versions
 
     script:
-    prefix = "${meta.patient_id}_${meta.sample_id}."
+    prefix = "${meta.patient_id}_${meta.sample_id}"
 
     """
     picard -Xmx5g CollectMultipleMetrics \

@@ -20,25 +20,27 @@ fasta_file = file(params.genomes[params.assembly].fasta_ref)
 if (params.genomes[params.assembly].report_ref) { report_file = file(params.genomes[params.assembly].report_ref) } else {  report_file = file("${baseDir}/README_PANEL_CALLS.txt") }
 if (params.genomes[params.assembly].dragmap_ref) { dragmap_ref = file(params.genomes[params.assembly].dragmap_ref) } else { dragmap_ref = file("${baseDir}/README_PANEL_CALLS.txt") }
 
-dbsnp_file = file(params.genomes["refs"].dbsnp_ref)
-mills_file = file(params.genomes["refs"].mills_ref)
-g1k_file = file(params.genomes["refs"].g1k_ref)
-axiom_file = file(params.genomes["refs"].axiom_ref)
-gnomad_file = file(params.genomes["refs"].gnomad_ref)
-omni_file = file(params.genomes["refs"].omni_ref)
-hapmap_file = file(params.genomes["refs"].hapmap_ref)
+if (assembly = "CHM13v2") { version = "vt2t" } else { version = "v38" }
+
+if (params.genomes["refs"][version].dbsnp_ref) { dbsnp_file = params.genomes["refs"][version].dbsnp_ref } else { dbsnp_file = null }
+if (params.genomes["refs"][version].mills_ref) { mills_file = params.genomes["refs"][version].mills_ref } else { mills_file = null }
+if (params.genomes["refs"][version].g1k_ref) { g1k_file = params.genomes["refs"][version].g1k_ref } else { g1k_file = null }
+if (params.genomes["refs"][version].axiom_ref) { axiom_file = params.genomes["refs"][version].axiom_ref } else { axiom_file = null }
+if (params.genomes["refs"][version].gnomad_ref) { gnomad_file = params.genomes["refs"][version].gnomad_ref } else { gnomad_file = null }
+if (params.genomes["refs"][version].omni_ref) { omni_file = params.genomes["refs"][version].omni_ref } else { omni_file = null }
+if (params.genomes["refs"][version].hapmap_ref) { hapmap_file = params.genomes["refs"][version].hapmap_ref } else { hapmap_file = null }
 
 ch_variants = Channel.fromList(
-	[ 
-		create_vcf_channel(mills_file),
-		create_vcf_channel(g1k_file),
-		create_vcf_channel(axiom_file),
-		create_vcf_channel(gnomad_file),
-		create_vcf_channel(omni_file),
-		create_vcf_channel(dbsnp_file),
+    [ 
+        create_vcf_channel(mills_file),
+        create_vcf_channel(g1k_file),
+        create_vcf_channel(axiom_file),
+        create_vcf_channel(gnomad_file),
+        create_vcf_channel(omni_file),
+        create_vcf_channel(dbsnp_file),
         create_vcf_channel(hapmap_file)
-	]
-)
+    ]
+).filter { it -> it != null }
 
 ch_report = Channel.fromPath(report_file)
 
@@ -74,7 +76,7 @@ workflow BUILD_REFERENCES {
         GUNZIP(
             create_genome_channel(fasta_file)
 	)
- 
+
         ch_fasta_gunzip = GUNZIP.out.decompressed
 
     } else {
@@ -155,15 +157,20 @@ def create_genome_channel(genome) {
 }
 
 def create_vcf_channel(vcf) {
-    def meta = [:]
-    meta.assembly     = params.assembly
-    meta.id           = file(vcf).getSimpleName()
-    meta.file_name    = file(vcf).getName()
-    meta.patient_id   = params.assembly
-    meta.sample_id    = file(vcf).getSimpleName()
 
-    def array = [ meta, vcf ]
+    if (vcf == null) {
 
-    return array
+    } else {
+        def meta = [:]
+        meta.assembly     = params.assembly
+        meta.id           = file(vcf).getSimpleName()
+        meta.file_name    = file(vcf).getName()
+        meta.patient_id   = params.assembly
+        meta.sample_id    = file(vcf).getSimpleName()
+
+        def array = [ meta, file(vcf) ]
+ 
+        return array
+    }
 }
 

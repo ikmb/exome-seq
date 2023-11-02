@@ -14,7 +14,7 @@ process RENAME_ASSEMBLY {
     fasta_n = meta.assembly + ".fasta"
 
     """
-    cp $fasta $fasta_n
+    sed 's/ .*//' $fasta > $fasta_n
     """
 
 }

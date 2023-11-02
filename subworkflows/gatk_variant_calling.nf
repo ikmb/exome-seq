@@ -131,16 +131,11 @@ workflow GATK_VARIANT_CALLING {
             
         // Merge indel snd snp recalibrated vcfs
         GATK_MERGEVCFS(
-            GATK_SNP_VQSR.out.vcf.map { m,v,t -> [ m,v ] }.join(
-                GATK_INDEL_VQSR.out.vcf.map { m,v,t -> [ m,v ] }
-            ),
-            GATK_SNP_VQSR.out.vcf.map { m,v,t -> [ m,t ] }.join(
-                GATK_INDEL_VQSR.out.vcf.map { m,v,t -> [ m,t ] }
-            )
+            GATK_SNP_VQSR.out.vcf.mix(GATK_INDEL_VQSR.out.vcf).groupTuple()
         )
             
         ch_versions = ch_versions.mix(GATK_MERGEVCFS.out.versions)
-       
+
         ch_vcf_multi = ch_vcf_multi.mix(GATK_MERGEVCFS.out.vcf)
     
     } else {
