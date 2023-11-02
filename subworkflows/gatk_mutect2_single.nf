@@ -8,6 +8,7 @@ include { GATK_LEARN_READ_ORIENTATION_MODEL }   from "./../modules/gatk/learn_re
 include { GATK_GET_PILEUP_SUMMARIES }           from "./../modules/gatk/get_pileup_summaries"
 include { GATK_CALCULATE_CONTAMINATION }        from "./../modules/gatk/calculate_contamination"
 include { GATK_MERGEVCFS }                      from "./../modules/gatk/mergevcfs"
+include { GATK_MERGEMUTECTSTATS }               from "./../modules/gatk/mergemutectstats"
 
 ch_versions = Channel.from([])
 ch_vcfs 	= Channel.from([])
@@ -33,15 +34,21 @@ workflow GATK_MUTECT2_SINGLE {
         i.collect { file(it) }
     }.set { targets_split }
 
+    ch_bam_with_target = bam.combine(targets_split)
+    
     GATK_MUTECT2(
-        bam.collect(),
-        targets_split,
+        ch_bam_with_target,
         fasta,
         mutect_normals,
         mutect_normals_tbi
     )
 
-    ch_mutect_stats = GATK_MUTECT2.out.stats
+    // Merge all chunked stats into one stat file per patient
+    GATK_MERGEMUTECTSTATS(
+        GATK_MUTECT2.out.stats.groupTuple()
+    )
+        
+    ch_mutect_stats = GATK_MERGEMUTECTSTATS.out.stats
 
     ch_versions = ch_versions.mix(GATK_MUTECT2.out.versions)
 
@@ -74,7 +81,7 @@ workflow GATK_MUTECT2_SINGLE {
         ).join(
             GATK_LEARN_READ_ORIENTATION_MODEL.out.model
         ).join(
-            GATK_CALCULATE_CONTAMINATION.out.table
+            GATK_CALCULATE_CONTAMINATION.out.table.groupTuple()
         )
 
     GATK_FILTER_MUTECT_CALLS(

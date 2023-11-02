@@ -302,7 +302,7 @@ workflow EXOME_SEQ {
     }
 
     // Make GATK-compliant BAM file and create channels
-    if ('haplotypecaller' in tools || 'mutect2' in tools) {
+    if ('haplotypecaller' in tools || 'mutect2' in tools || 'debug' in tools ) {
         GATK_BAM_RECAL(
             ch_bam,
             targets,
@@ -345,7 +345,7 @@ workflow EXOME_SEQ {
             sample_id: "${m.sample_id}_vs_all_tumors".toString()
             ],nb,nbi,tb,tbi]
         }.set { ch_recal_bam_normal_grouped_tumor }
-
+        
         // combining each normal sample with each tumor sample for pair-wise analysis
         ch_recal_bam_tumor_joined             = ch_recal_bam_tumor_cross.join(ch_recal_bam_normal_cross, remainder: true)
         ch_recal_bam_tumor_joined_filtered    = ch_recal_bam_tumor_joined.filter{ it ->  !(it.last()) }
@@ -392,7 +392,7 @@ workflow EXOME_SEQ {
 
         // Variant calling for paired tumor-normal samples
         GATK_MUTECT2_PAIRED(
-            ch_recal_bam_normal_grouped_tumor.collect(),
+            ch_recal_bam_normal_grouped_tumor,
             targets,
             ch_fasta,
             ch_dbsnp_combined,

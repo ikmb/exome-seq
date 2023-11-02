@@ -43,8 +43,8 @@ The following human genome assembly versions are supported on MedCluster (see re
 * GRCh38 (patch 1, with decoys and masked PAR regions - see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/) )
 * GRCh38_g1k (patch1, as used by the 1000 genomes consortium and the Illumina Dragen system - see [here](http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/GRCh38_reference_genome/))
 * GRCh38_no_alt (patch 1, no ALT contigs, with decoys and masked PAR regions - see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/) )
-* GRCh38_p14 (patch 14 without further modifications, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
-* GRCh38_no_alt_p14 (patch 14 without ALT contigs, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.29_GRCh38.p14/) )
+* GRCh38_p14 (patch 14 without further modifications, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.40_GRCh38.p14/GRCh38_major_release_seqs_for_alignment_pipelines/) )
+* GRCh38_no_alt_p14 (patch 14 without ALT contigs, see [here](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.40_GRCh38.p14/GRCh38_major_release_seqs_for_alignment_pipelines/) )
 * hg38 (the BROAD version of GRCh38, part of the GATK bundle, see [here](https://gatk.broadinstitute.org/hc/en-us/articles/360035890811-Resource-bundle) )
 * CHM13v2 (The telomere-to-telomere reference with the fully assembled Y chromosome, masked PAR regions and the mitochondrial genome rCRS, see [here](https://github.com/marbl/CHM13) )
 

@@ -9,8 +9,7 @@ process GATK_MUTECT2 {
     label 'long_serial'
 
     input:
-    tuple val(meta),path(bam),path(bai)
-    path(intervals)
+    tuple val(meta),path(bam),path(bai),path(intervals)
     tuple path(fasta),path(fai),path(dict)
     path(mutect_normals)
     path(mutect_normals_tbi)

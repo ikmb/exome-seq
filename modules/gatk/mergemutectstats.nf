@@ -16,7 +16,7 @@ process GATK_MERGEMUTECTSTATS {
     path("versions.yml"), emit: versions
 
     script:
-    merged_stats = "gatk-" + params.run_name + "-merged.stats"
+    merged_stats = meta.sample_id + "_mutect-merged.stats"
 
     """
     gatk --java-options "-Xmx4g" MergeMutectStats \

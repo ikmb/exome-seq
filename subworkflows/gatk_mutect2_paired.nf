@@ -33,7 +33,7 @@ workflow GATK_MUTECT2_PAIRED {
         GATK_SPLITINTERVALS.out.intervals.flatMap { i ->
             i.collect { file(it) }
         }.set { targets_split }
-
+        
         // extract all the normal bams from the per-patient data drop
         ch_normal_bam = bams.map { m,nb,nbi,tb,tbi ->
             [[
@@ -62,9 +62,11 @@ workflow GATK_MUTECT2_PAIRED {
 
         // Produce raw mutect2 multi-sample vcf against normal(s)
         // This call is parallelized by calling chunk (split intervals)
+        
+        ch_bams_with_target = bams.combine(targets_split)
+        
         GATK_MUTECT2_PAIR(
-            bams.collect(),
-            targets_split,
+            ch_bams_with_target,
             fasta,
             mutect_normals,
             mutect_normals_tbi
@@ -79,10 +81,12 @@ workflow GATK_MUTECT2_PAIRED {
 
         ch_versions = ch_versions.mix(GATK_MERGEMUTECTSTATS.out.versions)
 
+        ch_mutect_vcf_grouped = GATK_MUTECT2_PAIR.out.vcf.map{ m,v,t,s -> [m,v,t] }.groupTuple()
+
         // Merge Mutect2 calls across chunks
         // The groupTuple produces [ meta, [ vcfs ], [ tbis ]]
         GATK_MERGEVCFS(
-            GATK_MUTECT2_PAIR.out.vcf.map{ m,v,t,s -> [m,v,t] }.groupTuple()
+            ch_mutect_vcf_grouped
         )
 
         ch_versions = ch_versions.mix(GATK_MERGEVCFS.out.versions)
@@ -98,7 +102,7 @@ workflow GATK_MUTECT2_PAIRED {
         // Get pileup summaries for each BAM file and each target (not chunk!)
         GATK_GET_PILEUP_SUMMARIES(
             ch_all_bams,
-            targets,
+            targets.collect(),
             fasta
         )
         
