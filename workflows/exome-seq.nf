@@ -1,5 +1,5 @@
 #!/usr/bin/env nextflow
-
+nextflow.enable.dsl=2
 //
 // Modules and workflows to include
 //
@@ -236,8 +236,10 @@ include { PICARD_METRICS }          from "./../subworkflows/picard"
 include { EXPANSIONS }              from "./../subworkflows/expansionhunter"
 include { VEP_VEP as VEP }          from "./../modules/vep/vep"
 include { VEP2XLSX }                from "./../modules/helper/vep2xlsx"
+include { multiqc_fastq }           from './../subworkflows/multiqc/fastq'
+include { multiqc_library }         from './../subworkflows/multiqc/library'
+include { multiqc_sample }          from './../subworkflows/multiqc/sample'
 include { HAPLOSAURUS }             from "./../modules/haplosaurus"
-include { MULTIQC as  multiqc_fastq ; MULTIQC as multiqc_library ; MULTIQC as multiqc_sample } from "./../modules/multiqc/main"
 include { BCFTOOLS_MERGE as MERGE_VCF } from "./../modules/bcftools/merge"
 include { BCFTOOLS_ANNOTATE_DBSNP as VCF_ADD_DBSNP } from "./../modules/bcftools/annotate_dbsnp"
 include { BCFTOOLS_STATS as VCF_STATS } from "./../modules/bcftools/stats"
@@ -255,7 +257,7 @@ include { CUSTOM_DUMPSOFTWAREVERSIONS } from "./../modules/custom/dumpsoftwareve
 
 // Start the main workflow
 workflow EXOME_SEQ {
-
+    
     main:
 
     // create calling regions
@@ -684,20 +686,17 @@ workflow EXOME_SEQ {
 
     // QC Reports
     multiqc_fastq(
-        "FastQ",
-        trim_report.collect()
+        trim_report.collect(),
     )
     multiqc_library(
-        "Library",
-        dedup_report.collect()
+        dedup_report.collect(),
     )
     multiqc_sample(
-        "Sample",
         bam_qc.mix(
             vcf_qc,
             SEX_CHECK.out.yaml,
             CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml
-        ).collect()
+        ).collect(),
     )
 
     emit:

@@ -15,8 +15,33 @@ process MULTIQC {
     script:
 
     """
-    cp $params.logo .
-    cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
+    cat <<-EOF > multiqc_config.yaml
+    title: "Exome pipeline report"
+    subtitle: "Workflow for clinical SNP calling"
+
+    extra_fn_clean_exts:
+      - _R1
+      - _R2
+      - _duplicate_metrics.txt
+      - .pass
+
+    report_comment: >
+      This report has been generated automatically by the IKMB Diagnostic Exome pipeline.
+      For help interpreting the outputs, please see: https://github.com/ikmb/exome-seq
+
+    report_header_info:
+      - Contact E-mail: "b.loescher@ikmb.uni-kiel.de"
+      - Application Type: "Whole exome sequencing"
+
+    top_modules:
+      - 'general_stats'
+      - 'picard'
+      - 'picard_hsmetrics'
+      - 'bcftools'
+      - 'sex_check'
+    EOF
+
+
     multiqc -n ${cname}_multiqc *
 
     cat <<-END_VERSIONS > versions.yml
@@ -42,8 +67,33 @@ process MULTIQC_PANEL {
     script:
 
     """
-    cp $params.logo .
-    cp $baseDir/conf/multiqc_config.yaml multiqc_config.yaml
+    cat <<EOF > multiqc_config.yaml
+    title: "Exome pipeline report"
+    subtitle: "Workflow for clinical SNP calling"
+
+    extra_fn_clean_exts:
+      - _R1
+      - _R2
+      - _duplicate_metrics.txt
+      - .pass
+
+    report_comment: >
+      This report has been generated automatically by the IKMB Diagnostic Exome pipeline.
+      For help interpreting the outputs, please see: https://github.com/ikmb/exome-seq
+
+    report_header_info:
+      - Contact E-mail: "b.loescher@ikmb.uni-kiel.de"
+      - Application Type: "Whole exome sequencing"
+
+    top_modules:
+      - 'general_stats'
+      - 'picard'
+      - 'picard_hsmetrics'
+      - 'bcftools'
+      - 'sex_check'
+    EOF
+
+
     multiqc -n ${panel_name}_multiqc *
 
     cat <<-END_VERSIONS > versions.yml
